@@ -1,0 +1,23 @@
+{
+  "name": "call-human-mvp",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "better-sqlite3": "^9.4.3",
+    "next": "14.2.5",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "25.2.0",
+    "@types/react": "19.2.11",
+    "typescript": "5.9.3"
+  }
+}
