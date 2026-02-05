@@ -1,0 +1,55 @@
+- generic [active]:
+  - alert [ref=e1]
+  - dialog [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - heading "Build Error" [level=1] [ref=e7]
+        - paragraph [ref=e8]: Failed to compile
+        - generic [ref=e9]:
+          - text: Next.js (14.2.5) is outdated
+          - link "(learn more)" [ref=e11] [cursor=pointer]:
+            - /url: https://nextjs.org/docs/messages/version-staleness
+      - generic [ref=e12]:
+        - generic [ref=e13]:
+          - link "./app/api/humans/route.ts:3:1" [ref=e14] [cursor=pointer]:
+            - text: ./app/api/humans/route.ts:3:1
+            - img [ref=e15]
+          - generic [ref=e19]:
+            - generic [ref=e20]: Module not found
+            - generic [ref=e21]: ": Can't resolve '"
+            - text: "@/lib/db"
+            - generic [ref=e22]: "'"
+            - generic [ref=e23]: 1 |
+            - text: import
+            - generic [ref=e24]: crypto
+            - text: from "crypto";
+            - generic [ref=e25]: 2 |
+            - text: import
+            - generic [ref=e26]: "{"
+            - text: NextResponse
+            - generic [ref=e27]: "}"
+            - text: from "next/server"; >
+            - generic [ref=e28]: 3 |
+            - text: import
+            - generic [ref=e29]: "{ getDb }"
+            - text: from "@/lib/db";
+            - generic [ref=e30]: "|"
+            - text: ^
+            - generic [ref=e31]: 4 |
+            - generic [ref=e32]: 5 |
+            - text: async function
+            - generic [ref=e33]: parseRequest(request
+            - text: ": Request"
+            - generic [ref=e34]: ") {"
+            - generic [ref=e35]: 6 |
+            - text: const
+            - generic [ref=e36]: contentType
+            - text: =
+            - generic [ref=e37]: request
+            - text: .headers.get("content-type"
+            - generic [ref=e38]: )
+            - text: "|| \"\";"
+            - link "https://nextjs.org/docs/messages/module-not-found" [ref=e40] [cursor=pointer]:
+              - /url: https://nextjs.org/docs/messages/module-not-found
+        - contentinfo [ref=e41]:
+          - paragraph [ref=e42]: This error occurred during the build process and can only be dismissed by fixing the error.

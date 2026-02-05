@@ -1,0 +1,22 @@
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e3]:
+      - heading "Register as Human" [level=1] [ref=e4]
+      - generic [ref=e5]:
+        - generic [ref=e6]:
+          - text: Display Name
+          - textbox "Display Name" [ref=e7]: Taro Tester
+        - generic [ref=e8]:
+          - text: Location (city/ward)
+          - textbox "Location (city/ward)" [ref=e9]: Shibuya
+        - generic [ref=e10]:
+          - text: Minimum Budget (USD)
+          - spinbutton "Minimum Budget (USD)" [ref=e11]: "20"
+        - button "Register" [ref=e12] [cursor=pointer]
+      - generic [ref=e14]:
+        - paragraph [ref=e15]: Registered.
+        - paragraph [ref=e16]: "Human ID: d16a8899-23d9-4cea-947b-b08d07a42813"
+        - paragraph [ref=e17]:
+          - link "Go to Tasks" [ref=e18] [cursor=pointer]:
+            - /url: /tasks?human_id=d16a8899-23d9-4cea-947b-b08d07a42813
+  - alert [ref=e13]

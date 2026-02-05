@@ -1,0 +1,16 @@
+- generic [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e3]:
+      - heading "Register as Human" [level=1] [ref=e4]
+      - generic [ref=e5]:
+        - generic [ref=e6]:
+          - text: Display Name
+          - textbox "Display Name" [ref=e7]: Taro Tester
+        - generic [ref=e8]:
+          - text: Location (city/ward)
+          - textbox "Location (city/ward)" [ref=e9]: Shibuya
+        - generic [ref=e10]:
+          - text: Minimum Budget (USD)
+          - spinbutton "Minimum Budget (USD)" [active] [ref=e11]: "20"
+        - button "Register" [ref=e12] [cursor=pointer]
+  - alert [ref=e13]

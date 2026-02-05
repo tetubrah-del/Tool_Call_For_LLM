@@ -66,7 +66,8 @@ export async function POST(request: Request) {
   const id = payload?.id ?? crypto.randomUUID();
   const createdAt = new Date().toISOString();
 
-  const rawLocation = typeof payload?.location === \"string\" ? payload.location.trim() : \"\";
+  const rawLocation =
+    typeof payload?.location === "string" ? payload.location.trim() : "";
   const location = rawLocation.length > 0 ? rawLocation : null;
 
   db.prepare(

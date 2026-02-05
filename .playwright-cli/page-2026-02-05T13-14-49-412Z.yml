@@ -1,0 +1,17 @@
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e3]:
+      - heading "Deliver Task" [level=1] [ref=e4]
+      - generic [ref=e5]:
+        - heading "Buy a bottled water at the nearest store" [level=3] [ref=e6]
+        - paragraph [ref=e7]: "Deliverable: text | Budget: $25 | Location: Shibuya"
+      - generic [ref=e8]:
+        - generic [ref=e9]:
+          - text: Text
+          - textbox "Text" [ref=e10]: "Purchased water at FamilyMart. Brand: Aquarius. Price: 120 JPY."
+        - generic [ref=e11]:
+          - button "Submit" [ref=e12] [cursor=pointer]
+          - link "Back to Tasks" [ref=e13] [cursor=pointer]:
+            - /url: /tasks?human_id=d16a8899-23d9-4cea-947b-b08d07a42813
+      - paragraph [ref=e16]: Submitted.
+  - alert [ref=e14]

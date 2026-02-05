@@ -1,0 +1,39 @@
+- generic [active]:
+  - alert [ref=e1]
+  - dialog [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - heading "Build Error" [level=1] [ref=e7]
+        - paragraph [ref=e8]: Failed to compile
+        - generic [ref=e9]:
+          - text: Next.js (14.2.5) is outdated
+          - link "(learn more)" [ref=e11] [cursor=pointer]:
+            - /url: https://nextjs.org/docs/messages/version-staleness
+      - generic [ref=e12]:
+        - generic [ref=e13]:
+          - link "./app/api/tasks/route.ts" [ref=e14] [cursor=pointer]:
+            - text: ./app/api/tasks/route.ts
+            - img [ref=e15]
+          - generic [ref=e19]:
+            - generic [ref=e20]: "Error:"
+            - text: ×
+            - generic [ref=e21]: Expected unicode escape ╭─[
+            - text: /Users/tetubrah/Projects/Tool_Call_For_LLM/app/api/tasks/route.ts
+            - generic [ref=e22]: :66:1]
+            - text: "66"
+            - generic [ref=e23]: │ const id = payload?.id ?? crypto.randomUUID();
+            - text: "67"
+            - generic [ref=e24]: │ const createdAt = new Date().toISOString();
+            - text: "68"
+            - generic [ref=e25]: │
+            - text: "69"
+            - generic [ref=e26]: "│ const rawLocation = typeof payload?.location === \\\"string\\\" ? payload.location.trim() : \\\"\\\"; ·"
+            - generic [ref=e27]: ▲
+            - text: "70"
+            - generic [ref=e28]: "│ const location = rawLocation.length > 0 ? rawLocation : null;"
+            - text: "71"
+            - generic [ref=e29]: │
+            - text: "72"
+            - generic [ref=e30]: "│ db.prepare( ╰──── Caused by: Syntax Error"
+        - contentinfo [ref=e31]:
+          - paragraph [ref=e32]: This error occurred during the build process and can only be dismissed by fixing the error.

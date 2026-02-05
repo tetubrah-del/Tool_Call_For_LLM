@@ -1,0 +1,28 @@
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e3]:
+      - heading "Tasks" [level=1] [ref=e4]
+      - generic [ref=e5]:
+        - generic [ref=e6]:
+          - text: Human ID
+          - textbox "Human ID" [ref=e7]:
+            - /placeholder: Paste your human id
+            - text: d16a8899-23d9-4cea-947b-b08d07a42813
+        - generic [ref=e8]:
+          - button "Refresh" [ref=e9] [cursor=pointer]
+          - link "Need an account?" [ref=e10] [cursor=pointer]:
+            - /url: /register
+      - generic [ref=e11]:
+        - heading "Buy a bottled water at the nearest store" [level=3] [ref=e12]
+        - paragraph [ref=e13]: "Status: completed | Budget: $25 | Location: Shibuya | Deliverable: text"
+        - generic [ref=e14]:
+          - link "Deliver" [ref=e15] [cursor=pointer]:
+            - /url: /tasks/8630e378-7fca-428e-b474-6573bf48976f?human_id=d16a8899-23d9-4cea-947b-b08d07a42813
+          - button "Skip" [ref=e16] [cursor=pointer]
+      - generic [ref=e17]:
+        - heading "Take a photo of a nearby street sign" [level=3] [ref=e18]
+        - paragraph [ref=e19]: "Status: open | Budget: $30 | Location: Shibuya | Deliverable: photo"
+        - generic [ref=e20]:
+          - button "Accept" [ref=e21] [cursor=pointer]
+          - button "Skip" [ref=e22] [cursor=pointer]
+  - alert [ref=e23]
