@@ -1,0 +1,43 @@
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e3]:
+      - heading "Tasks" [level=1] [ref=e4]
+      - generic [ref=e5]:
+        - generic [ref=e6]:
+          - text: Human ID
+          - textbox "Human ID" [ref=e7]:
+            - /placeholder: Paste your human id
+            - text: d16a8899-23d9-4cea-947b-b08d07a42813
+        - generic [ref=e8]:
+          - button "Refresh" [ref=e9] [cursor=pointer]
+          - link "Need an account?" [ref=e10] [cursor=pointer]:
+            - /url: /register
+      - generic [ref=e11]:
+        - heading "Check the nearest convenience store opening hours" [level=3] [ref=e12]
+        - paragraph [ref=e13]: "Status: accepted | Budget: $25 | Location: Shibuya | Deliverable: text"
+        - generic [ref=e14]:
+          - link "Deliver" [ref=e15] [cursor=pointer]:
+            - /url: /tasks/d04322df-b530-4282-b35b-b0a30e8ee648?human_id=d16a8899-23d9-4cea-947b-b08d07a42813
+          - button "Skip" [ref=e16] [cursor=pointer]
+      - generic [ref=e17]:
+        - heading "Record a 5-second video of a nearby crosswalk" [level=3] [ref=e18]
+        - paragraph [ref=e19]: "Status: completed | Budget: $35 | Location: Shibuya | Deliverable: video"
+        - generic [ref=e20]:
+          - link "Deliver" [ref=e21] [cursor=pointer]:
+            - /url: /tasks/f2f5ec1f-e100-4aa8-8843-4ca1ce059e4d?human_id=d16a8899-23d9-4cea-947b-b08d07a42813
+          - button "Skip" [ref=e22] [cursor=pointer]
+      - generic [ref=e23]:
+        - heading "Take a photo of a nearby street sign" [level=3] [ref=e24]
+        - paragraph [ref=e25]: "Status: completed | Budget: $30 | Location: Shibuya | Deliverable: photo"
+        - generic [ref=e26]:
+          - link "Deliver" [ref=e27] [cursor=pointer]:
+            - /url: /tasks/4e270daa-1884-40bc-bf0c-3a51064e0e4c?human_id=d16a8899-23d9-4cea-947b-b08d07a42813
+          - button "Skip" [ref=e28] [cursor=pointer]
+      - generic [ref=e29]:
+        - heading "Buy a bottled water at the nearest store" [level=3] [ref=e30]
+        - paragraph [ref=e31]: "Status: completed | Budget: $25 | Location: Shibuya | Deliverable: text"
+        - generic [ref=e32]:
+          - link "Deliver" [ref=e33] [cursor=pointer]:
+            - /url: /tasks/8630e378-7fca-428e-b474-6573bf48976f?human_id=d16a8899-23d9-4cea-947b-b08d07a42813
+          - button "Skip" [ref=e34] [cursor=pointer]
+  - alert [ref=e35]
