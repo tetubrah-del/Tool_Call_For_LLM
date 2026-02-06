@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { saveUpload } from "@/lib/storage";
+import { getNormalizedTask } from "@/lib/task-api";
 
 async function parseRequest(request: Request) {
   const contentType = request.headers.get("content-type") || "";
@@ -40,9 +41,13 @@ export async function POST(request: Request) {
   }
 
   const db = getDb();
-  const task = db.prepare(`SELECT * FROM tasks WHERE id = ?`).get(taskId);
+  const task = await getNormalizedTask(db, taskId, "en");
   if (!task) {
     return NextResponse.json({ status: "not_found" }, { status: 404 });
+  }
+
+  if (task.status === "failed" && task.failure_reason === "timeout") {
+    return NextResponse.json({ status: "error", reason: "timeout" }, { status: 409 });
   }
 
   if (task.deliverable && task.deliverable !== type) {
@@ -69,7 +74,10 @@ export async function POST(request: Request) {
      VALUES (?, ?, ?, ?, ?, ?)`
   ).run(submissionId, taskId, type, contentUrl, text, createdAt);
 
-  db.prepare(`UPDATE tasks SET status = 'completed' WHERE id = ?`).run(taskId);
+  db.prepare(`UPDATE tasks SET status = 'completed', submission_id = ? WHERE id = ?`).run(
+    submissionId,
+    taskId
+  );
   if (task.human_id) {
     db.prepare(`UPDATE humans SET status = 'available' WHERE id = ?`).run(task.human_id);
   }

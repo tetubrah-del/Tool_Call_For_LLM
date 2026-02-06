@@ -1,15 +1,17 @@
 import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
+import { getNormalizedTask, getTaskDisplay } from "@/lib/task-api";
 
 export async function GET(request: Request) {
   const db = getDb();
   const url = new URL(request.url);
   const taskId = url.searchParams.get("task_id");
   const humanId = url.searchParams.get("human_id");
+  const lang = url.searchParams.get("lang");
 
   if (taskId) {
-    const task = db.prepare(`SELECT * FROM tasks WHERE id = ?`).get(taskId);
+    const task = await getNormalizedTask(db, taskId, lang);
     if (!task) {
       return NextResponse.json({ status: "not_found" }, { status: 404 });
     }
@@ -46,11 +48,40 @@ export async function GET(request: Request) {
       byId.set(task.id, task);
     }
 
-    return NextResponse.json({ tasks: Array.from(byId.values()) });
+    const tasks = Array.from(byId.values()).map((task: any) => {
+      const display = getTaskDisplay(db, task, lang);
+      if (!task.deliverable) {
+        db.prepare(`UPDATE tasks SET deliverable = 'text' WHERE id = ?`).run(
+          task.id
+        );
+      }
+      return {
+        ...task,
+        deliverable: task.deliverable || "text",
+        task_display: display.display,
+        lang: display.lang
+      };
+    });
+
+    return NextResponse.json({ tasks });
   }
 
   const tasks = db.prepare(`SELECT * FROM tasks ORDER BY created_at DESC`).all();
-  return NextResponse.json({ tasks });
+  const normalized = tasks.map((task: any) => {
+    const display = getTaskDisplay(db, task, lang);
+    if (!task.deliverable) {
+      db.prepare(`UPDATE tasks SET deliverable = 'text' WHERE id = ?`).run(
+        task.id
+      );
+    }
+    return {
+      ...task,
+      deliverable: task.deliverable || "text",
+      task_display: display.display,
+      lang: display.lang
+    };
+  });
+  return NextResponse.json({ tasks: normalized });
 }
 
 export async function POST(request: Request) {
@@ -69,17 +100,25 @@ export async function POST(request: Request) {
   const rawLocation =
     typeof payload?.location === "string" ? payload.location.trim() : "";
   const location = rawLocation.length > 0 ? rawLocation : null;
+  const deadlineMinutes =
+    payload?.deadline_minutes != null ? Number(payload.deadline_minutes) : null;
+  const deadlineAt =
+    deadlineMinutes != null && Number.isFinite(deadlineMinutes)
+      ? new Date(Date.parse(createdAt) + deadlineMinutes * 60 * 1000).toISOString()
+      : null;
 
   db.prepare(
-    `INSERT INTO tasks (id, task, location, budget_usd, deliverable, deadline_minutes, status, human_id, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, 'open', NULL, ?)`
+    `INSERT INTO tasks (id, task, task_en, location, budget_usd, deliverable, deadline_minutes, deadline_at, status, failure_reason, human_id, submission_id, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'open', NULL, NULL, NULL, ?)`
   ).run(
     id,
     task,
+    task,
     location,
     budgetUsd,
-    payload?.deliverable ?? null,
-    payload?.deadline_minutes ?? null,
+    payload?.deliverable ?? "text",
+    deadlineMinutes,
+    deadlineAt,
     createdAt
   );
 

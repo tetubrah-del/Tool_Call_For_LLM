@@ -46,7 +46,7 @@ This API does not provide legal interpretation.
 ```json
 {
   "type": "photo",
-  "url": "https://..."
+  "content_url": "https://..."
 }
 ```
 
@@ -58,6 +58,8 @@ or
   "content": "No legal notices were visible at the location."
 }
 ```
+
+Deliverables are returned in `submission` via `GET /api/tasks/:taskId`.
 
 ---
 
@@ -75,6 +77,39 @@ or
 * No available human
 
 Failures are explicit and should be handled programmatically.
+Failure reasons are returned as enums.
+
+---
+
+## Task lifecycle
+
+```
+open -> accepted -> completed
+open -> failed
+accepted -> failed
+```
+
+---
+
+## Failure reasons (enum)
+
+* `no_human_available`
+* `timeout`
+* `invalid_request`
+* `wrong_deliverable`
+* `already_assigned`
+* `not_assigned`
+* `missing_human`
+* `not_found`
+* `unknown`
+
+---
+
+## i18n (human UI only)
+
+* Internal data is stored in English (`task_en`).
+* UI requests may pass `lang=en|ja` and receive `task_display`.
+* Translations are cached and reused.
 
 ---
 

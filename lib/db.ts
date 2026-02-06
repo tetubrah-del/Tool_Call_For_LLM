@@ -26,13 +26,26 @@ function ensureDb() {
     CREATE TABLE IF NOT EXISTS tasks (
       id TEXT PRIMARY KEY,
       task TEXT NOT NULL,
+      task_en TEXT,
       location TEXT,
       budget_usd REAL NOT NULL,
       deliverable TEXT,
       deadline_minutes REAL,
+      deadline_at TEXT,
       status TEXT NOT NULL,
+      failure_reason TEXT,
       human_id TEXT,
+      submission_id TEXT,
       created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS task_translations (
+      task_id TEXT NOT NULL,
+      lang TEXT NOT NULL,
+      text TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (task_id, lang)
     );
 
     CREATE TABLE IF NOT EXISTS submissions (
@@ -45,8 +58,26 @@ function ensureDb() {
     );
   `);
 
+  ensureColumn(instance, "tasks", "task_en", "TEXT");
+  ensureColumn(instance, "tasks", "deadline_at", "TEXT");
+  ensureColumn(instance, "tasks", "failure_reason", "TEXT");
+  ensureColumn(instance, "tasks", "submission_id", "TEXT");
+
   db = instance;
   return db;
+}
+
+function ensureColumn(
+  instance: Database.Database,
+  table: string,
+  column: string,
+  type: string
+) {
+  const rows = instance
+    .prepare(`PRAGMA table_info(${table})`)
+    .all() as Array<{ name: string }>;
+  if (rows.some((row) => row.name === column)) return;
+  instance.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
 }
 
 export function getDb() {
@@ -62,15 +93,34 @@ export type Human = {
   created_at: string;
 };
 
+// Task lifecycle:
+// open -> accepted -> completed
+// open -> failed
+// accepted -> failed
+export type FailureReason =
+  | "no_human_available"
+  | "timeout"
+  | "invalid_request"
+  | "wrong_deliverable"
+  | "already_assigned"
+  | "not_assigned"
+  | "missing_human"
+  | "not_found"
+  | "unknown";
+
 export type Task = {
   id: string;
   task: string;
+  task_en: string | null;
   location: string | null;
   budget_usd: number;
   deliverable: "photo" | "video" | "text" | null;
   deadline_minutes: number | null;
+  deadline_at: string | null;
   status: "open" | "accepted" | "completed" | "failed";
+  failure_reason: FailureReason | null;
   human_id: string | null;
+  submission_id: string | null;
   created_at: string;
 };
 

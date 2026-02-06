@@ -1,11 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
+import { normalizeLang, UI_STRINGS, type UiLang } from "@/lib/i18n";
 
 type Task = {
   id: string;
   task: string;
+  task_display?: string;
+  lang?: UiLang;
   deliverable: "photo" | "video" | "text" | null;
   status: string;
   budget_usd: number;
@@ -16,6 +19,8 @@ export default function DeliverPage() {
   const params = useParams<{ taskId: string }>();
   const searchParams = useSearchParams();
   const humanId = searchParams.get("human_id") || "";
+  const lang = useMemo(() => normalizeLang(searchParams.get("lang")), [searchParams]);
+  const strings = UI_STRINGS[lang];
 
   const [task, setTask] = useState<Task | null>(null);
   const [text, setText] = useState("");
@@ -28,7 +33,7 @@ export default function DeliverPage() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch(`/api/tasks/${params.taskId}`);
+        const res = await fetch(`/api/tasks/${params.taskId}?lang=${lang}`);
         if (!res.ok) throw new Error("failed");
         const data = await res.json();
         setTask(data.task);
@@ -39,7 +44,7 @@ export default function DeliverPage() {
       }
     }
     load();
-  }, [params.taskId]);
+  }, [params.taskId, lang]);
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -77,36 +82,36 @@ export default function DeliverPage() {
   }
 
   if (status === "loading") {
-    return <p>Loading...</p>;
+    return <p>{strings.loading}</p>;
   }
 
   if (!task) {
-    return <p>Task not found.</p>;
+    return <p>{strings.taskNotFound}</p>;
   }
 
   const deliverable = task.deliverable || "text";
 
   return (
     <div>
-      <h1>Deliver Task</h1>
+      <h1>{strings.deliverTask}</h1>
       <div className="card">
-        <h3>{task.task}</h3>
+        <h3>{task.task_display || task.task}</h3>
         <p className="muted">
-          Deliverable: {deliverable} | Budget: ${task.budget_usd} | Location:{" "}
-          {task.location || "Any"}
+          {strings.deliverable}: {deliverable} | {strings.budget}: ${task.budget_usd} |{" "}
+          {strings.location}: {task.location || strings.any}
         </p>
       </div>
 
       <form className="card" onSubmit={onSubmit}>
         {deliverable === "text" && (
           <label>
-            Text
+            {strings.text}
             <textarea value={text} onChange={(e) => setText(e.target.value)} rows={6} />
           </label>
         )}
         {deliverable !== "text" && (
           <label>
-            Upload {deliverable}
+            {strings.upload} {deliverable}
             <input
               type="file"
               accept={deliverable === "photo" ? "image/*" : "video/*"}
@@ -116,23 +121,25 @@ export default function DeliverPage() {
         )}
         <div className="row">
           <button type="submit" disabled={status === "saving"}>
-            {status === "saving" ? "Uploading..." : "Submit"}
+            {status === "saving" ? strings.loading : strings.submit}
           </button>
-          <a href={`/tasks?human_id=${humanId}`} className="secondary">
-            Back to Tasks
+          <a href={`/tasks?human_id=${humanId}&lang=${lang}`} className="secondary">
+            {strings.backToTasks}
           </a>
         </div>
       </form>
 
       {status === "done" && (
         <div className="card">
-          <p>Submitted.</p>
+          <p>{strings.submitted}</p>
         </div>
       )}
 
       {status === "error" && error && (
         <div className="card">
-          <p>Failed: {error}</p>
+          <p>
+            {strings.failed}: {error}
+          </p>
         </div>
       )}
     </div>

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
+import { getNormalizedTask } from "@/lib/task-api";
 
 async function parseRequest(request: Request) {
   const contentType = request.headers.get("content-type") || "";
@@ -22,11 +23,15 @@ export async function POST(
   }
 
   const db = getDb();
-  const task = db.prepare(`SELECT * FROM tasks WHERE id = ?`).get(params.taskId);
+  const task = await getNormalizedTask(db, params.taskId, "en");
   const human = db.prepare(`SELECT * FROM humans WHERE id = ?`).get(humanId);
 
   if (!task || !human) {
     return NextResponse.json({ status: "not_found" }, { status: 404 });
+  }
+
+  if (task.status === "failed" && task.failure_reason === "timeout") {
+    return NextResponse.json({ status: "error", reason: "timeout" }, { status: 409 });
   }
 
   if (task.status === "completed") {

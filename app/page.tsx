@@ -1,14 +1,17 @@
+import { UI_STRINGS } from "@/lib/i18n";
+
 export default function Home() {
+  const strings = UI_STRINGS.en;
   return (
     <div>
-      <h1>Call Human MVP</h1>
-      <p className="muted">Human UI only. AI calls the API directly.</p>
+      <h1>{strings.appTitle}</h1>
+      <p className="muted">{strings.humanUiOnly}</p>
       <div className="card">
         <p>
-          <a href="/register">Register as Human</a>
+          <a href="/register">{strings.register}</a>
         </p>
         <p>
-          <a href="/tasks">View Tasks</a>
+          <a href="/tasks">{strings.viewTasks}</a>
         </p>
       </div>
     </div>

@@ -21,7 +21,14 @@ export async function POST(request: Request) {
     payload?.deliverable === "text"
       ? payload.deliverable
       : null;
-  const deadlineMinutes = payload?.deadline_minutes != null ? Number(payload.deadline_minutes) : null;
+  const normalizedDeliverable = deliverable || "text";
+  const deadlineMinutes =
+    payload?.deadline_minutes != null ? Number(payload.deadline_minutes) : null;
+  const createdAt = new Date().toISOString();
+  const deadlineAt =
+    deadlineMinutes != null && Number.isFinite(deadlineMinutes)
+      ? new Date(Date.parse(createdAt) + deadlineMinutes * 60 * 1000).toISOString()
+      : null;
 
   if (!task || !Number.isFinite(budgetUsd)) {
     return NextResponse.json(
@@ -32,12 +39,20 @@ export async function POST(request: Request) {
 
   const db = getDb();
   const taskId = crypto.randomUUID();
-  const createdAt = new Date().toISOString();
-
   db.prepare(
-    `INSERT INTO tasks (id, task, location, budget_usd, deliverable, deadline_minutes, status, human_id, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, 'open', NULL, ?)`
-  ).run(taskId, task, location, budgetUsd, deliverable, deadlineMinutes, createdAt);
+    `INSERT INTO tasks (id, task, task_en, location, budget_usd, deliverable, deadline_minutes, deadline_at, status, failure_reason, human_id, submission_id, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'open', NULL, NULL, NULL, ?)`
+  ).run(
+    taskId,
+    task,
+    task,
+    location,
+    budgetUsd,
+    normalizedDeliverable,
+    deadlineMinutes,
+    deadlineAt,
+    createdAt
+  );
 
   const stmt = db.prepare(
     `SELECT * FROM humans
@@ -51,7 +66,9 @@ export async function POST(request: Request) {
   const human = stmt.get(...params);
 
   if (!human) {
-    db.prepare(`UPDATE tasks SET status = 'failed' WHERE id = ?`).run(taskId);
+    db.prepare(
+      `UPDATE tasks SET status = 'failed', failure_reason = 'no_human_available' WHERE id = ?`
+    ).run(taskId);
     return NextResponse.json({ status: "rejected", reason: "no_human_available" });
   }
 
