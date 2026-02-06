@@ -148,6 +148,21 @@ or
 }
 ```
 
+### Submission example
+
+```json
+{
+  "submission": {
+    "id": "uuid",
+    "task_id": "uuid",
+    "type": "text",
+    "content_url": null,
+    "text": "Done.",
+    "created_at": "2026-02-06T09:24:05.986Z"
+  }
+}
+```
+
 ### Failure reasons (enum)
 
 - `no_human_available`

@@ -84,7 +84,7 @@ function applyTimeoutIfNeeded(
   db: Database,
   task: Task,
   deadlineAt: string | null
-) {
+): Task {
   if (!deadlineAt) return task;
   if (task.status === "completed" || task.status === "failed") return task;
 
@@ -101,12 +101,13 @@ function applyTimeoutIfNeeded(
     );
   }
 
-  return {
+  const updated: Task = {
     ...task,
     status: "failed",
     failure_reason: "timeout",
     deadline_at: deadlineAt
   };
+  return updated;
 }
 
 function ensureTaskEnglish(db: Database, task: Task): string {
