@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { normalizeLang, UI_STRINGS, type UiLang } from "@/lib/i18n";
 
@@ -62,24 +62,27 @@ export default function TasksPage() {
     }
 
     loadTasks(humanId);
-  }, [humanId, lang, searchParams, router]);
+  }, [humanId, lang, searchParams, router, loadTasks]);
 
-  async function loadTasks(id: string) {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/tasks?human_id=${id}&lang=${lang}`);
-      if (!res.ok) {
-        throw new Error("failed to load");
+  const loadTasks = useCallback(
+    async (id: string) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(`/api/tasks?human_id=${id}&lang=${lang}`);
+        if (!res.ok) {
+          throw new Error("failed to load");
+        }
+        const data = await res.json();
+        setTasks(data.tasks || []);
+      } catch (err: any) {
+        setError(err.message || "failed");
+      } finally {
+        setLoading(false);
       }
-      const data = await res.json();
-      setTasks(data.tasks || []);
-    } catch (err: any) {
-      setError(err.message || "failed");
-    } finally {
-      setLoading(false);
-    }
-  }
+    },
+    [lang]
+  );
 
   async function acceptTask(taskId: string) {
     await fetch(`/api/tasks/${taskId}/accept`, {

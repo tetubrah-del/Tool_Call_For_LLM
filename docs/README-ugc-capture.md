@@ -87,6 +87,8 @@ open -> failed
 accepted -> failed
 ```
 
+Timeouts are enforced by a server-side sweeper while the process is running.
+
 ---
 
 ## Failure reasons (enum)

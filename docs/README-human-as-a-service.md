@@ -85,6 +85,8 @@ open -> failed
 accepted -> failed
 ```
 
+Timeouts are enforced by a server-side sweeper while the process is running.
+
 ---
 
 ## Task status response (GET /api/tasks/:taskId)
@@ -104,7 +106,14 @@ accepted -> failed
     "failure_reason": null,
     "human_id": "uuid",
     "created_at": "2026-02-06T02:45:00.000Z",
-    "submission": null
+    "submission": {
+      "id": "uuid",
+      "task_id": "uuid",
+      "type": "photo",
+      "content_url": "https://...",
+      "text": null,
+      "created_at": "2026-02-06T03:05:00.000Z"
+    }
   }
 }
 ```
@@ -116,6 +125,28 @@ accepted -> failed
 - Internal data is stored in English (`task_en`) and never translated in-place.
 - UI requests pass `lang=en|ja` and receive `task_display` plus `lang`.
 - Translations are cached in `task_translations` and reused.
+
+---
+
+## Deliverables
+
+Deliverables are returned in `submission` via `GET /api/tasks/:taskId`.
+
+```json
+{
+  "type": "photo",
+  "content_url": "https://..."
+}
+```
+
+or
+
+```json
+{
+  "type": "text",
+  "text": "The building exists and the nameplate matches."
+}
+```
 
 ### Failure reasons (enum)
 

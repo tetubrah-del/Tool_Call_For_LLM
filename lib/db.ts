@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import Database from "better-sqlite3";
+import { startTimeoutSweeper } from "@/lib/timeout-sweeper";
 
 const DB_PATH = path.join(process.cwd(), "data", "app.db");
 
@@ -62,6 +63,8 @@ function ensureDb() {
   ensureColumn(instance, "tasks", "deadline_at", "TEXT");
   ensureColumn(instance, "tasks", "failure_reason", "TEXT");
   ensureColumn(instance, "tasks", "submission_id", "TEXT");
+
+  startTimeoutSweeper(instance);
 
   db = instance;
   return db;
