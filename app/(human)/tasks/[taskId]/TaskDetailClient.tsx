@@ -29,6 +29,7 @@ export default function TaskDetailClient() {
     "loading"
   );
   const [error, setError] = useState<string | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -52,6 +53,7 @@ export default function TaskDetailClient() {
 
     setStatus("saving");
     setError(null);
+    setValidationError(null);
 
     try {
       const formData = new FormData();
@@ -59,9 +61,18 @@ export default function TaskDetailClient() {
       const type = task.deliverable || "text";
       formData.append("type", type);
       if (type === "text") {
+        if (!text.trim()) {
+          setValidationError(strings.missingText);
+          setStatus("idle");
+          return;
+        }
         formData.append("text", text);
       } else if (file) {
         formData.append("file", file);
+      } else {
+        setValidationError(strings.missingFile);
+        setStatus("idle");
+        return;
       }
 
       const res = await fetch("/api/submissions", {
@@ -90,12 +101,19 @@ export default function TaskDetailClient() {
   }
 
   const deliverable = task.deliverable || "text";
+  const showTranslationPending =
+    lang === "ja" && task.task_display && task.task_display === task.task;
+  const canSubmit =
+    deliverable === "text" ? text.trim().length > 0 : Boolean(file);
 
   return (
     <div>
       <h1>{strings.deliverTask}</h1>
       <div className="card">
         <h3>{task.task_display || task.task}</h3>
+        {showTranslationPending && (
+          <p className="muted">{strings.translationPending}</p>
+        )}
         <p className="muted">
           {strings.deliverable}: {deliverable} | {strings.budget}: ${task.budget_usd} |{" "}
           {strings.location}: {task.location || strings.any}
@@ -120,7 +138,7 @@ export default function TaskDetailClient() {
           </label>
         )}
         <div className="row">
-          <button type="submit" disabled={status === "saving"}>
+          <button type="submit" disabled={status === "saving" || !canSubmit}>
             {status === "saving" ? strings.loading : strings.submit}
           </button>
           <a href={`/tasks?human_id=${humanId}&lang=${lang}`} className="secondary">
@@ -139,6 +157,14 @@ export default function TaskDetailClient() {
         <div className="card">
           <p>
             {strings.failed}: {error}
+          </p>
+        </div>
+      )}
+
+      {validationError && (
+        <div className="card">
+          <p>
+            {strings.failed}: {validationError}
           </p>
         </div>
       )}

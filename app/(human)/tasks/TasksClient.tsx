@@ -30,6 +30,12 @@ export default function TasksClient() {
   const [error, setError] = useState<string | null>(null);
 
   const strings = UI_STRINGS[lang];
+  const statusLabels: Record<Task["status"], string> = {
+    open: strings.statusOpen,
+    accepted: strings.statusAccepted,
+    completed: strings.statusCompleted,
+    failed: strings.statusFailed
+  };
 
   const loadTasks = useCallback(
     async (id: string) => {
@@ -146,11 +152,17 @@ export default function TasksClient() {
 
       {tasks.map((task) => {
         const isAssigned = task.human_id === humanId;
+        const statusLabel = statusLabels[task.status];
+        const showTranslationPending =
+          lang === "ja" && task.task_display && task.task_display === task.task;
         return (
           <div key={task.id} className="card">
             <h3>{task.task_display || task.task}</h3>
+            {showTranslationPending && (
+              <p className="muted">{strings.translationPending}</p>
+            )}
             <p className="muted">
-              {strings.status}: {task.status} | {strings.budget}: ${task.budget_usd} |{" "}
+              {strings.status}: {statusLabel} | {strings.budget}: ${task.budget_usd} |{" "}
               {strings.location}: {task.location || strings.any} | {strings.deliverable}:{" "}
               {task.deliverable || "text"}
             </p>
