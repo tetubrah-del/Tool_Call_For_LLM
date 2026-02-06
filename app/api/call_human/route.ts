@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
+import { MIN_BUDGET_USD } from "@/lib/payments";
 
 export async function POST(request: Request) {
   let payload: any = null;
@@ -36,12 +37,18 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
+  if (budgetUsd < MIN_BUDGET_USD) {
+    return NextResponse.json(
+      { status: "rejected", reason: "below_min_budget" },
+      { status: 400 }
+    );
+  }
 
   const db = getDb();
   const taskId = crypto.randomUUID();
   db.prepare(
-    `INSERT INTO tasks (id, task, task_en, location, budget_usd, deliverable, deadline_minutes, deadline_at, status, failure_reason, human_id, submission_id, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'open', NULL, NULL, NULL, ?)`
+    `INSERT INTO tasks (id, task, task_en, location, budget_usd, deliverable, deadline_minutes, deadline_at, status, failure_reason, human_id, submission_id, paid_status, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'open', NULL, NULL, NULL, 'unpaid', ?)`
   ).run(
     taskId,
     task,

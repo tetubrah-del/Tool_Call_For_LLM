@@ -38,6 +38,7 @@ Minimal API where an AI agent tool_call can hire a registered human for a real-w
 - `GET /api/task/:taskId` (task status, alias)
 - `POST /api/tasks/:taskId/accept` (human accepts)
 - `POST /api/tasks/:taskId/skip` (human skips)
+- `POST /api/tasks/:taskId/pay` (admin marks paid)
 - `POST /api/submissions` (human delivers)
 
 ---
@@ -168,6 +169,7 @@ or
 - `no_human_available`
 - `timeout`
 - `invalid_request`
+- `below_min_budget`
 - `wrong_deliverable`
 - `already_assigned`
 - `not_assigned`
@@ -196,6 +198,18 @@ or
 
 - Payment is mocked in `app/api/call_human/route.ts`.
 - AI only supplies `budget_usd` and never sees payment processing.
+- Minimum budget is `$5`.
+
+### Mark paid (admin)
+
+```json
+POST /api/tasks/:taskId/pay
+{
+  "paypal_fee_usd": 0
+}
+```
+
+Response includes `fee_amount` (20% ceiling), `payout_amount`, and `paid_at`.
 
 ---
 

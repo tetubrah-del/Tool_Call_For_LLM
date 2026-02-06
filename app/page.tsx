@@ -13,6 +13,9 @@ export default function Home() {
         <p>
           <a href="/tasks">{strings.viewTasks}</a>
         </p>
+        <p>
+          <a href="/payments">Payments (admin)</a>
+        </p>
       </div>
     </div>
   );

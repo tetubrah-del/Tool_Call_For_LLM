@@ -20,6 +20,13 @@ export type NormalizedTask = {
   human_id: string | null;
   created_at: string;
   submission: NormalizedSubmission;
+  paid_status: "unpaid" | "paid" | null;
+  paid_at: string | null;
+  paid_method: "paypal" | null;
+  fee_rate: number | null;
+  fee_amount: number | null;
+  payout_amount: number | null;
+  paypal_fee_amount: number | null;
 };
 
 // Task lifecycle:
@@ -30,6 +37,7 @@ const FAILURE_REASONS = new Set<FailureReason>([
   "no_human_available",
   "timeout",
   "invalid_request",
+  "below_min_budget",
   "wrong_deliverable",
   "already_assigned",
   "not_assigned",
@@ -191,6 +199,13 @@ export async function getNormalizedTask(
     failure_reason: failureReason,
     human_id: finalTask.human_id,
     created_at: finalTask.created_at,
-    submission
+    submission,
+    paid_status: finalTask.paid_status ?? "unpaid",
+    paid_at: finalTask.paid_at ?? null,
+    paid_method: finalTask.paid_method ?? null,
+    fee_rate: finalTask.fee_rate ?? null,
+    fee_amount: finalTask.fee_amount ?? null,
+    payout_amount: finalTask.payout_amount ?? null,
+    paypal_fee_amount: finalTask.paypal_fee_amount ?? null
   };
 }

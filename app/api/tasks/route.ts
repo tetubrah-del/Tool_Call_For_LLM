@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { getNormalizedTask, getTaskDisplay } from "@/lib/task-api";
+import { MIN_BUDGET_USD } from "@/lib/payments";
 
 export async function GET(request: Request) {
   const db = getDb();
@@ -78,7 +79,8 @@ export async function GET(request: Request) {
       ...task,
       deliverable: task.deliverable || "text",
       task_display: display.display,
-      lang: display.lang
+      lang: display.lang,
+      paid_status: task.paid_status ?? "unpaid"
     };
   });
   return NextResponse.json({ tasks: normalized });
@@ -91,6 +93,12 @@ export async function POST(request: Request) {
 
   if (!task || !Number.isFinite(budgetUsd)) {
     return NextResponse.json({ status: "error" }, { status: 400 });
+  }
+  if (budgetUsd < MIN_BUDGET_USD) {
+    return NextResponse.json(
+      { status: "error", reason: "below_min_budget" },
+      { status: 400 }
+    );
   }
 
   const db = getDb();
@@ -108,8 +116,8 @@ export async function POST(request: Request) {
       : null;
 
   db.prepare(
-    `INSERT INTO tasks (id, task, task_en, location, budget_usd, deliverable, deadline_minutes, deadline_at, status, failure_reason, human_id, submission_id, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'open', NULL, NULL, NULL, ?)`
+    `INSERT INTO tasks (id, task, task_en, location, budget_usd, deliverable, deadline_minutes, deadline_at, status, failure_reason, human_id, submission_id, paid_status, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'open', NULL, NULL, NULL, 'unpaid', ?)`
   ).run(
     id,
     task,

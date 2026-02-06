@@ -98,6 +98,7 @@ Timeouts are enforced by a server-side sweeper while the process is running.
 * `no_human_available`
 * `timeout`
 * `invalid_request`
+* `below_min_budget`
 * `wrong_deliverable`
 * `already_assigned`
 * `not_assigned`

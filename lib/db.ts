@@ -37,6 +37,13 @@ function ensureDb() {
       failure_reason TEXT,
       human_id TEXT,
       submission_id TEXT,
+      fee_rate REAL,
+      fee_amount REAL,
+      payout_amount REAL,
+      paypal_fee_amount REAL,
+      paid_status TEXT,
+      paid_at TEXT,
+      paid_method TEXT,
       created_at TEXT NOT NULL
     );
 
@@ -63,6 +70,13 @@ function ensureDb() {
   ensureColumn(instance, "tasks", "deadline_at", "TEXT");
   ensureColumn(instance, "tasks", "failure_reason", "TEXT");
   ensureColumn(instance, "tasks", "submission_id", "TEXT");
+  ensureColumn(instance, "tasks", "fee_rate", "REAL");
+  ensureColumn(instance, "tasks", "fee_amount", "REAL");
+  ensureColumn(instance, "tasks", "payout_amount", "REAL");
+  ensureColumn(instance, "tasks", "paypal_fee_amount", "REAL");
+  ensureColumn(instance, "tasks", "paid_status", "TEXT");
+  ensureColumn(instance, "tasks", "paid_at", "TEXT");
+  ensureColumn(instance, "tasks", "paid_method", "TEXT");
 
   startTimeoutSweeper(instance);
 
@@ -104,6 +118,7 @@ export type FailureReason =
   | "no_human_available"
   | "timeout"
   | "invalid_request"
+  | "below_min_budget"
   | "wrong_deliverable"
   | "already_assigned"
   | "not_assigned"
@@ -124,6 +139,13 @@ export type Task = {
   failure_reason: FailureReason | null;
   human_id: string | null;
   submission_id: string | null;
+  fee_rate: number | null;
+  fee_amount: number | null;
+  payout_amount: number | null;
+  paypal_fee_amount: number | null;
+  paid_status: "unpaid" | "paid" | null;
+  paid_at: string | null;
+  paid_method: "paypal" | null;
   created_at: string;
 };
 
