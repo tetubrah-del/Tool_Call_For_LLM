@@ -1,13 +1,8 @@
-# Call Human MVP
+# Human-as-a-Service API (AI)
 
-Minimal MVP where an AI agent tool_call can hire a registered human for a real‑world task and receive a submission (photo/video/text).
+Minimal API where an AI agent tool_call can hire a registered human for a real-world task and receive a submission (photo/video/text).
 
-## Documentation
-
-- `docs/README-human-as-a-service.md` (AI向け汎用README)
-- `docs/README-property-verification.md` (不動産: Property Verification)
-- `docs/README-ugc-capture.md` (広告/UGC: Human-authenticated Content)
-- `docs/README-physical-evidence.md` (法務/コンプライアンス: Physical Evidence Collection)
+---
 
 ## Tool Schema (AI)
 
@@ -32,6 +27,8 @@ Minimal MVP where an AI agent tool_call can hire a registered human for a real�
 }
 ```
 
+---
+
 ## API Endpoints
 
 - `POST /api/call_human` (AI tool call)
@@ -40,6 +37,8 @@ Minimal MVP where an AI agent tool_call can hire a registered human for a real�
 - `POST /api/tasks/:taskId/accept` (human accepts)
 - `POST /api/tasks/:taskId/skip` (human skips)
 - `POST /api/submissions` (human delivers)
+
+---
 
 ## Sample AI Tool Call (curl)
 
@@ -74,21 +73,29 @@ curl -X POST http://localhost:3000/api/call_human \
 }
 ```
 
+---
+
 ## Human UI
 
 - `/register` to register as a human
 - `/tasks?human_id=...` to view and accept tasks
 - `/tasks/:taskId?human_id=...` to submit deliverables
 
+---
+
 ## Storage
 
 - SQLite database at `data/app.db`
 - Uploaded files stored in `public/uploads`
 
+---
+
 ## Payments (MVP)
 
 - Payment is mocked in `app/api/call_human/route.ts`.
 - AI only supplies `budget_usd` and never sees payment processing.
+
+---
 
 ## Run (local)
 
