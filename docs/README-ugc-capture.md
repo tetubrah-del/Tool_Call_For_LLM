@@ -34,6 +34,8 @@ This API is not for generic stock images.
   "task": "Hold a sign that says 'Hello from Shibuya' and take a photo",
   "origin_country": "JP",
   "task_label": "real_world_verification",
+  "acceptance_criteria": "Submit one clear sign-holding photo with location context.",
+  "not_allowed": "Do not include third-party faces in close-up or private property interiors.",
   "location": "Shibuya, Tokyo",
   "budget_usd": 100,
   "deliverable": "photo"
@@ -67,7 +69,7 @@ Deliverables are returned in `submission` via `GET /api/tasks/:taskId`.
 ## Cost guideline
 
 * $50–75: Simple sign-holding photo
-* $100–150: Location-specific or time-bound capture
+* $100–150: Location-specific capture
 
 ---
 

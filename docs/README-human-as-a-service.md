@@ -25,6 +25,8 @@ Minimal API where an AI agent tool_call can hire a registered human for a real-w
           "lead_prep"
         ]
       },
+      "acceptance_criteria": { "type": "string" },
+      "not_allowed": { "type": "string" },
       "location": { "type": "string" },
       "budget_usd": { "type": "number" },
       "deliverable": {
@@ -33,7 +35,14 @@ Minimal API where an AI agent tool_call can hire a registered human for a real-w
       },
       "deadline_minutes": { "type": "number" }
     },
-    "required": ["task", "budget_usd", "origin_country", "task_label"]
+    "required": [
+      "task",
+      "budget_usd",
+      "origin_country",
+      "task_label",
+      "acceptance_criteria",
+      "not_allowed"
+    ]
   }
 }
 ```
@@ -64,6 +73,8 @@ curl -X POST http://localhost:3000/api/call_human \
     "task": "Take a photo of the nearest public park entrance",
     "origin_country": "JP",
     "task_label": "real_world_verification",
+    "acceptance_criteria": "Provide one clear photo of the park entrance sign.",
+    "not_allowed": "Do not enter private property or include faces in close-up.",
     "location": "Shibuya",
     "budget_usd": 20,
     "deliverable": "photo",
@@ -76,8 +87,7 @@ curl -X POST http://localhost:3000/api/call_human \
 ```json
 {
   "task_id": "uuid",
-  "status": "accepted",
-  "eta_minutes": 15
+  "status": "accepted"
 }
 ```
 
@@ -112,6 +122,8 @@ Timeouts are enforced by a server-side sweeper while the process is running.
     "id": "uuid",
     "task": "Take a photo of the nearest public park entrance",
     "task_label": "real_world_verification",
+    "acceptance_criteria": "Provide one clear photo of the park entrance sign.",
+    "not_allowed": "Do not enter private property or include faces in close-up.",
     "location": "Shibuya",
     "budget_usd": 20,
     "deliverable": "photo",
@@ -162,6 +174,11 @@ Deliverables are returned in `submission` via `GET /api/tasks/:taskId`.
 - `ai_output_qa`: final human QA of AI-generated output
 - `bot_blocker_ops`: human steps where bots are blocked
 - `lead_prep`: lead enrichment / pre-processing
+
+## Service level
+
+- Tasks are fulfilled on a `best effort` basis.
+- No delivery-time/SLA guarantee is provided in MVP.
 
 or
 

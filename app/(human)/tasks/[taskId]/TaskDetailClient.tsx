@@ -12,8 +12,11 @@ type Task = {
   task_display?: string;
   lang?: UiLang;
   task_label: TaskLabel | null;
+  acceptance_criteria: string | null;
+  not_allowed: string | null;
   deliverable: "photo" | "video" | "text" | null;
-  status: string;
+  status: "open" | "accepted" | "completed" | "failed";
+  failure_reason?: string | null;
   budget_usd: number;
   is_international_payout?: boolean;
   location: string | null;
@@ -127,10 +130,28 @@ export default function TaskDetailClient() {
         )}
         {showIntlFeeNote && <p className="muted">{strings.intlFeeNote}</p>}
         <p className="muted">
+          {strings.bestEffort} | {strings.noTimeGuarantee}
+        </p>
+        <p className="muted">
           {strings.deliverable}: {deliverable} | {strings.payout}: ${netPayout} |{" "}
           {strings.location}: {task.location || strings.any} | {strings.taskLabel}:{" "}
           {task.task_label ? TASK_LABEL_TEXT[task.task_label][lang] : strings.any}
         </p>
+        {task.acceptance_criteria && (
+          <p className="muted">
+            {strings.acceptanceCriteria}: {task.acceptance_criteria}
+          </p>
+        )}
+        {task.not_allowed && (
+          <p className="muted">
+            {strings.notAllowed}: {task.not_allowed}
+          </p>
+        )}
+        {task.status === "failed" && task.failure_reason && (
+          <p className="muted">
+            {strings.failureReason}: {task.failure_reason}
+          </p>
+        )}
       </div>
 
       <form className="card" onSubmit={onSubmit}>

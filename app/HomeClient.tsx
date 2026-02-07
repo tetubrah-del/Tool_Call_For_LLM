@@ -94,6 +94,9 @@ export default function HomeClient() {
           </div>
         </div>
         <p className="note">{strings.humanUiOnly}</p>
+        <p className="note">
+          {strings.bestEffort} | {strings.noTimeGuarantee}
+        </p>
       </header>
 
       <section className="cta-grid">

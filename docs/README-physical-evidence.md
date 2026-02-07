@@ -35,6 +35,8 @@ This API does not provide legal interpretation.
   "task": "Take a photo of any posted legal notices at the storefront",
   "origin_country": "JP",
   "task_label": "real_world_verification",
+  "acceptance_criteria": "Submit a storefront photo where posted notices are readable.",
+  "not_allowed": "Do not trespass, block operations, or capture private personal data.",
   "location": "Osaka",
   "budget_usd": 150,
   "deliverable": "photo"
@@ -68,7 +70,7 @@ Deliverables are returned in `submission` via `GET /api/tasks/:taskId`.
 ## Cost guideline
 
 * $100–150: Single-location evidence capture
-* $150+: Multi-point or strict deadline tasks
+* $150+: Multi-point evidence tasks
 
 ---
 

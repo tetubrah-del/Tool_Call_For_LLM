@@ -16,6 +16,8 @@ export type NormalizedTask = {
   budget_usd: number;
   origin_country: string | null;
   task_label: TaskLabel | null;
+  acceptance_criteria: string | null;
+  not_allowed: string | null;
   deliverable: "photo" | "video" | "text";
   deadline_at: string | null;
   status: "open" | "accepted" | "completed" | "failed";
@@ -199,6 +201,8 @@ export async function getNormalizedTask(
     budget_usd: finalTask.budget_usd,
     origin_country: finalTask.origin_country ?? null,
     task_label: normalizeTaskLabel(finalTask.task_label),
+    acceptance_criteria: finalTask.acceptance_criteria ?? null,
+    not_allowed: finalTask.not_allowed ?? null,
     deliverable: normalizedDeliverable,
     deadline_at: deadlineAt,
     status: finalTask.status,

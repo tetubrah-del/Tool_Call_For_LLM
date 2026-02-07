@@ -35,6 +35,8 @@ If the information can be obtained from public databases or listings, **do not u
   "task": "Take a photo of the building entrance and nameplate",
   "origin_country": "JP",
   "task_label": "real_world_verification",
+  "acceptance_criteria": "Submit one exterior entrance photo and one nameplate photo.",
+  "not_allowed": "Do not enter restricted areas or interfere with residents.",
   "location": "Shinjuku, Tokyo",
   "budget_usd": 120,
   "deliverable": "photo"
@@ -68,7 +70,7 @@ Deliverables are returned in `submission` via `GET /api/tasks/:taskId`.
 ## Cost guideline
 
 * $75–100: Exterior photo verification
-* $120–150: Multi-angle or time-sensitive confirmation
+* $120–150: Multi-angle confirmation
 
 ---
 
@@ -76,7 +78,7 @@ Deliverables are returned in `submission` via `GET /api/tasks/:taskId`.
 
 * Property inaccessible
 * No human available in the area
-* Timeout before deadline
+* Closed without completion
 
 Failures are explicit and safe to retry.
 Failure reasons are returned as enums.

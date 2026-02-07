@@ -150,6 +150,12 @@ export async function POST(request: Request) {
   const budgetUsd = Number(payload?.budget_usd);
   const originCountry = normalizeCountry(payload?.origin_country);
   const taskLabel = normalizeTaskLabel(payload?.task_label);
+  const acceptanceCriteria =
+    typeof payload?.acceptance_criteria === "string"
+      ? payload.acceptance_criteria.trim()
+      : "";
+  const notAllowed =
+    typeof payload?.not_allowed === "string" ? payload.not_allowed.trim() : "";
 
   if (!task || !Number.isFinite(budgetUsd)) {
     return NextResponse.json({ status: "error" }, { status: 400 });
@@ -161,6 +167,12 @@ export async function POST(request: Request) {
     );
   }
   if (!taskLabel) {
+    return NextResponse.json(
+      { status: "error", reason: "invalid_request" },
+      { status: 400 }
+    );
+  }
+  if (!acceptanceCriteria || !notAllowed) {
     return NextResponse.json(
       { status: "error", reason: "invalid_request" },
       { status: 400 }
@@ -188,8 +200,8 @@ export async function POST(request: Request) {
       : null;
 
   db.prepare(
-    `INSERT INTO tasks (id, task, task_en, location, budget_usd, origin_country, task_label, deliverable, deadline_minutes, deadline_at, status, failure_reason, human_id, submission_id, paid_status, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', NULL, NULL, NULL, 'unpaid', ?)`
+    `INSERT INTO tasks (id, task, task_en, location, budget_usd, origin_country, task_label, acceptance_criteria, not_allowed, deliverable, deadline_minutes, deadline_at, status, failure_reason, human_id, submission_id, paid_status, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', NULL, NULL, NULL, 'unpaid', ?)`
   ).run(
     id,
     task,
@@ -198,6 +210,8 @@ export async function POST(request: Request) {
     budgetUsd,
     originCountry,
     taskLabel,
+    acceptanceCriteria,
+    notAllowed,
     payload?.deliverable ?? "text",
     deadlineMinutes,
     deadlineAt,

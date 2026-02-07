@@ -20,6 +20,12 @@ export async function POST(request: Request) {
   const location = rawLocation.length > 0 ? rawLocation : null;
   const originCountry = normalizeCountry(payload?.origin_country);
   const taskLabel = normalizeTaskLabel(payload?.task_label);
+  const acceptanceCriteria =
+    typeof payload?.acceptance_criteria === "string"
+      ? payload.acceptance_criteria.trim()
+      : "";
+  const notAllowed =
+    typeof payload?.not_allowed === "string" ? payload.not_allowed.trim() : "";
   const deliverable =
     payload?.deliverable === "photo" ||
     payload?.deliverable === "video" ||
@@ -53,6 +59,12 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
+  if (!acceptanceCriteria || !notAllowed) {
+    return NextResponse.json(
+      { status: "rejected", reason: "invalid_request" },
+      { status: 400 }
+    );
+  }
   if (budgetUsd < MIN_BUDGET_USD) {
     return NextResponse.json(
       { status: "rejected", reason: "below_min_budget" },
@@ -63,8 +75,8 @@ export async function POST(request: Request) {
   const db = getDb();
   const taskId = crypto.randomUUID();
   db.prepare(
-    `INSERT INTO tasks (id, task, task_en, location, budget_usd, origin_country, task_label, deliverable, deadline_minutes, deadline_at, status, failure_reason, human_id, submission_id, paid_status, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', NULL, NULL, NULL, 'unpaid', ?)`
+    `INSERT INTO tasks (id, task, task_en, location, budget_usd, origin_country, task_label, acceptance_criteria, not_allowed, deliverable, deadline_minutes, deadline_at, status, failure_reason, human_id, submission_id, paid_status, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', NULL, NULL, NULL, 'unpaid', ?)`
   ).run(
     taskId,
     task,
@@ -73,6 +85,8 @@ export async function POST(request: Request) {
     budgetUsd,
     originCountry,
     taskLabel,
+    acceptanceCriteria,
+    notAllowed,
     normalizedDeliverable,
     deadlineMinutes,
     deadlineAt,
@@ -106,7 +120,6 @@ export async function POST(request: Request) {
 
   return NextResponse.json({
     task_id: taskId,
-    status: "accepted",
-    eta_minutes: 15
+    status: "accepted"
   });
 }

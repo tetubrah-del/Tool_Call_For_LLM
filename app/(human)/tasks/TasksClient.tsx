@@ -18,9 +18,12 @@ type Task = {
   location: string | null;
   budget_usd: number;
   task_label: TaskLabel | null;
+  acceptance_criteria: string | null;
+  not_allowed: string | null;
   is_international_payout?: boolean;
   deliverable: "photo" | "video" | "text" | null;
   status: "open" | "accepted" | "completed" | "failed";
+  failure_reason?: string | null;
   human_id: string | null;
   created_at: string;
 };
@@ -36,6 +39,10 @@ export default function TasksClient() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [keyword, setKeyword] = useState("");
   const [selectedLabel, setSelectedLabel] = useState<"all" | TaskLabel>("all");
+  const [selectedDeliverable, setSelectedDeliverable] = useState<"all" | "photo" | "video" | "text">("all");
+  const [selectedStatus, setSelectedStatus] = useState<"all" | Task["status"]>("all");
+  const [minBudget, setMinBudget] = useState("");
+  const [maxBudget, setMaxBudget] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -54,9 +61,24 @@ export default function TasksClient() {
         keyword.trim().length === 0
           ? true
           : `${task.task_display || task.task}`.toLowerCase().includes(keyword.toLowerCase());
-      return matchesLabel && matchesKeyword;
+      const normalizedDeliverable = task.deliverable || "text";
+      const matchesDeliverable =
+        selectedDeliverable === "all" ? true : normalizedDeliverable === selectedDeliverable;
+      const matchesStatus = selectedStatus === "all" ? true : task.status === selectedStatus;
+      const min = Number(minBudget);
+      const max = Number(maxBudget);
+      const matchesMin = minBudget.trim() === "" ? true : Number.isFinite(min) && task.budget_usd >= min;
+      const matchesMax = maxBudget.trim() === "" ? true : Number.isFinite(max) && task.budget_usd <= max;
+      return (
+        matchesLabel &&
+        matchesKeyword &&
+        matchesDeliverable &&
+        matchesStatus &&
+        matchesMin &&
+        matchesMax
+      );
     });
-  }, [tasks, selectedLabel, keyword]);
+  }, [tasks, selectedLabel, keyword, selectedDeliverable, selectedStatus, minBudget, maxBudget]);
 
   const loadTasks = useCallback(
     async (id: string) => {
@@ -190,6 +212,53 @@ export default function TasksClient() {
             ))}
           </select>
         </label>
+        <label>
+          {strings.deliverable}
+          <select
+            value={selectedDeliverable}
+            onChange={(e) =>
+              setSelectedDeliverable(e.target.value as "all" | "photo" | "video" | "text")
+            }
+          >
+            <option value="all">{strings.allDeliverables}</option>
+            <option value="text">text</option>
+            <option value="photo">photo</option>
+            <option value="video">video</option>
+          </select>
+        </label>
+        <label>
+          {strings.status}
+          <select
+            value={selectedStatus}
+            onChange={(e) => setSelectedStatus(e.target.value as "all" | Task["status"])}
+          >
+            <option value="all">{strings.allStatuses}</option>
+            <option value="open">{strings.statusOpen}</option>
+            <option value="accepted">{strings.statusAccepted}</option>
+            <option value="completed">{strings.statusCompleted}</option>
+            <option value="failed">{strings.statusFailed}</option>
+          </select>
+        </label>
+        <label>
+          {strings.minBudget}
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            value={minBudget}
+            onChange={(e) => setMinBudget(e.target.value)}
+          />
+        </label>
+        <label>
+          {strings.maxBudget}
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            value={maxBudget}
+            onChange={(e) => setMaxBudget(e.target.value)}
+          />
+        </label>
         <div className="row">
           <button onClick={() => loadTasks(humanId)} disabled={!humanId || loading}>
             {loading ? strings.loading : strings.refresh}
@@ -223,6 +292,9 @@ export default function TasksClient() {
               {showTranslationPending && (
                 <p className="muted">{strings.translationPending}</p>
               )}
+              <p className="muted">
+                {strings.bestEffort} | {strings.noTimeGuarantee}
+              </p>
               {showIntlFeeNote && <p className="muted">{strings.intlFeeNote}</p>}
               <p className="muted">
                 {strings.payout}: ${netPayout} | {strings.location}:{" "}
@@ -230,6 +302,21 @@ export default function TasksClient() {
                 {task.deliverable || "text"} | {strings.taskLabel}:{" "}
                 {task.task_label ? TASK_LABEL_TEXT[task.task_label][lang] : strings.any}
               </p>
+              {task.acceptance_criteria && (
+                <p className="muted">
+                  {strings.acceptanceCriteria}: {task.acceptance_criteria}
+                </p>
+              )}
+              {task.not_allowed && (
+                <p className="muted">
+                  {strings.notAllowed}: {task.not_allowed}
+                </p>
+              )}
+              {task.status === "failed" && task.failure_reason && (
+                <p className="muted">
+                  {strings.failureReason}: {task.failure_reason}
+                </p>
+              )}
               <div className="task-actions">
                 <a className="text-link" href={`/tasks/${task.id}?human_id=${humanId}&lang=${lang}`}>
                   {strings.details}

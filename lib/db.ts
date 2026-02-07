@@ -35,6 +35,8 @@ function ensureDb() {
       budget_usd REAL NOT NULL,
       origin_country TEXT,
       task_label TEXT,
+      acceptance_criteria TEXT,
+      not_allowed TEXT,
       deliverable TEXT,
       deadline_minutes REAL,
       deadline_at TEXT,
@@ -74,6 +76,8 @@ function ensureDb() {
   ensureColumn(instance, "tasks", "task_en", "TEXT");
   ensureColumn(instance, "tasks", "origin_country", "TEXT");
   ensureColumn(instance, "tasks", "task_label", "TEXT");
+  ensureColumn(instance, "tasks", "acceptance_criteria", "TEXT");
+  ensureColumn(instance, "tasks", "not_allowed", "TEXT");
   ensureColumn(instance, "tasks", "deadline_at", "TEXT");
   ensureColumn(instance, "tasks", "failure_reason", "TEXT");
   ensureColumn(instance, "tasks", "submission_id", "TEXT");
@@ -146,6 +150,8 @@ export type Task = {
   budget_usd: number;
   origin_country: string | null;
   task_label: TaskLabel | null;
+  acceptance_criteria: string | null;
+  not_allowed: string | null;
   deliverable: "photo" | "video" | "text" | null;
   deadline_minutes: number | null;
   deadline_at: string | null;
