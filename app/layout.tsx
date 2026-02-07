@@ -1,4 +1,5 @@
 import "./globals.css";
+import GlobalNav from "./GlobalNav";
 
 export const metadata = {
   title: "Call Human MVP",
@@ -13,6 +14,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
+        <GlobalNav />
         <main>{children}</main>
       </body>
     </html>

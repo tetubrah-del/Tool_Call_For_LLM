@@ -113,6 +113,48 @@ button.secondary {
   gap: 40px;
 }
 
+.global-nav {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  backdrop-filter: blur(10px);
+  background: rgba(253, 246, 236, 0.9);
+  border-bottom: 1px solid rgba(230, 215, 199, 0.8);
+}
+
+.nav-inner {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.brand {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.nav-links a {
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.nav-links a:hover {
+  color: var(--accent-strong);
+}
+
 .hero {
   background: var(--surface-strong);
   border-radius: var(--radius-lg);
@@ -373,5 +415,9 @@ button.secondary {
 
   .lang {
     width: 100%;
+  }
+
+  .nav-inner {
+    padding: 12px 18px;
   }
 }
