@@ -1,5 +1,6 @@
 import "./globals.css";
 import GlobalNav from "./GlobalNav";
+import { Suspense } from "react";
 
 export const metadata = {
   title: "Call Human MVP",
@@ -14,7 +15,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <GlobalNav />
+        <Suspense fallback={<div />}>
+          <GlobalNav />
+        </Suspense>
         <main>{children}</main>
       </body>
     </html>
