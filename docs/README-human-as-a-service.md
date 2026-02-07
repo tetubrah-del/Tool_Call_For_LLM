@@ -256,8 +256,8 @@ or
 
 - `/register` to register as a human
 - `/ai/connect` to connect AI account PayPal and get API credentials
-- `/tasks?human_id=...` to view and accept tasks
-- `/tasks/:taskId?human_id=...` to submit deliverables
+- `/tasks` to view and accept tasks (human ID is resolved from logged-in profile)
+- `/tasks/:taskId` to submit deliverables
 - `country` is required on human registration (ISO2, e.g., `JP`).
 - `paypal_email` is required on human registration/profile.
 

@@ -25,10 +25,10 @@ type Task = {
 export default function TaskDetailClient() {
   const params = useParams<{ taskId: string }>();
   const searchParams = useSearchParams();
-  const humanId = searchParams.get("human_id") || "";
   const lang = useMemo(() => normalizeLang(searchParams.get("lang")), [searchParams]);
   const strings = UI_STRINGS[lang];
 
+  const [humanId, setHumanId] = useState(searchParams.get("human_id") || "");
   const [task, setTask] = useState<Task | null>(null);
   const [text, setText] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -39,11 +39,37 @@ export default function TaskDetailClient() {
   const [validationError, setValidationError] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+    async function resolveHumanId() {
+      if (humanId) return;
+      const saved = localStorage.getItem("human_id") || "";
+      if (saved) {
+        setHumanId(saved);
+        return;
+      }
+      const res = await fetch("/api/profile");
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!cancelled && data.profile?.id) {
+        setHumanId(data.profile.id);
+        localStorage.setItem("human_id", data.profile.id);
+      }
+    }
+    resolveHumanId();
+    return () => {
+      cancelled = true;
+    };
+  }, [humanId]);
+
+  useEffect(() => {
     async function load() {
       try {
-        const res = await fetch(
-          `/api/tasks/${params.taskId}?lang=${lang}&human_id=${humanId}`
-        );
+        const qs = new URLSearchParams();
+        qs.set("lang", lang);
+        if (humanId) {
+          qs.set("human_id", humanId);
+        }
+        const res = await fetch(`/api/tasks/${params.taskId}?${qs.toString()}`);
         if (!res.ok) throw new Error("failed");
         const data = await res.json();
         setTask(data.task);
@@ -128,10 +154,10 @@ export default function TaskDetailClient() {
         {showTranslationPending && (
           <p className="muted">{strings.translationPending}</p>
         )}
-        {showIntlFeeNote && <p className="muted">{strings.intlFeeNote}</p>}
         <p className="muted">
           {strings.bestEffort} | {strings.noTimeGuarantee}
         </p>
+        {showIntlFeeNote && <p className="muted">{strings.intlFeeNote}</p>}
         <p className="muted">
           {strings.deliverable}: {deliverable} | {strings.payout}: ${netPayout} |{" "}
           {strings.location}: {task.location || strings.any} | {strings.taskLabel}:{" "}
@@ -175,7 +201,7 @@ export default function TaskDetailClient() {
           <button type="submit" disabled={status === "saving" || !canSubmit}>
             {status === "saving" ? strings.loading : strings.submit}
           </button>
-          <a href={`/tasks?human_id=${humanId}&lang=${lang}`} className="secondary">
+          <a href={`/tasks?lang=${lang}`} className="secondary">
             {strings.backToTasks}
           </a>
         </div>

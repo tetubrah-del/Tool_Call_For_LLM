@@ -31,8 +31,8 @@ type Task = {
 export default function TasksClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const initialHumanId = useMemo(() => searchParams.get("human_id") || "", [searchParams]);
   const initialLang = useMemo(() => normalizeLang(searchParams.get("lang")), [searchParams]);
+  const initialHumanId = useMemo(() => searchParams.get("human_id") || "", [searchParams]);
 
   const [humanId, setHumanId] = useState(initialHumanId);
   const [lang, setLang] = useState<UiLang>(initialLang);
@@ -44,6 +44,7 @@ export default function TasksClient() {
   const [minBudget, setMinBudget] = useState("");
   const [maxBudget, setMaxBudget] = useState("");
   const [loading, setLoading] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const strings = UI_STRINGS[lang];
@@ -53,6 +54,7 @@ export default function TasksClient() {
     completed: strings.statusCompleted,
     failed: strings.statusFailed
   };
+
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
       const matchesLabel =
@@ -67,8 +69,10 @@ export default function TasksClient() {
       const matchesStatus = selectedStatus === "all" ? true : task.status === selectedStatus;
       const min = Number(minBudget);
       const max = Number(maxBudget);
-      const matchesMin = minBudget.trim() === "" ? true : Number.isFinite(min) && task.budget_usd >= min;
-      const matchesMax = maxBudget.trim() === "" ? true : Number.isFinite(max) && task.budget_usd <= max;
+      const matchesMin =
+        minBudget.trim() === "" ? true : Number.isFinite(min) && task.budget_usd >= min;
+      const matchesMax =
+        maxBudget.trim() === "" ? true : Number.isFinite(max) && task.budget_usd <= max;
       return (
         matchesLabel &&
         matchesKeyword &&
@@ -82,6 +86,10 @@ export default function TasksClient() {
 
   const loadTasks = useCallback(
     async (id: string) => {
+      if (!id) {
+        setTasks([]);
+        return;
+      }
       setLoading(true);
       setError(null);
       try {
@@ -101,39 +109,63 @@ export default function TasksClient() {
   );
 
   useEffect(() => {
-    if (initialHumanId) {
-      localStorage.setItem("human_id", initialHumanId);
+    let cancelled = false;
+    async function resolveProfile() {
+      if (humanId) {
+        setProfileLoading(false);
+        return;
+      }
+
+      const saved = localStorage.getItem("human_id") || "";
+      if (saved) {
+        setHumanId(saved);
+        setProfileLoading(false);
+        return;
+      }
+
+      setProfileLoading(true);
+      try {
+        const res = await fetch("/api/profile");
+        if (!res.ok) {
+          setProfileLoading(false);
+          return;
+        }
+        const data = await res.json();
+        if (!cancelled && data.profile?.id) {
+          setHumanId(data.profile.id);
+          localStorage.setItem("human_id", data.profile.id);
+        }
+      } finally {
+        if (!cancelled) {
+          setProfileLoading(false);
+        }
+      }
     }
-  }, [initialHumanId]);
+
+    resolveProfile();
+    return () => {
+      cancelled = true;
+    };
+  }, [humanId]);
 
   useEffect(() => {
     const savedLang = localStorage.getItem("lang");
     if (!searchParams.get("lang") && savedLang) {
       const next = normalizeLang(savedLang);
       setLang(next);
-      const params = new URLSearchParams(searchParams.toString());
-      params.set("lang", next);
-      if (humanId) {
-        params.set("human_id", humanId);
-      }
-      router.replace(`/tasks?${params.toString()}`);
+      router.replace(`/tasks?lang=${next}`);
       return;
     }
-
     localStorage.setItem("lang", lang);
+  }, [lang, router, searchParams]);
 
-    if (!humanId) {
-      const saved = localStorage.getItem("human_id");
-      if (saved) {
-        setHumanId(saved);
-      }
-      return;
-    }
-
+  useEffect(() => {
+    if (!humanId) return;
     loadTasks(humanId);
-  }, [humanId, lang, searchParams, router, loadTasks]);
+  }, [humanId, lang, loadTasks]);
 
   async function acceptTask(taskId: string) {
+    if (!humanId) return;
     await fetch(`/api/tasks/${taskId}/accept`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -143,6 +175,7 @@ export default function TasksClient() {
   }
 
   async function skipTask(taskId: string) {
+    if (!humanId) return;
     await fetch(`/api/tasks/${taskId}/skip`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -153,12 +186,7 @@ export default function TasksClient() {
 
   function onLangChange(next: UiLang) {
     setLang(next);
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("lang", next);
-    if (humanId) {
-      params.set("human_id", humanId);
-    }
-    router.replace(`/tasks?${params.toString()}`);
+    router.replace(`/tasks?lang=${next}`);
   }
 
   return (
@@ -182,14 +210,9 @@ export default function TasksClient() {
       </div>
 
       <div className="card filter-card">
-        <label>
-          {strings.humanId}
-          <input
-            value={humanId}
-            onChange={(e) => setHumanId(e.target.value)}
-            placeholder={strings.pasteHumanId}
-          />
-        </label>
+        <p className="muted">
+          {strings.bestEffort} | {strings.noTimeGuarantee}
+        </p>
         <label>
           {strings.searchKeyword}
           <input
@@ -260,8 +283,8 @@ export default function TasksClient() {
           />
         </label>
         <div className="row">
-          <button onClick={() => loadTasks(humanId)} disabled={!humanId || loading}>
-            {loading ? strings.loading : strings.refresh}
+          <button onClick={() => loadTasks(humanId)} disabled={!humanId || loading || profileLoading}>
+            {loading || profileLoading ? strings.loading : strings.refresh}
           </button>
           <a href={`/auth?lang=${lang}`} className="text-link">
             {strings.needAccount}
@@ -270,7 +293,9 @@ export default function TasksClient() {
         {error && <p className="muted">{error}</p>}
       </div>
 
-      {filteredTasks.length === 0 && !loading && <p className="muted">{strings.noTasks}</p>}
+      {filteredTasks.length === 0 && !loading && !profileLoading && (
+        <p className="muted">{strings.noTasks}</p>
+      )}
 
       <div className="task-list">
         {filteredTasks.map((task) => {
@@ -318,7 +343,7 @@ export default function TasksClient() {
                 </p>
               )}
               <div className="task-actions">
-                <a className="text-link" href={`/tasks/${task.id}?human_id=${humanId}&lang=${lang}`}>
+                <a className="text-link" href={`/tasks/${task.id}?lang=${lang}`}>
                   {strings.details}
                 </a>
                 <div className="row">
@@ -326,9 +351,7 @@ export default function TasksClient() {
                     <button onClick={() => acceptTask(task.id)}>{strings.accept}</button>
                   )}
                   {(task.status === "accepted" || isAssigned) && (
-                    <a href={`/tasks/${task.id}?human_id=${humanId}&lang=${lang}`}>
-                      {strings.deliver}
-                    </a>
+                    <a href={`/tasks/${task.id}?lang=${lang}`}>{strings.deliver}</a>
                   )}
                   {(task.status === "open" || isAssigned) && (
                     <button className="secondary" onClick={() => skipTask(task.id)}>
