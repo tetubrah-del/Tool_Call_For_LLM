@@ -203,6 +203,7 @@ or
 ### Admin payments (manual)
 
 1. Open `/payments` (admin UI).
+1. Set `ADMIN_TOKEN` in the environment and enter it in the admin UI.
 2. Find completed tasks under **Unpaid**.
 3. Enter PayPal fee (USD). Use `0` for domestic.
 4. Click **Mark Paid** after sending payout.

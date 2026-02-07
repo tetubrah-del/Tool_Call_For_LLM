@@ -22,6 +22,8 @@ export default function PaymentsClient() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [paypalFees, setPaypalFees] = useState<Record<string, string>>({});
+  const [adminToken, setAdminToken] = useState("");
+  const [tokenReady, setTokenReady] = useState(false);
 
   const unpaidTasks = useMemo(
     () => tasks.filter((task) => task.status === "completed" && task.paid_status !== "paid"),
@@ -36,7 +38,9 @@ export default function PaymentsClient() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/tasks");
+      const res = await fetch("/api/admin/tasks", {
+        headers: { "x-admin-token": adminToken }
+      });
       if (!res.ok) {
         throw new Error("failed to load");
       }
@@ -50,7 +54,11 @@ export default function PaymentsClient() {
   }
 
   useEffect(() => {
-    loadTasks();
+    const saved = localStorage.getItem("admin_token") || "";
+    if (saved) {
+      setAdminToken(saved);
+      setTokenReady(true);
+    }
   }, []);
 
   async function markPaid(taskId: string, budgetUsd: number) {
@@ -62,7 +70,7 @@ export default function PaymentsClient() {
     }
     const res = await fetch(`/api/tasks/${taskId}/pay`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "x-admin-token": adminToken },
       body: JSON.stringify({ paypal_fee_usd: paypalFeeUsd })
     });
     if (!res.ok) {
@@ -74,15 +82,46 @@ export default function PaymentsClient() {
     await loadTasks();
   }
 
+  function onSetToken() {
+    localStorage.setItem("admin_token", adminToken);
+    setTokenReady(true);
+    loadTasks();
+  }
+
   return (
     <div>
       <h1>Payments</h1>
       <p className="muted">Minimum budget: ${MIN_BUDGET_USD}</p>
+      {!tokenReady && (
+        <div className="card">
+          <label>
+            Admin Token
+            <input
+              type="password"
+              value={adminToken}
+              onChange={(e) => setAdminToken(e.target.value)}
+              placeholder="Set ADMIN_TOKEN"
+            />
+          </label>
+          <button onClick={onSetToken} disabled={!adminToken}>
+            Save Token
+          </button>
+        </div>
+      )}
       <div className="row">
-        <button onClick={loadTasks} disabled={loading}>
+        <button onClick={loadTasks} disabled={loading || !tokenReady}>
           {loading ? "Loading..." : "Refresh"}
         </button>
-        <a className="secondary" href="/api/payments/export">
+        <a
+          className="secondary"
+          href={tokenReady ? `/api/payments/export?token=${encodeURIComponent(adminToken)}` : "#"}
+          onClick={(event) => {
+            if (!tokenReady) {
+              event.preventDefault();
+              setError("Admin token required");
+            }
+          }}
+        >
           Export CSV
         </a>
       </div>

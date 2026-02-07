@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { calculatePayout } from "@/lib/payments";
+import { requireAdminToken } from "@/lib/admin-auth";
 
 export async function POST(
   request: Request,
   { params }: { params: { taskId: string } }
 ) {
+  const authError = requireAdminToken(request);
+  if (authError) return authError;
+
   const payload: any = await request.json().catch(() => ({}));
   const paypalFeeUsd = Number(payload?.paypal_fee_usd ?? 0);
 

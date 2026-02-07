@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
+import { requireAdminToken } from "@/lib/admin-auth";
 
 function toCsvValue(value: string | number | null | undefined) {
   if (value == null) return "";
@@ -10,7 +11,10 @@ function toCsvValue(value: string | number | null | undefined) {
   return text;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const authError = requireAdminToken(request);
+  if (authError) return authError;
+
   const db = getDb();
   const rows = db
     .prepare(
