@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { normalizeLang, UI_STRINGS, type UiLang } from "@/lib/i18n";
+import { calculateFeeAmount } from "@/lib/payments";
 
 type Task = {
   id: string;
@@ -166,6 +167,10 @@ export default function TasksClient() {
           const statusLabel = statusLabels[task.status];
           const showTranslationPending =
             lang === "ja" && task.task_display && task.task_display === task.task;
+          const netPayout = Math.max(
+            Number((task.budget_usd - calculateFeeAmount(task.budget_usd)).toFixed(2)),
+            0
+          );
           return (
             <div key={task.id} className="task-item">
               <div className="task-header">
@@ -176,7 +181,7 @@ export default function TasksClient() {
                 <p className="muted">{strings.translationPending}</p>
               )}
               <p className="muted">
-                {strings.budget}: ${task.budget_usd} | {strings.location}:{" "}
+                {strings.payout}: ${netPayout} | {strings.location}:{" "}
                 {task.location || strings.any} | {strings.deliverable}:{" "}
                 {task.deliverable || "text"}
               </p>
