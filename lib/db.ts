@@ -20,6 +20,7 @@ function ensureDb() {
       name TEXT NOT NULL,
       email TEXT,
       location TEXT,
+      country TEXT NOT NULL,
       min_budget_usd REAL NOT NULL,
       status TEXT NOT NULL,
       created_at TEXT NOT NULL
@@ -31,6 +32,7 @@ function ensureDb() {
       task_en TEXT,
       location TEXT,
       budget_usd REAL NOT NULL,
+      origin_country TEXT,
       deliverable TEXT,
       deadline_minutes REAL,
       deadline_at TEXT,
@@ -68,6 +70,7 @@ function ensureDb() {
   `);
 
   ensureColumn(instance, "tasks", "task_en", "TEXT");
+  ensureColumn(instance, "tasks", "origin_country", "TEXT");
   ensureColumn(instance, "tasks", "deadline_at", "TEXT");
   ensureColumn(instance, "tasks", "failure_reason", "TEXT");
   ensureColumn(instance, "tasks", "submission_id", "TEXT");
@@ -79,6 +82,7 @@ function ensureDb() {
   ensureColumn(instance, "tasks", "paid_at", "TEXT");
   ensureColumn(instance, "tasks", "paid_method", "TEXT");
   ensureColumn(instance, "humans", "email", "TEXT");
+  ensureColumn(instance, "humans", "country", "TEXT");
 
   startTimeoutSweeper(instance);
 
@@ -108,6 +112,7 @@ export type Human = {
   name: string;
   email: string | null;
   location: string | null;
+  country: string | null;
   min_budget_usd: number;
   status: "available" | "busy";
   created_at: string;
@@ -122,6 +127,7 @@ export type FailureReason =
   | "timeout"
   | "invalid_request"
   | "below_min_budget"
+  | "missing_origin_country"
   | "wrong_deliverable"
   | "already_assigned"
   | "not_assigned"
@@ -135,6 +141,7 @@ export type Task = {
   task_en: string | null;
   location: string | null;
   budget_usd: number;
+  origin_country: string | null;
   deliverable: "photo" | "video" | "text" | null;
   deadline_minutes: number | null;
   deadline_at: string | null;

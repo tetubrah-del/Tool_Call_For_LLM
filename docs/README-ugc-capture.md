@@ -32,6 +32,7 @@ This API is not for generic stock images.
 ```json
 {
   "task": "Hold a sign that says 'Hello from Shibuya' and take a photo",
+  "origin_country": "JP",
   "location": "Shibuya, Tokyo",
   "budget_usd": 100,
   "deliverable": "photo"
@@ -97,6 +98,7 @@ Timeouts are enforced by a server-side sweeper while the process is running.
 * `timeout`
 * `invalid_request`
 * `below_min_budget`
+* `missing_origin_country`
 * `wrong_deliverable`
 * `already_assigned`
 * `not_assigned`

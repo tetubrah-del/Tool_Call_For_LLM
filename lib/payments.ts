@@ -1,5 +1,6 @@
 export const MIN_BUDGET_USD = 5;
 export const FEE_RATE = 0.2;
+export const OPERATOR_COUNTRY = "JP";
 
 export type PaymentBreakdown = {
   fee_rate: number;

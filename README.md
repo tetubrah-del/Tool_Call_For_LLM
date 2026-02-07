@@ -19,6 +19,7 @@ Minimal MVP where an AI agent tool_call can hire a registered human for a realâ€
     "type": "object",
     "properties": {
       "task": { "type": "string" },
+      "origin_country": { "type": "string" },
       "location": { "type": "string" },
       "budget_usd": { "type": "number" },
       "deliverable": {
@@ -27,7 +28,7 @@ Minimal MVP where an AI agent tool_call can hire a registered human for a realâ€
       },
       "deadline_minutes": { "type": "number" }
     },
-    "required": ["task", "budget_usd"]
+    "required": ["task", "budget_usd", "origin_country"]
   }
 }
 ```

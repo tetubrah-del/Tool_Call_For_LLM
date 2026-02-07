@@ -13,6 +13,7 @@ type Task = {
   deliverable: "photo" | "video" | "text" | null;
   status: string;
   budget_usd: number;
+  is_international_payout?: boolean;
   location: string | null;
 };
 
@@ -35,7 +36,9 @@ export default function TaskDetailClient() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch(`/api/tasks/${params.taskId}?lang=${lang}`);
+        const res = await fetch(
+          `/api/tasks/${params.taskId}?lang=${lang}&human_id=${humanId}`
+        );
         if (!res.ok) throw new Error("failed");
         const data = await res.json();
         setTask(data.task);
@@ -46,7 +49,7 @@ export default function TaskDetailClient() {
       }
     }
     load();
-  }, [params.taskId, lang]);
+  }, [params.taskId, lang, humanId]);
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -108,6 +111,7 @@ export default function TaskDetailClient() {
     Number((task.budget_usd - calculateFeeAmount(task.budget_usd)).toFixed(2)),
     0
   );
+  const showIntlFeeNote = Boolean(task.is_international_payout);
   const canSubmit =
     deliverable === "text" ? text.trim().length > 0 : Boolean(file);
 
@@ -119,7 +123,7 @@ export default function TaskDetailClient() {
         {showTranslationPending && (
           <p className="muted">{strings.translationPending}</p>
         )}
-        <p className="muted">{strings.intlFeeNote}</p>
+        {showIntlFeeNote && <p className="muted">{strings.intlFeeNote}</p>}
         <p className="muted">
           {strings.deliverable}: {deliverable} | {strings.payout}: ${netPayout} |{" "}
           {strings.location}: {task.location || strings.any}

@@ -33,6 +33,7 @@ This API does not provide legal interpretation.
 ```json
 {
   "task": "Take a photo of any posted legal notices at the storefront",
+  "origin_country": "JP",
   "location": "Osaka",
   "budget_usd": 150,
   "deliverable": "photo"
@@ -99,6 +100,7 @@ Timeouts are enforced by a server-side sweeper while the process is running.
 * `timeout`
 * `invalid_request`
 * `below_min_budget`
+* `missing_origin_country`
 * `wrong_deliverable`
 * `already_assigned`
 * `not_assigned`

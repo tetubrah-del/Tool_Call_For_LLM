@@ -12,6 +12,7 @@ type Task = {
   lang?: UiLang;
   location: string | null;
   budget_usd: number;
+  is_international_payout?: boolean;
   deliverable: "photo" | "video" | "text" | null;
   status: "open" | "accepted" | "completed" | "failed";
   human_id: string | null;
@@ -171,6 +172,7 @@ export default function TasksClient() {
             Number((task.budget_usd - calculateFeeAmount(task.budget_usd)).toFixed(2)),
             0
           );
+          const showIntlFeeNote = Boolean(task.is_international_payout);
           return (
             <div key={task.id} className="task-item">
               <div className="task-header">
@@ -180,7 +182,7 @@ export default function TasksClient() {
               {showTranslationPending && (
                 <p className="muted">{strings.translationPending}</p>
               )}
-              <p className="muted">{strings.intlFeeNote}</p>
+              {showIntlFeeNote && <p className="muted">{strings.intlFeeNote}</p>}
               <p className="muted">
                 {strings.payout}: ${netPayout} | {strings.location}:{" "}
                 {task.location || strings.any} | {strings.deliverable}:{" "}

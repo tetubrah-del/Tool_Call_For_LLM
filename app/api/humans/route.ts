@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
+import { normalizeCountry } from "@/lib/country";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
@@ -25,9 +26,10 @@ export async function POST(request: Request) {
   const rawLocation =
     typeof payload?.location === "string" ? payload.location.trim() : "";
   const location = rawLocation.length > 0 ? rawLocation : null;
+  const country = normalizeCountry(payload?.country);
   const minBudgetUsd = Number(payload?.min_budget_usd);
 
-  if (!name || !Number.isFinite(minBudgetUsd)) {
+  if (!name || !Number.isFinite(minBudgetUsd) || !country) {
     return NextResponse.json(
       { status: "error", reason: "invalid_request" },
       { status: 400 }
@@ -39,9 +41,9 @@ export async function POST(request: Request) {
   const createdAt = new Date().toISOString();
 
   db.prepare(
-    `INSERT INTO humans (id, name, email, location, min_budget_usd, status, created_at)
-     VALUES (?, ?, ?, ?, ?, 'available', ?)`
-  ).run(id, name, email, location, minBudgetUsd, createdAt);
+    `INSERT INTO humans (id, name, email, location, country, min_budget_usd, status, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, 'available', ?)`
+  ).run(id, name, email, location, country, minBudgetUsd, createdAt);
 
   const acceptsHtml = request.headers.get("accept")?.includes("text/html");
   if (acceptsHtml) {

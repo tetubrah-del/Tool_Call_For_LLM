@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { MIN_BUDGET_USD } from "@/lib/payments";
+import { normalizeCountry } from "@/lib/country";
 
 export async function POST(request: Request) {
   let payload: any = null;
@@ -16,6 +17,7 @@ export async function POST(request: Request) {
   const rawLocation =
     typeof payload?.location === "string" ? payload.location.trim() : "";
   const location = rawLocation.length > 0 ? rawLocation : null;
+  const originCountry = normalizeCountry(payload?.origin_country);
   const deliverable =
     payload?.deliverable === "photo" ||
     payload?.deliverable === "video" ||
@@ -37,6 +39,12 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
+  if (!originCountry) {
+    return NextResponse.json(
+      { status: "rejected", reason: "missing_origin_country" },
+      { status: 400 }
+    );
+  }
   if (budgetUsd < MIN_BUDGET_USD) {
     return NextResponse.json(
       { status: "rejected", reason: "below_min_budget" },
@@ -47,14 +55,15 @@ export async function POST(request: Request) {
   const db = getDb();
   const taskId = crypto.randomUUID();
   db.prepare(
-    `INSERT INTO tasks (id, task, task_en, location, budget_usd, deliverable, deadline_minutes, deadline_at, status, failure_reason, human_id, submission_id, paid_status, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'open', NULL, NULL, NULL, 'unpaid', ?)`
+    `INSERT INTO tasks (id, task, task_en, location, budget_usd, origin_country, deliverable, deadline_minutes, deadline_at, status, failure_reason, human_id, submission_id, paid_status, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', NULL, NULL, NULL, 'unpaid', ?)`
   ).run(
     taskId,
     task,
     task,
     location,
     budgetUsd,
+    originCountry,
     normalizedDeliverable,
     deadlineMinutes,
     deadlineAt,

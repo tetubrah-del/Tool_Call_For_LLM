@@ -14,6 +14,7 @@ Minimal API where an AI agent tool_call can hire a registered human for a real-w
     "type": "object",
     "properties": {
       "task": { "type": "string" },
+      "origin_country": { "type": "string" },
       "location": { "type": "string" },
       "budget_usd": { "type": "number" },
       "deliverable": {
@@ -22,7 +23,7 @@ Minimal API where an AI agent tool_call can hire a registered human for a real-w
       },
       "deadline_minutes": { "type": "number" }
     },
-    "required": ["task", "budget_usd"]
+    "required": ["task", "budget_usd", "origin_country"]
   }
 }
 ```
@@ -50,6 +51,7 @@ curl -X POST http://localhost:3000/api/call_human \
   -H 'Content-Type: application/json' \
   -d '{
     "task": "Take a photo of the nearest public park entrance",
+    "origin_country": "JP",
     "location": "Shibuya",
     "budget_usd": 20,
     "deliverable": "photo",
@@ -170,6 +172,7 @@ or
 - `timeout`
 - `invalid_request`
 - `below_min_budget`
+- `missing_origin_country`
 - `wrong_deliverable`
 - `already_assigned`
 - `not_assigned`
@@ -184,6 +187,7 @@ or
 - `/register` to register as a human
 - `/tasks?human_id=...` to view and accept tasks
 - `/tasks/:taskId?human_id=...` to submit deliverables
+- `country` is required on human registration (ISO2, e.g., `JP`).
 
 ---
 

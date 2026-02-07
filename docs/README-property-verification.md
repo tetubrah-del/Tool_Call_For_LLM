@@ -33,6 +33,7 @@ If the information can be obtained from public databases or listings, **do not u
 ```json
 {
   "task": "Take a photo of the building entrance and nameplate",
+  "origin_country": "JP",
   "location": "Shinjuku, Tokyo",
   "budget_usd": 120,
   "deliverable": "photo"
@@ -99,6 +100,7 @@ Timeouts are enforced by a server-side sweeper while the process is running.
 * `timeout`
 * `invalid_request`
 * `below_min_budget`
+* `missing_origin_country`
 * `wrong_deliverable`
 * `already_assigned`
 * `not_assigned`

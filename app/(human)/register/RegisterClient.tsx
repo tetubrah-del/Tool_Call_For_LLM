@@ -16,6 +16,7 @@ export default function RegisterClient({ title }: RegisterClientProps) {
   const [lang, setLang] = useState<UiLang>(initialLang);
   const [name, setName] = useState("");
   const [location, setLocation] = useState("");
+  const [country, setCountry] = useState("JP");
   const [minBudgetUsd, setMinBudgetUsd] = useState("15");
   const [status, setStatus] = useState<"idle" | "saving" | "done" | "error">("idle");
   const [humanId, setHumanId] = useState<string | null>(null);
@@ -53,6 +54,7 @@ export default function RegisterClient({ title }: RegisterClientProps) {
         if (!cancelled && data.profile) {
           setName(data.profile.name || "");
           setLocation(data.profile.location || "");
+          setCountry(data.profile.country || "JP");
           setMinBudgetUsd(String(data.profile.min_budget_usd ?? 15));
           setHumanId(data.profile.id || null);
           if (data.profile.id) {
@@ -95,6 +97,7 @@ export default function RegisterClient({ title }: RegisterClientProps) {
         body: JSON.stringify({
           name,
           location,
+          country,
           min_budget_usd: Number(minBudgetUsd)
         })
       });
@@ -132,6 +135,16 @@ export default function RegisterClient({ title }: RegisterClientProps) {
         <label>
           {strings.locationHint}
           <input value={location} onChange={(e) => setLocation(e.target.value)} />
+        </label>
+        <label>
+          {strings.countryLabel}
+          <input
+            value={country}
+            onChange={(e) => setCountry(e.target.value.toUpperCase())}
+            placeholder={strings.countryPlaceholder}
+            maxLength={2}
+            required
+          />
         </label>
         <label>
           {strings.minBudget}

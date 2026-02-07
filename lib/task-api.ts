@@ -13,6 +13,7 @@ export type NormalizedTask = {
   lang: UiLang;
   location: string | null;
   budget_usd: number;
+  origin_country: string | null;
   deliverable: "photo" | "video" | "text";
   deadline_at: string | null;
   status: "open" | "accepted" | "completed" | "failed";
@@ -38,6 +39,7 @@ const FAILURE_REASONS = new Set<FailureReason>([
   "timeout",
   "invalid_request",
   "below_min_budget",
+  "missing_origin_country",
   "wrong_deliverable",
   "already_assigned",
   "not_assigned",
@@ -193,6 +195,7 @@ export async function getNormalizedTask(
     lang,
     location: finalTask.location,
     budget_usd: finalTask.budget_usd,
+    origin_country: finalTask.origin_country ?? null,
     deliverable: normalizedDeliverable,
     deadline_at: deadlineAt,
     status: finalTask.status,
