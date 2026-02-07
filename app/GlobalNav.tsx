@@ -41,8 +41,12 @@ export default function GlobalNav() {
         </a>
         <div className="nav-links">
           <a href={`/?${query}`}>{strings.home}</a>
-          <a href={`/auth?lang=${lang}`}>{strings.register}</a>
           <a href={`/tasks?${query}`}>{strings.tasks}</a>
+          {session?.user ? (
+            <a href={`/me?lang=${lang}`}>{strings.myPage}</a>
+          ) : (
+            <a href={`/auth?lang=${lang}`}>{strings.register}</a>
+          )}
         </div>
         {session?.user && (
           <div className="nav-user">

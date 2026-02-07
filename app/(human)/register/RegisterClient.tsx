@@ -1,11 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { normalizeLang, UI_STRINGS, type UiLang } from "@/lib/i18n";
 
-export default function RegisterClient() {
+type RegisterClientProps = {
+  title?: string | null;
+};
+
+export default function RegisterClient({ title }: RegisterClientProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const initialLang = useMemo(() => normalizeLang(searchParams.get("lang")), [searchParams]);
   const [lang, setLang] = useState<UiLang>(initialLang);
@@ -15,6 +20,7 @@ export default function RegisterClient() {
   const [status, setStatus] = useState<"idle" | "saving" | "done" | "error">("idle");
   const [humanId, setHumanId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loadingProfile, setLoadingProfile] = useState(true);
   const strings = UI_STRINGS[lang];
 
   useEffect(() => {
@@ -30,11 +36,51 @@ export default function RegisterClient() {
     localStorage.setItem("lang", lang);
   }, [lang, router, searchParams]);
 
+  useEffect(() => {
+    let cancelled = false;
+    async function loadProfile() {
+      setLoadingProfile(true);
+      setError(null);
+      try {
+        const res = await fetch("/api/profile");
+        if (res.status === 401) {
+          return;
+        }
+        if (!res.ok) {
+          throw new Error("failed");
+        }
+        const data = await res.json();
+        if (!cancelled && data.profile) {
+          setName(data.profile.name || "");
+          setLocation(data.profile.location || "");
+          setMinBudgetUsd(String(data.profile.min_budget_usd ?? 15));
+          setHumanId(data.profile.id || null);
+          if (data.profile.id) {
+            localStorage.setItem("human_id", data.profile.id);
+          }
+        }
+      } catch (err: any) {
+        if (!cancelled) {
+          setError(err.message || "failed");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingProfile(false);
+        }
+      }
+    }
+
+    loadProfile();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   function onLangChange(next: UiLang) {
     setLang(next);
     const params = new URLSearchParams(searchParams.toString());
     params.set("lang", next);
-    router.replace(`/register?${params.toString()}`);
+    router.replace(`${pathname}?${params.toString()}`);
   }
 
   async function onSubmit(event: React.FormEvent) {
@@ -43,7 +89,7 @@ export default function RegisterClient() {
     setError(null);
 
     try {
-      const res = await fetch("/api/humans", {
+      const res = await fetch("/api/profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -60,6 +106,7 @@ export default function RegisterClient() {
 
       const data = await res.json();
       setHumanId(data.id);
+      localStorage.setItem("human_id", data.id);
       setStatus("done");
     } catch (err: any) {
       setError(err.message || "failed");
@@ -70,12 +117,13 @@ export default function RegisterClient() {
   return (
     <div>
       <div className="row">
-        <h1>{strings.registerTitle}</h1>
+        <h1>{title || strings.registerTitle}</h1>
         <select value={lang} onChange={(e) => onLangChange(normalizeLang(e.target.value))}>
           <option value="en">EN</option>
           <option value="ja">JA</option>
         </select>
       </div>
+      {loadingProfile && <p className="muted">{strings.loading}</p>}
       <form className="card" onSubmit={onSubmit}>
         <label>
           {strings.displayName}
@@ -103,7 +151,7 @@ export default function RegisterClient() {
 
       {status === "done" && humanId && (
         <div className="card">
-          <p>{strings.registered}</p>
+          <p>{strings.profileSaved}</p>
           <p className="muted">
             {strings.humanId}: {humanId}
           </p>

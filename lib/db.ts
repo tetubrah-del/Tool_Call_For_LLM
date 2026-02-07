@@ -18,6 +18,7 @@ function ensureDb() {
     CREATE TABLE IF NOT EXISTS humans (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
+      email TEXT,
       location TEXT,
       min_budget_usd REAL NOT NULL,
       status TEXT NOT NULL,
@@ -77,6 +78,7 @@ function ensureDb() {
   ensureColumn(instance, "tasks", "paid_status", "TEXT");
   ensureColumn(instance, "tasks", "paid_at", "TEXT");
   ensureColumn(instance, "tasks", "paid_method", "TEXT");
+  ensureColumn(instance, "humans", "email", "TEXT");
 
   startTimeoutSweeper(instance);
 
@@ -104,6 +106,7 @@ export function getDb() {
 export type Human = {
   id: string;
   name: string;
+  email: string | null;
   location: string | null;
   min_budget_usd: number;
   status: "available" | "busy";
