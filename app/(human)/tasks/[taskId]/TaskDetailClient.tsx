@@ -119,6 +119,7 @@ export default function TaskDetailClient() {
         {showTranslationPending && (
           <p className="muted">{strings.translationPending}</p>
         )}
+        <p className="muted">{strings.intlFeeNote}</p>
         <p className="muted">
           {strings.deliverable}: {deliverable} | {strings.payout}: ${netPayout} |{" "}
           {strings.location}: {task.location || strings.any}

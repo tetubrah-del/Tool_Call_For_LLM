@@ -180,6 +180,7 @@ export default function TasksClient() {
               {showTranslationPending && (
                 <p className="muted">{strings.translationPending}</p>
               )}
+              <p className="muted">{strings.intlFeeNote}</p>
               <p className="muted">
                 {strings.payout}: ${netPayout} | {strings.location}:{" "}
                 {task.location || strings.any} | {strings.deliverable}:{" "}
