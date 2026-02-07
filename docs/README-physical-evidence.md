@@ -34,6 +34,7 @@ This API does not provide legal interpretation.
 {
   "task": "Take a photo of any posted legal notices at the storefront",
   "origin_country": "JP",
+  "task_label": "real_world_verification",
   "location": "Osaka",
   "budget_usd": 150,
   "deliverable": "photo"

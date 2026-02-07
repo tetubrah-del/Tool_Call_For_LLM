@@ -4,6 +4,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { normalizeLang, UI_STRINGS, type UiLang } from "@/lib/i18n";
 import { calculateFeeAmount } from "@/lib/payments";
+import {
+  TASK_LABELS,
+  TASK_LABEL_TEXT,
+  type TaskLabel
+} from "@/lib/task-labels";
 
 type Task = {
   id: string;
@@ -12,6 +17,7 @@ type Task = {
   lang?: UiLang;
   location: string | null;
   budget_usd: number;
+  task_label: TaskLabel | null;
   is_international_payout?: boolean;
   deliverable: "photo" | "video" | "text" | null;
   status: "open" | "accepted" | "completed" | "failed";
@@ -28,6 +34,8 @@ export default function TasksClient() {
   const [humanId, setHumanId] = useState(initialHumanId);
   const [lang, setLang] = useState<UiLang>(initialLang);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [keyword, setKeyword] = useState("");
+  const [selectedLabel, setSelectedLabel] = useState<"all" | TaskLabel>("all");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,6 +46,17 @@ export default function TasksClient() {
     completed: strings.statusCompleted,
     failed: strings.statusFailed
   };
+  const filteredTasks = useMemo(() => {
+    return tasks.filter((task) => {
+      const matchesLabel =
+        selectedLabel === "all" ? true : task.task_label === selectedLabel;
+      const matchesKeyword =
+        keyword.trim().length === 0
+          ? true
+          : `${task.task_display || task.task}`.toLowerCase().includes(keyword.toLowerCase());
+      return matchesLabel && matchesKeyword;
+    });
+  }, [tasks, selectedLabel, keyword]);
 
   const loadTasks = useCallback(
     async (id: string) => {
@@ -149,6 +168,28 @@ export default function TasksClient() {
             placeholder={strings.pasteHumanId}
           />
         </label>
+        <label>
+          {strings.searchKeyword}
+          <input
+            value={keyword}
+            onChange={(e) => setKeyword(e.target.value)}
+            placeholder={strings.searchKeywordPlaceholder}
+          />
+        </label>
+        <label>
+          {strings.taskLabel}
+          <select
+            value={selectedLabel}
+            onChange={(e) => setSelectedLabel(e.target.value as "all" | TaskLabel)}
+          >
+            <option value="all">{strings.allLabels}</option>
+            {TASK_LABELS.map((label) => (
+              <option key={label} value={label}>
+                {TASK_LABEL_TEXT[label][lang]}
+              </option>
+            ))}
+          </select>
+        </label>
         <div className="row">
           <button onClick={() => loadTasks(humanId)} disabled={!humanId || loading}>
             {loading ? strings.loading : strings.refresh}
@@ -160,10 +201,10 @@ export default function TasksClient() {
         {error && <p className="muted">{error}</p>}
       </div>
 
-      {tasks.length === 0 && !loading && <p className="muted">{strings.noTasks}</p>}
+      {filteredTasks.length === 0 && !loading && <p className="muted">{strings.noTasks}</p>}
 
       <div className="task-list">
-        {tasks.map((task) => {
+        {filteredTasks.map((task) => {
           const isAssigned = task.human_id === humanId;
           const statusLabel = statusLabels[task.status];
           const showTranslationPending =
@@ -186,7 +227,8 @@ export default function TasksClient() {
               <p className="muted">
                 {strings.payout}: ${netPayout} | {strings.location}:{" "}
                 {task.location || strings.any} | {strings.deliverable}:{" "}
-                {task.deliverable || "text"}
+                {task.deliverable || "text"} | {strings.taskLabel}:{" "}
+                {task.task_label ? TASK_LABEL_TEXT[task.task_label][lang] : strings.any}
               </p>
               <div className="task-actions">
                 <a className="text-link" href={`/tasks/${task.id}?human_id=${humanId}&lang=${lang}`}>

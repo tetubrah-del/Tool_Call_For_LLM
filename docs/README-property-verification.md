@@ -34,6 +34,7 @@ If the information can be obtained from public databases or listings, **do not u
 {
   "task": "Take a photo of the building entrance and nameplate",
   "origin_country": "JP",
+  "task_label": "real_world_verification",
   "location": "Shinjuku, Tokyo",
   "budget_usd": 120,
   "deliverable": "photo"

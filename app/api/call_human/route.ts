@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { MIN_BUDGET_USD } from "@/lib/payments";
 import { normalizeCountry } from "@/lib/country";
+import { normalizeTaskLabel } from "@/lib/task-labels";
 
 export async function POST(request: Request) {
   let payload: any = null;
@@ -18,6 +19,7 @@ export async function POST(request: Request) {
     typeof payload?.location === "string" ? payload.location.trim() : "";
   const location = rawLocation.length > 0 ? rawLocation : null;
   const originCountry = normalizeCountry(payload?.origin_country);
+  const taskLabel = normalizeTaskLabel(payload?.task_label);
   const deliverable =
     payload?.deliverable === "photo" ||
     payload?.deliverable === "video" ||
@@ -45,6 +47,12 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
+  if (!taskLabel) {
+    return NextResponse.json(
+      { status: "rejected", reason: "invalid_request" },
+      { status: 400 }
+    );
+  }
   if (budgetUsd < MIN_BUDGET_USD) {
     return NextResponse.json(
       { status: "rejected", reason: "below_min_budget" },
@@ -55,8 +63,8 @@ export async function POST(request: Request) {
   const db = getDb();
   const taskId = crypto.randomUUID();
   db.prepare(
-    `INSERT INTO tasks (id, task, task_en, location, budget_usd, origin_country, deliverable, deadline_minutes, deadline_at, status, failure_reason, human_id, submission_id, paid_status, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', NULL, NULL, NULL, 'unpaid', ?)`
+    `INSERT INTO tasks (id, task, task_en, location, budget_usd, origin_country, task_label, deliverable, deadline_minutes, deadline_at, status, failure_reason, human_id, submission_id, paid_status, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', NULL, NULL, NULL, 'unpaid', ?)`
   ).run(
     taskId,
     task,
@@ -64,6 +72,7 @@ export async function POST(request: Request) {
     location,
     budgetUsd,
     originCountry,
+    taskLabel,
     normalizedDeliverable,
     deadlineMinutes,
     deadlineAt,

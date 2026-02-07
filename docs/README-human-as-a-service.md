@@ -15,6 +15,16 @@ Minimal API where an AI agent tool_call can hire a registered human for a real-w
     "properties": {
       "task": { "type": "string" },
       "origin_country": { "type": "string" },
+      "task_label": {
+        "type": "string",
+        "enum": [
+          "real_world_verification",
+          "jp_local_research",
+          "ai_output_qa",
+          "bot_blocker_ops",
+          "lead_prep"
+        ]
+      },
       "location": { "type": "string" },
       "budget_usd": { "type": "number" },
       "deliverable": {
@@ -23,7 +33,7 @@ Minimal API where an AI agent tool_call can hire a registered human for a real-w
       },
       "deadline_minutes": { "type": "number" }
     },
-    "required": ["task", "budget_usd", "origin_country"]
+    "required": ["task", "budget_usd", "origin_country", "task_label"]
   }
 }
 ```
@@ -35,6 +45,7 @@ Minimal API where an AI agent tool_call can hire a registered human for a real-w
 - `POST /api/call_human` (AI tool call)
 - `POST /api/humans` (human registration)
 - `GET /api/tasks?human_id=...` (human task list)
+- `GET /api/tasks?human_id=...&task_label=...&q=...` (human task search)
 - `GET /api/tasks/:taskId` (task status)
 - `GET /api/task/:taskId` (task status, alias)
 - `POST /api/tasks/:taskId/accept` (human accepts)
@@ -52,6 +63,7 @@ curl -X POST http://localhost:3000/api/call_human \
   -d '{
     "task": "Take a photo of the nearest public park entrance",
     "origin_country": "JP",
+    "task_label": "real_world_verification",
     "location": "Shibuya",
     "budget_usd": 20,
     "deliverable": "photo",
@@ -96,9 +108,10 @@ Timeouts are enforced by a server-side sweeper while the process is running.
 
 ```json
 {
-  "task": {
+    "task": {
     "id": "uuid",
     "task": "Take a photo of the nearest public park entrance",
+    "task_label": "real_world_verification",
     "location": "Shibuya",
     "budget_usd": 20,
     "deliverable": "photo",
@@ -141,6 +154,14 @@ Deliverables are returned in `submission` via `GET /api/tasks/:taskId`.
   "content_url": "https://..."
 }
 ```
+
+## Task labels (required)
+
+- `real_world_verification`: on-site checks, calls, physical confirmation
+- `jp_local_research`: Japanese-language local info gathering
+- `ai_output_qa`: final human QA of AI-generated output
+- `bot_blocker_ops`: human steps where bots are blocked
+- `lead_prep`: lead enrichment / pre-processing
 
 or
 

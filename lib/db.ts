@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import Database from "better-sqlite3";
 import { startTimeoutSweeper } from "@/lib/timeout-sweeper";
+import type { TaskLabel } from "@/lib/task-labels";
 
 const DB_PATH = path.join(process.cwd(), "data", "app.db");
 
@@ -33,6 +34,7 @@ function ensureDb() {
       location TEXT,
       budget_usd REAL NOT NULL,
       origin_country TEXT,
+      task_label TEXT,
       deliverable TEXT,
       deadline_minutes REAL,
       deadline_at TEXT,
@@ -71,6 +73,7 @@ function ensureDb() {
 
   ensureColumn(instance, "tasks", "task_en", "TEXT");
   ensureColumn(instance, "tasks", "origin_country", "TEXT");
+  ensureColumn(instance, "tasks", "task_label", "TEXT");
   ensureColumn(instance, "tasks", "deadline_at", "TEXT");
   ensureColumn(instance, "tasks", "failure_reason", "TEXT");
   ensureColumn(instance, "tasks", "submission_id", "TEXT");
@@ -142,6 +145,7 @@ export type Task = {
   location: string | null;
   budget_usd: number;
   origin_country: string | null;
+  task_label: TaskLabel | null;
   deliverable: "photo" | "video" | "text" | null;
   deadline_minutes: number | null;
   deadline_at: string | null;

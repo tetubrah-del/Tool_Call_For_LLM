@@ -33,6 +33,7 @@ This API is not for generic stock images.
 {
   "task": "Hold a sign that says 'Hello from Shibuya' and take a photo",
   "origin_country": "JP",
+  "task_label": "real_world_verification",
   "location": "Shibuya, Tokyo",
   "budget_usd": 100,
   "deliverable": "photo"

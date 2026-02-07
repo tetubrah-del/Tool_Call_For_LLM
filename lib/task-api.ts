@@ -1,6 +1,7 @@
 import type Database from "better-sqlite3";
 import type { FailureReason, Task, Submission } from "@/lib/db";
 import { normalizeLang, type UiLang } from "@/lib/i18n";
+import { normalizeTaskLabel, type TaskLabel } from "@/lib/task-labels";
 
 type NormalizedSubmission =
   | (Submission & { id: string })
@@ -14,6 +15,7 @@ export type NormalizedTask = {
   location: string | null;
   budget_usd: number;
   origin_country: string | null;
+  task_label: TaskLabel | null;
   deliverable: "photo" | "video" | "text";
   deadline_at: string | null;
   status: "open" | "accepted" | "completed" | "failed";
@@ -196,6 +198,7 @@ export async function getNormalizedTask(
     location: finalTask.location,
     budget_usd: finalTask.budget_usd,
     origin_country: finalTask.origin_country ?? null,
+    task_label: normalizeTaskLabel(finalTask.task_label),
     deliverable: normalizedDeliverable,
     deadline_at: deadlineAt,
     status: finalTask.status,

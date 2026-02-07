@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { normalizeLang, UI_STRINGS, type UiLang } from "@/lib/i18n";
+import { TASK_LABEL_TEXT, type TaskLabel } from "@/lib/task-labels";
 
 type TaskPreview = {
   id: string;
@@ -10,6 +11,7 @@ type TaskPreview = {
   lang?: UiLang;
   location: string | null;
   budget_usd: number;
+  task_label: TaskLabel | null;
   deliverable: "photo" | "video" | "text" | null;
   created_at: string;
 };
@@ -63,6 +65,11 @@ export default function HomeClient() {
   function onLangChange(next: UiLang) {
     setLang(next);
     localStorage.setItem("lang", next);
+  }
+
+  function getTaskLabelText(taskLabel: TaskLabel | null) {
+    if (!taskLabel) return strings.any;
+    return TASK_LABEL_TEXT[taskLabel][lang];
   }
 
   return (
@@ -126,6 +133,7 @@ export default function HomeClient() {
                 <span>${task.budget_usd}</span>
                 <span>{task.location || strings.any}</span>
                 <span>{task.deliverable || "text"}</span>
+                <span>{getTaskLabelText(task.task_label)}</span>
               </div>
               <div className="task-date">
                 {strings.posted}: {new Date(task.created_at).toLocaleDateString()}

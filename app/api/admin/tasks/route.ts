@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { getTaskDisplay } from "@/lib/task-api";
 import { requireAdminToken } from "@/lib/admin-auth";
+import { normalizeTaskLabel } from "@/lib/task-labels";
 
 export async function GET(request: Request) {
   const authError = requireAdminToken(request);
@@ -18,6 +19,7 @@ export async function GET(request: Request) {
     }
     return {
       ...task,
+      task_label: normalizeTaskLabel(task.task_label),
       deliverable: task.deliverable || "text",
       task_display: display.display,
       lang: display.lang,

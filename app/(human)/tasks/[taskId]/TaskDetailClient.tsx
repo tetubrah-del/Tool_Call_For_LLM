@@ -4,12 +4,14 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { normalizeLang, UI_STRINGS, type UiLang } from "@/lib/i18n";
 import { calculateFeeAmount } from "@/lib/payments";
+import { TASK_LABEL_TEXT, type TaskLabel } from "@/lib/task-labels";
 
 type Task = {
   id: string;
   task: string;
   task_display?: string;
   lang?: UiLang;
+  task_label: TaskLabel | null;
   deliverable: "photo" | "video" | "text" | null;
   status: string;
   budget_usd: number;
@@ -126,7 +128,8 @@ export default function TaskDetailClient() {
         {showIntlFeeNote && <p className="muted">{strings.intlFeeNote}</p>}
         <p className="muted">
           {strings.deliverable}: {deliverable} | {strings.payout}: ${netPayout} |{" "}
-          {strings.location}: {task.location || strings.any}
+          {strings.location}: {task.location || strings.any} | {strings.taskLabel}:{" "}
+          {task.task_label ? TASK_LABEL_TEXT[task.task_label][lang] : strings.any}
         </p>
       </div>
 

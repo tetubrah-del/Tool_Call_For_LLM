@@ -4,6 +4,7 @@ import { getDb } from "@/lib/db";
 import { getNormalizedTask, getTaskDisplay } from "@/lib/task-api";
 import { MIN_BUDGET_USD, OPERATOR_COUNTRY } from "@/lib/payments";
 import { normalizeCountry } from "@/lib/country";
+import { normalizeTaskLabel } from "@/lib/task-labels";
 
 export async function GET(request: Request) {
   const db = getDb();
@@ -11,6 +12,8 @@ export async function GET(request: Request) {
   const taskId = url.searchParams.get("task_id");
   const humanId = url.searchParams.get("human_id");
   const lang = url.searchParams.get("lang");
+  const keyword = (url.searchParams.get("q") || "").trim().toLowerCase();
+  const filterTaskLabel = normalizeTaskLabel(url.searchParams.get("task_label"));
 
   if (taskId) {
     const task = await getNormalizedTask(db, taskId, lang);
@@ -33,29 +36,41 @@ export async function GET(request: Request) {
     }
 
     const restrictToDomestic = human.country !== OPERATOR_COUNTRY;
+    const openWhere: string[] = [
+      "status = 'open'",
+      "budget_usd >= ?",
+      "(location IS NULL OR location = ?)"
+    ];
+    const openParams: Array<string | number | null> = [human.min_budget_usd, human.location];
+    if (restrictToDomestic) {
+      openWhere.push("origin_country = ?");
+      openParams.push(OPERATOR_COUNTRY);
+    }
+    if (filterTaskLabel) {
+      openWhere.push("task_label = ?");
+      openParams.push(filterTaskLabel);
+    }
     const openTasks = db
       .prepare(
         `SELECT * FROM tasks
-         WHERE status = 'open'
-           AND budget_usd >= ?
-           AND (location IS NULL OR location = ?)
-           ${restrictToDomestic ? "AND origin_country = ?" : ""}
+         WHERE ${openWhere.join(" AND ")}
          ORDER BY created_at DESC`
       )
-      .all(
-        ...(restrictToDomestic
-          ? [human.min_budget_usd, human.location, OPERATOR_COUNTRY]
-          : [human.min_budget_usd, human.location])
-      );
+      .all(...openParams);
 
+    const assignedWhere: string[] = ["human_id = ?", "status IN ('accepted', 'completed')"];
+    const assignedParams: Array<string | number | null> = [humanId];
+    if (filterTaskLabel) {
+      assignedWhere.push("task_label = ?");
+      assignedParams.push(filterTaskLabel);
+    }
     const assignedTasks = db
       .prepare(
         `SELECT * FROM tasks
-         WHERE human_id = ?
-           AND status IN ('accepted', 'completed')
+         WHERE ${assignedWhere.join(" AND ")}
          ORDER BY created_at DESC`
       )
-      .all(humanId);
+      .all(...assignedParams);
 
     const byId = new Map<string, any>();
     for (const task of [...assignedTasks, ...openTasks]) {
@@ -69,8 +84,10 @@ export async function GET(request: Request) {
           task.id
         );
       }
+      const normalizedTaskLabel = normalizeTaskLabel(task.task_label);
       return {
         ...task,
+        task_label: normalizedTaskLabel,
         deliverable: task.deliverable || "text",
         task_display: display.display,
         lang: display.lang,
@@ -78,10 +95,28 @@ export async function GET(request: Request) {
       };
     });
 
-    return NextResponse.json({ tasks });
+    const filteredByKeyword =
+      keyword.length === 0
+        ? tasks
+        : tasks.filter((task: any) => {
+            const source = `${task.task_display || task.task || ""}`.toLowerCase();
+            return source.includes(keyword);
+          });
+
+    return NextResponse.json({ tasks: filteredByKeyword });
   }
 
-  const tasks = db.prepare(`SELECT * FROM tasks ORDER BY created_at DESC`).all();
+  const where: string[] = [];
+  const params: Array<string | number | null> = [];
+  if (filterTaskLabel) {
+    where.push("task_label = ?");
+    params.push(filterTaskLabel);
+  }
+  const tasks = db
+    .prepare(
+      `SELECT * FROM tasks ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY created_at DESC`
+    )
+    .all(...params);
   const normalized = tasks.map((task: any) => {
     const display = getTaskDisplay(db, task, lang);
     if (!task.deliverable) {
@@ -89,15 +124,24 @@ export async function GET(request: Request) {
         task.id
       );
     }
+    const normalizedTaskLabel = normalizeTaskLabel(task.task_label);
     return {
       ...task,
+      task_label: normalizedTaskLabel,
       deliverable: task.deliverable || "text",
       task_display: display.display,
       lang: display.lang,
       paid_status: task.paid_status ?? "unpaid"
     };
   });
-  return NextResponse.json({ tasks: normalized });
+  const filteredByKeyword =
+    keyword.length === 0
+      ? normalized
+      : normalized.filter((task: any) => {
+          const source = `${task.task_display || task.task || ""}`.toLowerCase();
+          return source.includes(keyword);
+        });
+  return NextResponse.json({ tasks: filteredByKeyword });
 }
 
 export async function POST(request: Request) {
@@ -105,6 +149,7 @@ export async function POST(request: Request) {
   const task = typeof payload?.task === "string" ? payload.task.trim() : "";
   const budgetUsd = Number(payload?.budget_usd);
   const originCountry = normalizeCountry(payload?.origin_country);
+  const taskLabel = normalizeTaskLabel(payload?.task_label);
 
   if (!task || !Number.isFinite(budgetUsd)) {
     return NextResponse.json({ status: "error" }, { status: 400 });
@@ -112,6 +157,12 @@ export async function POST(request: Request) {
   if (!originCountry) {
     return NextResponse.json(
       { status: "error", reason: "missing_origin_country" },
+      { status: 400 }
+    );
+  }
+  if (!taskLabel) {
+    return NextResponse.json(
+      { status: "error", reason: "invalid_request" },
       { status: 400 }
     );
   }
@@ -137,8 +188,8 @@ export async function POST(request: Request) {
       : null;
 
   db.prepare(
-    `INSERT INTO tasks (id, task, task_en, location, budget_usd, origin_country, deliverable, deadline_minutes, deadline_at, status, failure_reason, human_id, submission_id, paid_status, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', NULL, NULL, NULL, 'unpaid', ?)`
+    `INSERT INTO tasks (id, task, task_en, location, budget_usd, origin_country, task_label, deliverable, deadline_minutes, deadline_at, status, failure_reason, human_id, submission_id, paid_status, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', NULL, NULL, NULL, 'unpaid', ?)`
   ).run(
     id,
     task,
@@ -146,6 +197,7 @@ export async function POST(request: Request) {
     location,
     budgetUsd,
     originCountry,
+    taskLabel,
     payload?.deliverable ?? "text",
     deadlineMinutes,
     deadlineAt,
