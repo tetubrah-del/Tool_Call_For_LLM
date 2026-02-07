@@ -151,7 +151,7 @@ export default function TasksClient() {
           <button onClick={() => loadTasks(humanId)} disabled={!humanId || loading}>
             {loading ? strings.loading : strings.refresh}
           </button>
-          <a href="/register" className="text-link">
+          <a href={`/auth?lang=${lang}`} className="text-link">
             {strings.needAccount}
           </a>
         </div>

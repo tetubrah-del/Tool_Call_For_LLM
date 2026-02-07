@@ -90,7 +90,7 @@ export default function HomeClient() {
       </header>
 
       <section className="cta-grid">
-        <a className="cta" href={`/register?lang=${lang}`}>
+        <a className="cta" href={`/auth?lang=${lang}`}>
           <div>
             <h2>{strings.register}</h2>
             <p>{strings.registerDesc}</p>

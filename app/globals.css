@@ -404,6 +404,27 @@ button.secondary {
   flex: 0 1 auto;
 }
 
+.auth {
+  display: grid;
+  place-items: center;
+  min-height: 60vh;
+}
+
+.auth-card {
+  width: min(520px, 100%);
+  display: grid;
+  gap: 14px;
+  text-align: left;
+}
+
+.auth-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 @media (max-width: 720px) {
   main {
     padding: 32px 18px 60px;

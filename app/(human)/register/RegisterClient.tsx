@@ -97,7 +97,7 @@ export default function RegisterClient() {
           />
         </label>
         <button type="submit" disabled={status === "saving"}>
-          {status === "saving" ? strings.saving : strings.register}
+          {status === "saving" ? strings.saving : strings.saveProfile}
         </button>
       </form>
 

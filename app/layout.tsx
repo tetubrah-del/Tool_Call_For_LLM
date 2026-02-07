@@ -1,5 +1,6 @@
 import "./globals.css";
 import GlobalNav from "./GlobalNav";
+import AuthSessionProvider from "./SessionProvider";
 import { Suspense } from "react";
 
 export const metadata = {
@@ -15,10 +16,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <Suspense fallback={<div />}>
-          <GlobalNav />
-        </Suspense>
-        <main>{children}</main>
+        <AuthSessionProvider>
+          <Suspense fallback={<div />}>
+            <GlobalNav />
+          </Suspense>
+          <main>{children}</main>
+        </AuthSessionProvider>
       </body>
     </html>
   );

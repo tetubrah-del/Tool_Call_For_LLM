@@ -39,7 +39,7 @@ export default function GlobalNav() {
         </a>
         <div className="nav-links">
           <a href={`/?${query}`}>{strings.home}</a>
-          <a href={`/register?lang=${lang}`}>{strings.register}</a>
+          <a href={`/auth?lang=${lang}`}>{strings.register}</a>
           <a href={`/tasks?${query}`}>{strings.tasks}</a>
         </div>
       </div>
