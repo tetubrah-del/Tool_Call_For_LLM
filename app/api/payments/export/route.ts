@@ -29,6 +29,9 @@ export async function GET(request: Request) {
         paid_status,
         paid_at,
         paid_method,
+        ai_account_id,
+        payer_paypal_email,
+        payee_paypal_email,
         human_id,
         created_at
        FROM tasks
@@ -48,6 +51,9 @@ export async function GET(request: Request) {
     "paid_status",
     "paid_at",
     "paid_method",
+    "ai_account_id",
+    "payer_paypal_email",
+    "payee_paypal_email",
     "human_id",
     "created_at"
   ];

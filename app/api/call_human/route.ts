@@ -15,6 +15,10 @@ export async function POST(request: Request) {
 
   const task = typeof payload?.task === "string" ? payload.task.trim() : "";
   const budgetUsd = Number(payload?.budget_usd);
+  const aiAccountId =
+    typeof payload?.ai_account_id === "string" ? payload.ai_account_id.trim() : "";
+  const aiApiKey =
+    typeof payload?.ai_api_key === "string" ? payload.ai_api_key.trim() : "";
   const rawLocation =
     typeof payload?.location === "string" ? payload.location.trim() : "";
   const location = rawLocation.length > 0 ? rawLocation : null;
@@ -41,7 +45,7 @@ export async function POST(request: Request) {
       ? new Date(Date.parse(createdAt) + deadlineMinutes * 60 * 1000).toISOString()
       : null;
 
-  if (!task || !Number.isFinite(budgetUsd)) {
+  if (!task || !Number.isFinite(budgetUsd) || !aiAccountId || !aiApiKey) {
     return NextResponse.json(
       { status: "rejected", reason: "invalid_request" },
       { status: 400 }
@@ -73,10 +77,22 @@ export async function POST(request: Request) {
   }
 
   const db = getDb();
+  const aiAccount = db
+    .prepare(`SELECT * FROM ai_accounts WHERE id = ?`)
+    .get(aiAccountId) as
+    | { id: string; paypal_email: string; api_key: string; status: string }
+    | undefined;
+  if (!aiAccount || aiAccount.api_key !== aiApiKey || aiAccount.status !== "active") {
+    return NextResponse.json(
+      { status: "rejected", reason: "invalid_request" },
+      { status: 400 }
+    );
+  }
+
   const taskId = crypto.randomUUID();
   db.prepare(
-    `INSERT INTO tasks (id, task, task_en, location, budget_usd, origin_country, task_label, acceptance_criteria, not_allowed, deliverable, deadline_minutes, deadline_at, status, failure_reason, human_id, submission_id, paid_status, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', NULL, NULL, NULL, 'unpaid', ?)`
+    `INSERT INTO tasks (id, task, task_en, location, budget_usd, origin_country, task_label, acceptance_criteria, not_allowed, ai_account_id, payer_paypal_email, payee_paypal_email, deliverable, deadline_minutes, deadline_at, status, failure_reason, human_id, submission_id, paid_status, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, 'open', NULL, NULL, NULL, 'unpaid', ?)`
   ).run(
     taskId,
     task,
@@ -87,6 +103,8 @@ export async function POST(request: Request) {
     taskLabel,
     acceptanceCriteria,
     notAllowed,
+    aiAccountId,
+    aiAccount.paypal_email,
     normalizedDeliverable,
     deadlineMinutes,
     deadlineAt,
@@ -96,6 +114,8 @@ export async function POST(request: Request) {
   const stmt = db.prepare(
     `SELECT * FROM humans
      WHERE status = 'available'
+       AND paypal_email IS NOT NULL
+       AND paypal_email <> ''
        AND min_budget_usd <= ?
        ${location ? "AND location = ?" : ""}
      ORDER BY min_budget_usd ASC
@@ -113,6 +133,10 @@ export async function POST(request: Request) {
 
   db.prepare(`UPDATE tasks SET status = 'accepted', human_id = ? WHERE id = ?`).run(
     human.id,
+    taskId
+  );
+  db.prepare(`UPDATE tasks SET payee_paypal_email = ? WHERE id = ?`).run(
+    human.paypal_email,
     taskId
   );
   db.prepare(`UPDATE humans SET status = 'busy' WHERE id = ?`).run(human.id);

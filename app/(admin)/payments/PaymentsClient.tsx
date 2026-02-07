@@ -7,6 +7,8 @@ type Task = {
   id: string;
   task: string;
   budget_usd: number;
+  payer_paypal_email?: string | null;
+  payee_paypal_email?: string | null;
   status: "open" | "accepted" | "completed" | "failed";
   human_id: string | null;
   created_at: string;
@@ -143,6 +145,10 @@ export default function PaymentsClient() {
               Budget: ${task.budget_usd} | Fee(20%): ${feeAmount.toFixed(2)} | PayPal
               fee: ${Number(paypalFeeValue || 0).toFixed(2)} | Payout: ${payout.toFixed(2)}
             </p>
+            <p className="muted">
+              Receive from: {task.payer_paypal_email || "-"} | Send to:{" "}
+              {task.payee_paypal_email || "-"}
+            </p>
             <div className="row">
               <label>
                 PayPal fee (USD)
@@ -171,6 +177,10 @@ export default function PaymentsClient() {
             Paid at: {task.paid_at || "-"} | Fee: ${Number(task.fee_amount || 0).toFixed(2)} |
             PayPal fee: ${Number(task.paypal_fee_amount || 0).toFixed(2)} | Payout: $
             {Number(task.payout_amount || 0).toFixed(2)}
+          </p>
+          <p className="muted">
+            Receive from: {task.payer_paypal_email || "-"} | Send to:{" "}
+            {task.payee_paypal_email || "-"}
           </p>
         </div>
       ))}

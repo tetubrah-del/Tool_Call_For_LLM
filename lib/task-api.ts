@@ -18,6 +18,9 @@ export type NormalizedTask = {
   task_label: TaskLabel | null;
   acceptance_criteria: string | null;
   not_allowed: string | null;
+  ai_account_id: string | null;
+  payer_paypal_email: string | null;
+  payee_paypal_email: string | null;
   deliverable: "photo" | "video" | "text";
   deadline_at: string | null;
   status: "open" | "accepted" | "completed" | "failed";
@@ -203,6 +206,9 @@ export async function getNormalizedTask(
     task_label: normalizeTaskLabel(finalTask.task_label),
     acceptance_criteria: finalTask.acceptance_criteria ?? null,
     not_allowed: finalTask.not_allowed ?? null,
+    ai_account_id: finalTask.ai_account_id ?? null,
+    payer_paypal_email: finalTask.payer_paypal_email ?? null,
+    payee_paypal_email: finalTask.payee_paypal_email ?? null,
     deliverable: normalizedDeliverable,
     deadline_at: deadlineAt,
     status: finalTask.status,

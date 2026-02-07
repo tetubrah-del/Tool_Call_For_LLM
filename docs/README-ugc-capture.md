@@ -32,6 +32,8 @@ This API is not for generic stock images.
 ```json
 {
   "task": "Hold a sign that says 'Hello from Shibuya' and take a photo",
+  "ai_account_id": "uuid",
+  "ai_api_key": "secret",
   "origin_country": "JP",
   "task_label": "real_world_verification",
   "acceptance_criteria": "Submit one clear sign-holding photo with location context.",

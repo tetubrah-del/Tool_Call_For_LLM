@@ -17,6 +17,7 @@ export default function RegisterClient({ title }: RegisterClientProps) {
   const [name, setName] = useState("");
   const [location, setLocation] = useState("");
   const [country, setCountry] = useState("JP");
+  const [paypalEmail, setPaypalEmail] = useState("");
   const [minBudgetUsd, setMinBudgetUsd] = useState("15");
   const [status, setStatus] = useState<"idle" | "saving" | "done" | "error">("idle");
   const [humanId, setHumanId] = useState<string | null>(null);
@@ -55,6 +56,7 @@ export default function RegisterClient({ title }: RegisterClientProps) {
           setName(data.profile.name || "");
           setLocation(data.profile.location || "");
           setCountry(data.profile.country || "JP");
+          setPaypalEmail(data.profile.paypal_email || "");
           setMinBudgetUsd(String(data.profile.min_budget_usd ?? 15));
           setHumanId(data.profile.id || null);
           if (data.profile.id) {
@@ -98,6 +100,7 @@ export default function RegisterClient({ title }: RegisterClientProps) {
           name,
           location,
           country,
+          paypal_email: paypalEmail,
           min_budget_usd: Number(minBudgetUsd)
         })
       });
@@ -143,6 +146,16 @@ export default function RegisterClient({ title }: RegisterClientProps) {
             onChange={(e) => setCountry(e.target.value.toUpperCase())}
             placeholder={strings.countryPlaceholder}
             maxLength={2}
+            required
+          />
+        </label>
+        <label>
+          {strings.paypalEmail}
+          <input
+            type="email"
+            value={paypalEmail}
+            onChange={(e) => setPaypalEmail(e.target.value)}
+            placeholder={strings.paypalEmailPlaceholder}
             required
           />
         </label>

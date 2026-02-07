@@ -114,6 +114,13 @@ export default function HomeClient() {
           </div>
           <span className="cta-arrow">→</span>
         </a>
+        <a className="cta" href={`/ai/connect?lang=${lang}`}>
+          <div>
+            <h2>{strings.aiConnect}</h2>
+            <p>{strings.aiConnectSubtitle}</p>
+          </div>
+          <span className="cta-arrow">→</span>
+        </a>
       </section>
 
       <section className="tasks-preview">

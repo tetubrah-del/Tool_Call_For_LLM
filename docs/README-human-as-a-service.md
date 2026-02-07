@@ -14,6 +14,8 @@ Minimal API where an AI agent tool_call can hire a registered human for a real-w
     "type": "object",
     "properties": {
       "task": { "type": "string" },
+      "ai_account_id": { "type": "string" },
+      "ai_api_key": { "type": "string" },
       "origin_country": { "type": "string" },
       "task_label": {
         "type": "string",
@@ -37,6 +39,8 @@ Minimal API where an AI agent tool_call can hire a registered human for a real-w
     },
     "required": [
       "task",
+      "ai_account_id",
+      "ai_api_key",
       "budget_usd",
       "origin_country",
       "task_label",
@@ -52,6 +56,7 @@ Minimal API where an AI agent tool_call can hire a registered human for a real-w
 ## API Endpoints
 
 - `POST /api/call_human` (AI tool call)
+- `POST /api/ai/accounts` (AI account + PayPal connect)
 - `POST /api/humans` (human registration)
 - `GET /api/tasks?human_id=...` (human task list)
 - `GET /api/tasks?human_id=...&task_label=...&q=...` (human task search)
@@ -71,6 +76,8 @@ curl -X POST http://localhost:3000/api/call_human \
   -H 'Content-Type: application/json' \
   -d '{
     "task": "Take a photo of the nearest public park entrance",
+    "ai_account_id": "uuid",
+    "ai_api_key": "secret",
     "origin_country": "JP",
     "task_label": "real_world_verification",
     "acceptance_criteria": "Provide one clear photo of the park entrance sign.",
@@ -124,6 +131,9 @@ Timeouts are enforced by a server-side sweeper while the process is running.
     "task_label": "real_world_verification",
     "acceptance_criteria": "Provide one clear photo of the park entrance sign.",
     "not_allowed": "Do not enter private property or include faces in close-up.",
+    "ai_account_id": "uuid",
+    "payer_paypal_email": "ai-ops@example.com",
+    "payee_paypal_email": "worker@example.com",
     "location": "Shibuya",
     "budget_usd": 20,
     "deliverable": "photo",
@@ -180,6 +190,28 @@ Deliverables are returned in `submission` via `GET /api/tasks/:taskId`.
 - Tasks are fulfilled on a `best effort` basis.
 - No delivery-time/SLA guarantee is provided in MVP.
 
+## AI PayPal connect
+
+Register once and use returned credentials in each tool call.
+
+```json
+POST /api/ai/accounts
+{
+  "name": "My Agent",
+  "paypal_email": "ai-ops@example.com"
+}
+```
+
+Response:
+
+```json
+{
+  "status": "connected",
+  "account_id": "uuid",
+  "api_key": "secret"
+}
+```
+
 or
 
 ```json
@@ -223,9 +255,11 @@ or
 ## Human UI
 
 - `/register` to register as a human
+- `/ai/connect` to connect AI account PayPal and get API credentials
 - `/tasks?human_id=...` to view and accept tasks
 - `/tasks/:taskId?human_id=...` to submit deliverables
 - `country` is required on human registration (ISO2, e.g., `JP`).
+- `paypal_email` is required on human registration/profile.
 
 ---
 
@@ -241,6 +275,7 @@ or
 - Payment is mocked in `app/api/call_human/route.ts`.
 - AI only supplies `budget_usd` and never sees payment processing.
 - Minimum budget is `$5`.
+- Admin panel shows payer (`payer_paypal_email`) and payee (`payee_paypal_email`) for manual settlement.
 
 ### Admin payments (manual)
 

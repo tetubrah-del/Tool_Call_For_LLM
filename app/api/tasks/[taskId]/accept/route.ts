@@ -42,8 +42,15 @@ export async function POST(
     return NextResponse.json({ status: "error", reason: "already_assigned" }, { status: 409 });
   }
 
-  db.prepare(`UPDATE tasks SET status = 'accepted', human_id = ? WHERE id = ?`).run(
+  if (!human.paypal_email) {
+    return NextResponse.json({ status: "error", reason: "invalid_request" }, { status: 400 });
+  }
+
+  db.prepare(
+    `UPDATE tasks SET status = 'accepted', human_id = ?, payee_paypal_email = ? WHERE id = ?`
+  ).run(
     humanId,
+    human.paypal_email,
     params.taskId
   );
   db.prepare(`UPDATE humans SET status = 'busy' WHERE id = ?`).run(humanId);

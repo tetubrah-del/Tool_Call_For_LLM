@@ -34,6 +34,12 @@ export async function GET(request: Request) {
         { status: 400 }
       );
     }
+    if (!human.paypal_email) {
+      return NextResponse.json(
+        { status: "error", reason: "invalid_request" },
+        { status: 400 }
+      );
+    }
 
     const restrictToDomestic = human.country !== OPERATOR_COUNTRY;
     const openWhere: string[] = [
@@ -150,6 +156,10 @@ export async function POST(request: Request) {
   const budgetUsd = Number(payload?.budget_usd);
   const originCountry = normalizeCountry(payload?.origin_country);
   const taskLabel = normalizeTaskLabel(payload?.task_label);
+  const aiAccountId =
+    typeof payload?.ai_account_id === "string" ? payload.ai_account_id.trim() : "";
+  const aiApiKey =
+    typeof payload?.ai_api_key === "string" ? payload.ai_api_key.trim() : "";
   const acceptanceCriteria =
     typeof payload?.acceptance_criteria === "string"
       ? payload.acceptance_criteria.trim()
@@ -186,6 +196,28 @@ export async function POST(request: Request) {
   }
 
   const db = getDb();
+  let payerPaypalEmail: string | null = null;
+  if (aiAccountId || aiApiKey) {
+    if (!aiAccountId || !aiApiKey) {
+      return NextResponse.json(
+        { status: "error", reason: "invalid_request" },
+        { status: 400 }
+      );
+    }
+    const aiAccount = db
+      .prepare(`SELECT * FROM ai_accounts WHERE id = ?`)
+      .get(aiAccountId) as
+      | { id: string; paypal_email: string; api_key: string; status: string }
+      | undefined;
+    if (!aiAccount || aiAccount.api_key !== aiApiKey || aiAccount.status !== "active") {
+      return NextResponse.json(
+        { status: "error", reason: "invalid_request" },
+        { status: 400 }
+      );
+    }
+    payerPaypalEmail = aiAccount.paypal_email;
+  }
+
   const id = payload?.id ?? crypto.randomUUID();
   const createdAt = new Date().toISOString();
 
@@ -200,8 +232,8 @@ export async function POST(request: Request) {
       : null;
 
   db.prepare(
-    `INSERT INTO tasks (id, task, task_en, location, budget_usd, origin_country, task_label, acceptance_criteria, not_allowed, deliverable, deadline_minutes, deadline_at, status, failure_reason, human_id, submission_id, paid_status, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', NULL, NULL, NULL, 'unpaid', ?)`
+    `INSERT INTO tasks (id, task, task_en, location, budget_usd, origin_country, task_label, acceptance_criteria, not_allowed, ai_account_id, payer_paypal_email, payee_paypal_email, deliverable, deadline_minutes, deadline_at, status, failure_reason, human_id, submission_id, paid_status, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, 'open', NULL, NULL, NULL, 'unpaid', ?)`
   ).run(
     id,
     task,
@@ -212,6 +244,8 @@ export async function POST(request: Request) {
     taskLabel,
     acceptanceCriteria,
     notAllowed,
+    aiAccountId || null,
+    payerPaypalEmail,
     payload?.deliverable ?? "text",
     deadlineMinutes,
     deadlineAt,

@@ -42,6 +42,7 @@ export default function GlobalNav() {
         <div className="nav-links">
           <a href={`/?${query}`}>{strings.home}</a>
           <a href={`/tasks?${query}`}>{strings.tasks}</a>
+          <a href={`/ai/connect?lang=${lang}`}>{strings.aiConnect}</a>
           {session?.user ? (
             <a href={`/me?lang=${lang}`}>{strings.myPage}</a>
           ) : (

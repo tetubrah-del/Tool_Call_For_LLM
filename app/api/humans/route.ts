@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { normalizeCountry } from "@/lib/country";
+import { normalizePaypalEmail } from "@/lib/paypal";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
@@ -27,9 +28,10 @@ export async function POST(request: Request) {
     typeof payload?.location === "string" ? payload.location.trim() : "";
   const location = rawLocation.length > 0 ? rawLocation : null;
   const country = normalizeCountry(payload?.country);
+  const paypalEmail = normalizePaypalEmail(payload?.paypal_email);
   const minBudgetUsd = Number(payload?.min_budget_usd);
 
-  if (!name || !Number.isFinite(minBudgetUsd) || !country) {
+  if (!name || !Number.isFinite(minBudgetUsd) || !country || !paypalEmail) {
     return NextResponse.json(
       { status: "error", reason: "invalid_request" },
       { status: 400 }
@@ -41,9 +43,9 @@ export async function POST(request: Request) {
   const createdAt = new Date().toISOString();
 
   db.prepare(
-    `INSERT INTO humans (id, name, email, location, country, min_budget_usd, status, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, 'available', ?)`
-  ).run(id, name, email, location, country, minBudgetUsd, createdAt);
+    `INSERT INTO humans (id, name, email, paypal_email, location, country, min_budget_usd, status, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 'available', ?)`
+  ).run(id, name, email, paypalEmail, location, country, minBudgetUsd, createdAt);
 
   const acceptsHtml = request.headers.get("accept")?.includes("text/html");
   if (acceptsHtml) {

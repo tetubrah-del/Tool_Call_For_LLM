@@ -20,9 +20,19 @@ function ensureDb() {
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       email TEXT,
+      paypal_email TEXT,
       location TEXT,
       country TEXT NOT NULL,
       min_budget_usd REAL NOT NULL,
+      status TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS ai_accounts (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      paypal_email TEXT NOT NULL,
+      api_key TEXT NOT NULL,
       status TEXT NOT NULL,
       created_at TEXT NOT NULL
     );
@@ -37,6 +47,9 @@ function ensureDb() {
       task_label TEXT,
       acceptance_criteria TEXT,
       not_allowed TEXT,
+      ai_account_id TEXT,
+      payer_paypal_email TEXT,
+      payee_paypal_email TEXT,
       deliverable TEXT,
       deadline_minutes REAL,
       deadline_at TEXT,
@@ -78,6 +91,9 @@ function ensureDb() {
   ensureColumn(instance, "tasks", "task_label", "TEXT");
   ensureColumn(instance, "tasks", "acceptance_criteria", "TEXT");
   ensureColumn(instance, "tasks", "not_allowed", "TEXT");
+  ensureColumn(instance, "tasks", "ai_account_id", "TEXT");
+  ensureColumn(instance, "tasks", "payer_paypal_email", "TEXT");
+  ensureColumn(instance, "tasks", "payee_paypal_email", "TEXT");
   ensureColumn(instance, "tasks", "deadline_at", "TEXT");
   ensureColumn(instance, "tasks", "failure_reason", "TEXT");
   ensureColumn(instance, "tasks", "submission_id", "TEXT");
@@ -89,6 +105,7 @@ function ensureDb() {
   ensureColumn(instance, "tasks", "paid_at", "TEXT");
   ensureColumn(instance, "tasks", "paid_method", "TEXT");
   ensureColumn(instance, "humans", "email", "TEXT");
+  ensureColumn(instance, "humans", "paypal_email", "TEXT");
   ensureColumn(instance, "humans", "country", "TEXT");
 
   startTimeoutSweeper(instance);
@@ -118,6 +135,7 @@ export type Human = {
   id: string;
   name: string;
   email: string | null;
+  paypal_email: string | null;
   location: string | null;
   country: string | null;
   min_budget_usd: number;
@@ -152,6 +170,9 @@ export type Task = {
   task_label: TaskLabel | null;
   acceptance_criteria: string | null;
   not_allowed: string | null;
+  ai_account_id: string | null;
+  payer_paypal_email: string | null;
+  payee_paypal_email: string | null;
   deliverable: "photo" | "video" | "text" | null;
   deadline_minutes: number | null;
   deadline_at: string | null;
@@ -166,6 +187,15 @@ export type Task = {
   paid_status: "unpaid" | "paid" | null;
   paid_at: string | null;
   paid_method: "paypal" | null;
+  created_at: string;
+};
+
+export type AiAccount = {
+  id: string;
+  name: string;
+  paypal_email: string;
+  api_key: string;
+  status: "active" | "disabled";
   created_at: string;
 };
 

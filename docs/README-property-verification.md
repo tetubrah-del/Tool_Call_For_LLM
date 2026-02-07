@@ -33,6 +33,8 @@ If the information can be obtained from public databases or listings, **do not u
 ```json
 {
   "task": "Take a photo of the building entrance and nameplate",
+  "ai_account_id": "uuid",
+  "ai_api_key": "secret",
   "origin_country": "JP",
   "task_label": "real_world_verification",
   "acceptance_criteria": "Submit one exterior entrance photo and one nameplate photo.",

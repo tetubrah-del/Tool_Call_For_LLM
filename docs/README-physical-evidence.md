@@ -33,6 +33,8 @@ This API does not provide legal interpretation.
 ```json
 {
   "task": "Take a photo of any posted legal notices at the storefront",
+  "ai_account_id": "uuid",
+  "ai_api_key": "secret",
   "origin_country": "JP",
   "task_label": "real_world_verification",
   "acceptance_criteria": "Submit a storefront photo where posted notices are readable.",

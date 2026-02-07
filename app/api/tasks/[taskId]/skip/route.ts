@@ -36,7 +36,7 @@ export async function POST(
     return NextResponse.json({ status: "error", reason: "not_assigned" }, { status: 403 });
   }
 
-  db.prepare(`UPDATE tasks SET status = 'open', human_id = NULL WHERE id = ?`).run(
+  db.prepare(`UPDATE tasks SET status = 'open', human_id = NULL, payee_paypal_email = NULL WHERE id = ?`).run(
     params.taskId
   );
   db.prepare(`UPDATE humans SET status = 'available' WHERE id = ?`).run(humanId);
