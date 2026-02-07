@@ -155,6 +155,22 @@ button.secondary {
   color: var(--accent-strong);
 }
 
+.nav-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.user-pill {
+  background: #fff3e1;
+  color: var(--ink);
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  border: 1px solid var(--border);
+}
+
 .hero {
   background: var(--surface-strong);
   border-radius: var(--radius-lg);

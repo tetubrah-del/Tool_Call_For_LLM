@@ -2,12 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { signOut, useSession } from "next-auth/react";
 import { normalizeLang, UI_STRINGS, type UiLang } from "@/lib/i18n";
 
 export default function GlobalNav() {
   const searchParams = useSearchParams();
   const [lang, setLang] = useState<UiLang>("en");
   const [humanId, setHumanId] = useState("");
+  const { data: session } = useSession();
 
   useEffect(() => {
     const savedLang = localStorage.getItem("lang");
@@ -42,6 +44,16 @@ export default function GlobalNav() {
           <a href={`/auth?lang=${lang}`}>{strings.register}</a>
           <a href={`/tasks?${query}`}>{strings.tasks}</a>
         </div>
+        {session?.user && (
+          <div className="nav-user">
+            <span className="user-pill">
+              {strings.signedInAs}: {session.user.name || session.user.email || "User"}
+            </span>
+            <button className="secondary" type="button" onClick={() => signOut()}>
+              {strings.signOut}
+            </button>
+          </div>
+        )}
       </div>
     </nav>
   );
