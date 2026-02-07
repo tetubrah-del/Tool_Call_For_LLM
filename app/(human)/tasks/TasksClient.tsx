@@ -119,16 +119,26 @@ export default function TasksClient() {
   }
 
   return (
-    <div>
-      <div className="row">
-        <h1>{strings.tasks}</h1>
-        <select value={lang} onChange={(e) => onLangChange(normalizeLang(e.target.value))}>
-          <option value="en">EN</option>
-          <option value="ja">JA</option>
-        </select>
+    <div className="tasks">
+      <div className="page-head">
+        <div>
+          <p className="eyebrow">{strings.latestTasks}</p>
+          <h1>{strings.tasks}</h1>
+        </div>
+        <div className="lang">
+          <label htmlFor="lang">{strings.langLabel}</label>
+          <select
+            id="lang"
+            value={lang}
+            onChange={(e) => onLangChange(normalizeLang(e.target.value))}
+          >
+            <option value="en">EN</option>
+            <option value="ja">JA</option>
+          </select>
+        </div>
       </div>
 
-      <div className="card">
+      <div className="card filter-card">
         <label>
           {strings.humanId}
           <input
@@ -141,7 +151,7 @@ export default function TasksClient() {
           <button onClick={() => loadTasks(humanId)} disabled={!humanId || loading}>
             {loading ? strings.loading : strings.refresh}
           </button>
-          <a href="/register" className="muted">
+          <a href="/register" className="text-link">
             {strings.needAccount}
           </a>
         </div>
@@ -150,40 +160,50 @@ export default function TasksClient() {
 
       {tasks.length === 0 && !loading && <p className="muted">{strings.noTasks}</p>}
 
-      {tasks.map((task) => {
-        const isAssigned = task.human_id === humanId;
-        const statusLabel = statusLabels[task.status];
-        const showTranslationPending =
-          lang === "ja" && task.task_display && task.task_display === task.task;
-        return (
-          <div key={task.id} className="card">
-            <h3>{task.task_display || task.task}</h3>
-            {showTranslationPending && (
-              <p className="muted">{strings.translationPending}</p>
-            )}
-            <p className="muted">
-              {strings.status}: {statusLabel} | {strings.budget}: ${task.budget_usd} |{" "}
-              {strings.location}: {task.location || strings.any} | {strings.deliverable}:{" "}
-              {task.deliverable || "text"}
-            </p>
-            <div className="row">
-              {task.status === "open" && (
-                <button onClick={() => acceptTask(task.id)}>{strings.accept}</button>
+      <div className="task-list">
+        {tasks.map((task) => {
+          const isAssigned = task.human_id === humanId;
+          const statusLabel = statusLabels[task.status];
+          const showTranslationPending =
+            lang === "ja" && task.task_display && task.task_display === task.task;
+          return (
+            <div key={task.id} className="task-item">
+              <div className="task-header">
+                <h3>{task.task_display || task.task}</h3>
+                <span className="status-pill">{statusLabel}</span>
+              </div>
+              {showTranslationPending && (
+                <p className="muted">{strings.translationPending}</p>
               )}
-              {(task.status === "accepted" || isAssigned) && (
-                <a href={`/tasks/${task.id}?human_id=${humanId}&lang=${lang}`}>
-                  {strings.deliver}
+              <p className="muted">
+                {strings.budget}: ${task.budget_usd} | {strings.location}:{" "}
+                {task.location || strings.any} | {strings.deliverable}:{" "}
+                {task.deliverable || "text"}
+              </p>
+              <div className="task-actions">
+                <a className="text-link" href={`/tasks/${task.id}?human_id=${humanId}&lang=${lang}`}>
+                  {strings.details}
                 </a>
-              )}
-              {(task.status === "open" || isAssigned) && (
-                <button className="secondary" onClick={() => skipTask(task.id)}>
-                  {strings.skip}
-                </button>
-              )}
+                <div className="row">
+                  {task.status === "open" && (
+                    <button onClick={() => acceptTask(task.id)}>{strings.accept}</button>
+                  )}
+                  {(task.status === "accepted" || isAssigned) && (
+                    <a href={`/tasks/${task.id}?human_id=${humanId}&lang=${lang}`}>
+                      {strings.deliver}
+                    </a>
+                  )}
+                  {(task.status === "open" || isAssigned) && (
+                    <button className="secondary" onClick={() => skipTask(task.id)}>
+                      {strings.skip}
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }
