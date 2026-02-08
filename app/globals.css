@@ -368,6 +368,69 @@ button[disabled] {
   color: var(--muted);
 }
 
+.photos-panel {
+  display: grid;
+  gap: 18px;
+}
+
+.photo-upload-card h3,
+.photo-list-card h3 {
+  margin: 0 0 8px;
+}
+
+.photo-list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.photo-list-head .secondary {
+  width: auto;
+  margin: 0;
+  padding: 8px 14px;
+}
+
+.switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+
+.switch-row input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+}
+
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.photo-item {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: #10192b;
+}
+
+.photo-item img {
+  width: 100%;
+  height: 170px;
+  object-fit: cover;
+  display: block;
+}
+
+.photo-item-meta {
+  padding: 10px 12px 12px;
+}
+
 .cta-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));

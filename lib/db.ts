@@ -85,6 +85,14 @@ function ensureDb() {
       created_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS human_photos (
+      id TEXT PRIMARY KEY,
+      human_id TEXT NOT NULL,
+      photo_url TEXT NOT NULL,
+      is_public INTEGER NOT NULL,
+      created_at TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS idempotency_keys (
       route TEXT NOT NULL,
       idem_key TEXT NOT NULL,
@@ -146,6 +154,7 @@ function ensureDb() {
   ensureColumn(instance, "webhook_deliveries", "status_code", "INTEGER");
   ensureColumn(instance, "webhook_deliveries", "response_body", "TEXT");
   ensureColumn(instance, "webhook_deliveries", "error", "TEXT");
+  ensureColumn(instance, "human_photos", "is_public", "INTEGER");
 
   startTimeoutSweeper(instance);
 
@@ -244,5 +253,13 @@ export type Submission = {
   type: "photo" | "video" | "text";
   content_url: string | null;
   text: string | null;
+  created_at: string;
+};
+
+export type HumanPhoto = {
+  id: string;
+  human_id: string;
+  photo_url: string;
+  is_public: 0 | 1;
   created_at: string;
 };

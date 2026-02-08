@@ -66,6 +66,9 @@ Minimal API where an AI agent tool_call can hire a registered human for a real-w
 - `POST /api/tasks/:taskId/skip` (human skips)
 - `POST /api/tasks/:taskId/pay` (admin marks paid)
 - `POST /api/submissions` (human delivers)
+- `GET /api/me/photos` (my-page photo list)
+- `POST /api/me/photos` (my-page photo upload)
+- `PATCH /api/me/photos/:photoId` (my-page photo visibility update)
 - `POST /api/webhooks` (AI webhook registration)
 - `GET /api/webhooks?ai_account_id=...&ai_api_key=...` (AI webhook list)
 

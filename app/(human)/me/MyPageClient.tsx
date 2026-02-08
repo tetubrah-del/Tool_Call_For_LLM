@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { normalizeLang, UI_STRINGS } from "@/lib/i18n";
 import RegisterClient from "../register/RegisterClient";
+import PhotosPanel from "./PhotosPanel";
 
 type TabKey = "profile" | "photos" | "payments" | "messages" | "api";
 
@@ -44,7 +45,12 @@ export default function MyPageClient() {
           <p className="eyebrow">{strings.dashboardEyebrow}</p>
           <h1>{strings.dashboardTitle}</h1>
         </div>
-        <button type="submit" form={formId} className="save-button">
+        <button
+          type="submit"
+          form={formId}
+          className="save-button"
+          disabled={activeTab !== "profile"}
+        >
           {strings.save}
         </button>
       </section>
@@ -72,7 +78,8 @@ export default function MyPageClient() {
             />
           </div>
         )}
-        {activeTab !== "profile" && (
+        {activeTab === "photos" && <PhotosPanel lang={lang} />}
+        {activeTab !== "profile" && activeTab !== "photos" && (
           <div className="card empty-state">{strings.comingSoon}</div>
         )}
       </section>
