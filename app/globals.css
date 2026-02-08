@@ -266,6 +266,108 @@ button[disabled] {
   margin-top: 0;
 }
 
+.mypage {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.stat-card {
+  background: rgba(13, 20, 34, 0.9);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 18px 20px;
+  box-shadow: 0 12px 26px rgba(5, 8, 15, 0.35);
+  min-height: 86px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.stat-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.stat-label {
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.dashboard-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.dashboard-head h1 {
+  margin: 6px 0 0;
+}
+
+.save-button {
+  width: auto;
+  padding: 10px 22px;
+  border-radius: 14px;
+}
+
+.tabs {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: rgba(8, 12, 20, 0.7);
+}
+
+.tab {
+  width: auto;
+  padding: 10px 18px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.tab:hover {
+  color: var(--ink);
+  border-color: rgba(255, 138, 28, 0.35);
+}
+
+.tab-active {
+  background: var(--accent);
+  color: #1a130c;
+  border-color: var(--accent);
+}
+
+.panel {
+  display: grid;
+  gap: 20px;
+}
+
+.profile-panel .card {
+  background: rgba(15, 20, 28, 0.9);
+}
+
+.empty-state {
+  text-align: center;
+  color: var(--muted);
+}
+
 .cta-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));

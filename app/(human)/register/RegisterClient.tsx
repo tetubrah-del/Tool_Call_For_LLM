@@ -7,9 +7,15 @@ import { normalizeLang, UI_STRINGS, type UiLang } from "@/lib/i18n";
 
 type RegisterClientProps = {
   title?: string | null;
+  formId?: string;
+  showSubmit?: boolean;
 };
 
-export default function RegisterClient({ title }: RegisterClientProps) {
+export default function RegisterClient({
+  title,
+  formId = "profile-form",
+  showSubmit = true
+}: RegisterClientProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -138,7 +144,7 @@ export default function RegisterClient({ title }: RegisterClientProps) {
         </select>
       </div>
       {loadingProfile && <p className="muted">{strings.loading}</p>}
-      <form className="card" onSubmit={onSubmit}>
+      <form id={formId} className="card" onSubmit={onSubmit}>
         <label>
           {strings.displayName}
           <input value={name} onChange={(e) => setName(e.target.value)} required />
@@ -178,9 +184,11 @@ export default function RegisterClient({ title }: RegisterClientProps) {
             required
           />
         </label>
-        <button type="submit" disabled={status === "saving"}>
-          {status === "saving" ? strings.saving : strings.saveProfile}
-        </button>
+        {showSubmit && (
+          <button type="submit" disabled={status === "saving"}>
+            {status === "saving" ? strings.saving : strings.saveProfile}
+          </button>
+        )}
       </form>
 
       {status === "done" && humanId && (
