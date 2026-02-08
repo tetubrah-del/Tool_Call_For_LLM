@@ -86,15 +86,14 @@ export default function TasksClient() {
   }, [tasks, selectedLabel, keyword, selectedDeliverable, selectedStatus, minBudget, maxBudget]);
 
   const loadTasks = useCallback(
-    async (id: string) => {
-      if (!id) {
-        setTasks([]);
-        return;
-      }
+    async (id?: string) => {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(`/api/tasks?human_id=${id}&lang=${lang}`);
+        const params = new URLSearchParams();
+        params.set("lang", lang);
+        if (id) params.set("human_id", id);
+        const res = await fetch(`/api/tasks?${params.toString()}`);
         if (!res.ok) {
           throw new Error("failed to load");
         }
@@ -161,9 +160,9 @@ export default function TasksClient() {
   }, [lang, router, searchParams]);
 
   useEffect(() => {
-    if (!humanId) return;
-    loadTasks(humanId);
-  }, [humanId, lang, loadTasks]);
+    if (profileLoading) return;
+    loadTasks(humanId || undefined);
+  }, [humanId, lang, loadTasks, profileLoading]);
 
   async function acceptTask(taskId: string) {
     if (!humanId) return;
@@ -270,7 +269,7 @@ export default function TasksClient() {
           />
         </label>
         <div className="row">
-          <button onClick={() => loadTasks(humanId)} disabled={!humanId || loading || profileLoading}>
+          <button onClick={() => loadTasks(humanId || undefined)} disabled={loading || profileLoading}>
             {loading || profileLoading ? strings.loading : strings.refresh}
           </button>
           <a href={`/auth?lang=${lang}`} className="text-link">
