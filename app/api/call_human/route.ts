@@ -8,6 +8,18 @@ import { finishIdempotency, startIdempotency } from "@/lib/idempotency";
 import { dispatchTaskEvent } from "@/lib/webhooks";
 import { ensurePendingContactChannel } from "@/lib/contact-channel";
 
+type FieldError = {
+  field: string;
+  code:
+    | "required"
+    | "invalid_type"
+    | "invalid_enum"
+    | "invalid_number"
+    | "below_min"
+    | "invalid_credentials";
+  message?: string;
+};
+
 export async function POST(request: Request) {
   const idemKey = request.headers.get("Idempotency-Key")?.trim() || null;
   let payload: any = null;
@@ -78,20 +90,49 @@ export async function POST(request: Request) {
     return NextResponse.json(body, { status });
   }
 
-  if (!task || !Number.isFinite(budgetUsd) || !aiAccountId || !aiApiKey) {
-    return respond({ status: "rejected", reason: "invalid_request" }, 400);
+  const fieldErrors: FieldError[] = [];
+  if (!task) fieldErrors.push({ field: "task", code: "required" });
+  if (!Number.isFinite(budgetUsd)) {
+    fieldErrors.push({ field: "budget_usd", code: "invalid_number" });
+  }
+  if (!aiAccountId) fieldErrors.push({ field: "ai_account_id", code: "required" });
+  if (!aiApiKey) fieldErrors.push({ field: "ai_api_key", code: "required" });
+  if (!taskLabel) {
+    fieldErrors.push({
+      field: "task_label",
+      code: payload?.task_label == null ? "required" : "invalid_enum"
+    });
+  }
+  if (!acceptanceCriteria) {
+    fieldErrors.push({ field: "acceptance_criteria", code: "required" });
+  }
+  if (!notAllowed) fieldErrors.push({ field: "not_allowed", code: "required" });
+
+  if (fieldErrors.length) {
+    return respond(
+      { status: "rejected", reason: "invalid_request", field_errors: fieldErrors },
+      400
+    );
   }
   if (!originCountry) {
-    return respond({ status: "rejected", reason: "missing_origin_country" }, 400);
-  }
-  if (!taskLabel) {
-    return respond({ status: "rejected", reason: "invalid_request" }, 400);
-  }
-  if (!acceptanceCriteria || !notAllowed) {
-    return respond({ status: "rejected", reason: "invalid_request" }, 400);
+    return respond(
+      {
+        status: "rejected",
+        reason: "missing_origin_country",
+        field_errors: [{ field: "origin_country", code: "required" }]
+      },
+      400
+    );
   }
   if (budgetUsd < MIN_BUDGET_USD) {
-    return respond({ status: "rejected", reason: "below_min_budget" }, 400);
+    return respond(
+      {
+        status: "rejected",
+        reason: "below_min_budget",
+        field_errors: [{ field: "budget_usd", code: "below_min" }]
+      },
+      400
+    );
   }
 
   const aiAccount = await db
@@ -100,7 +141,14 @@ export async function POST(request: Request) {
     | { id: string; paypal_email: string; api_key: string; status: string }
     | undefined;
   if (!aiAccount || aiAccount.api_key !== aiApiKey || aiAccount.status !== "active") {
-    return respond({ status: "rejected", reason: "invalid_request" }, 400);
+    return respond(
+      {
+        status: "rejected",
+        reason: "invalid_request",
+        field_errors: [{ field: "auth", code: "invalid_credentials" }]
+      },
+      400
+    );
   }
 
   const taskId = crypto.randomUUID();
@@ -143,7 +191,7 @@ export async function POST(request: Request) {
       `UPDATE tasks SET status = 'failed', failure_reason = 'no_human_available' WHERE id = ?`
     ).run(taskId);
     void dispatchTaskEvent(db, { eventType: "task.failed", taskId }).catch(() => {});
-    return respond({ status: "rejected", reason: "no_human_available" });
+    return respond({ status: "rejected", reason: "no_human_available", task_id: taskId });
   }
 
   await db.prepare(`UPDATE tasks SET status = 'accepted', human_id = ? WHERE id = ?`).run(
