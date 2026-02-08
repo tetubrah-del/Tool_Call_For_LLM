@@ -13,6 +13,39 @@ type RegisterClientProps = {
   submitClassName?: string;
 };
 
+const COUNTRY_OPTIONS: Array<{ code: string; en: string; ja: string }> = [
+  { code: "JP", en: "Japan", ja: "日本" },
+  { code: "US", en: "United States", ja: "アメリカ" },
+  { code: "GB", en: "United Kingdom", ja: "イギリス" },
+  { code: "CA", en: "Canada", ja: "カナダ" },
+  { code: "AU", en: "Australia", ja: "オーストラリア" },
+  { code: "NZ", en: "New Zealand", ja: "ニュージーランド" },
+  { code: "SG", en: "Singapore", ja: "シンガポール" },
+  { code: "HK", en: "Hong Kong", ja: "香港" },
+  { code: "TW", en: "Taiwan", ja: "台湾" },
+  { code: "KR", en: "South Korea", ja: "韓国" },
+  { code: "CN", en: "China", ja: "中国" },
+  { code: "IN", en: "India", ja: "インド" },
+  { code: "TH", en: "Thailand", ja: "タイ" },
+  { code: "VN", en: "Vietnam", ja: "ベトナム" },
+  { code: "PH", en: "Philippines", ja: "フィリピン" },
+  { code: "ID", en: "Indonesia", ja: "インドネシア" },
+  { code: "MY", en: "Malaysia", ja: "マレーシア" },
+  { code: "DE", en: "Germany", ja: "ドイツ" },
+  { code: "FR", en: "France", ja: "フランス" },
+  { code: "IT", en: "Italy", ja: "イタリア" },
+  { code: "ES", en: "Spain", ja: "スペイン" },
+  { code: "NL", en: "Netherlands", ja: "オランダ" },
+  { code: "SE", en: "Sweden", ja: "スウェーデン" },
+  { code: "CH", en: "Switzerland", ja: "スイス" },
+  { code: "AE", en: "United Arab Emirates", ja: "アラブ首長国連邦" },
+  { code: "SA", en: "Saudi Arabia", ja: "サウジアラビア" },
+  { code: "BR", en: "Brazil", ja: "ブラジル" },
+  { code: "MX", en: "Mexico", ja: "メキシコ" },
+  { code: "AR", en: "Argentina", ja: "アルゼンチン" },
+  { code: "ZA", en: "South Africa", ja: "南アフリカ" }
+];
+
 export default function RegisterClient({
   title,
   formId = "profile-form",
@@ -33,6 +66,8 @@ export default function RegisterClient({
   const [loadingProfile, setLoadingProfile] = useState(true);
   const { status: sessionStatus } = useSession();
   const strings = UI_STRINGS[lang];
+  const normalizedCountry = country.trim().toUpperCase();
+  const hasCountryInList = COUNTRY_OPTIONS.some((option) => option.code === normalizedCountry);
 
   async function parseApiResponse(res: Response) {
     const raw = await res.text();
@@ -67,7 +102,11 @@ export default function RegisterClient({
         if (!cancelled && data.profile) {
           setName(data.profile.name || "");
           setLocation(data.profile.location || "");
-          setCountry(data.profile.country || "JP");
+          setCountry(
+            typeof data.profile.country === "string" && data.profile.country.trim()
+              ? data.profile.country.trim().toUpperCase()
+              : "JP"
+          );
           setPaypalEmail(data.profile.paypal_email || "");
           setMinBudgetUsd(String(data.profile.min_budget_usd ?? 15));
           setHumanId(data.profile.id || null);
@@ -141,13 +180,16 @@ export default function RegisterClient({
         </label>
         <label>
           {strings.countryLabel}
-          <input
-            value={country}
-            onChange={(e) => setCountry(e.target.value.toUpperCase())}
-            placeholder={strings.countryPlaceholder}
-            maxLength={2}
-            required
-          />
+          <select value={normalizedCountry || "JP"} onChange={(e) => setCountry(e.target.value)} required>
+            {!hasCountryInList && normalizedCountry && (
+              <option value={normalizedCountry}>{normalizedCountry}</option>
+            )}
+            {COUNTRY_OPTIONS.map((option) => (
+              <option key={option.code} value={option.code}>
+                {option.code} - {lang === "ja" ? option.ja : option.en}
+              </option>
+            ))}
+          </select>
         </label>
         <label>
           {strings.paypalEmail}
