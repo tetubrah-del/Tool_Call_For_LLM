@@ -39,6 +39,7 @@ type ContactMessage = {
   sender_type: "ai" | "human";
   sender_id: string;
   body: string;
+  attachment_url: string | null;
   created_at: string;
   read_by_ai: 0 | 1;
   read_by_human: 0 | 1;
@@ -55,6 +56,8 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
   const [threadMessages, setThreadMessages] = useState<ContactMessage[]>([]);
   const [threadLoading, setThreadLoading] = useState(false);
   const [composeBody, setComposeBody] = useState("");
+  const [composeFile, setComposeFile] = useState<File | null>(null);
+  const [sendingMessage, setSendingMessage] = useState(false);
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [templateTitle, setTemplateTitle] = useState("");
@@ -207,19 +210,25 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
 
   async function sendThreadMessage(event: React.FormEvent) {
     event.preventDefault();
-    if (!selectedTaskId || !composeBody.trim()) return;
+    if (!selectedTaskId || (!composeBody.trim() && !composeFile)) return;
     setError(null);
+    setSendingMessage(true);
     try {
+      const formData = new FormData();
+      formData.append("body", composeBody);
+      if (composeFile) {
+        formData.append("file", composeFile);
+      }
       const res = await fetch(`/api/tasks/${selectedTaskId}/contact/messages`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ body: composeBody })
+        body: formData
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data?.reason || "failed");
       }
       setComposeBody("");
+      setComposeFile(null);
       const data = await res.json();
       setThreadMessages((prev) => [...prev, data.message]);
       setChannels((prev) =>
@@ -231,6 +240,8 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
       );
     } catch (err: any) {
       setError(err.message || "failed");
+    } finally {
+      setSendingMessage(false);
     }
   }
 
@@ -284,6 +295,10 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
                         {message.sender_type === "human" ? strings.me : strings.ai}
                       </p>
                       <p>{message.body}</p>
+                      {message.attachment_url && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={message.attachment_url} alt="message attachment" className="thread-image" />
+                      )}
                       <p className="muted">
                         {new Date(message.created_at).toLocaleString(lang)}
                       </p>
@@ -297,10 +312,34 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
                       value={composeBody}
                       onChange={(e) => setComposeBody(e.target.value)}
                       rows={3}
-                      required
                     />
                   </label>
-                  <button type="submit">{strings.sendMessage}</button>
+                  <label>
+                    {strings.attachmentImage}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => setComposeFile(e.target.files?.[0] || null)}
+                    />
+                  </label>
+                  {composeFile && (
+                    <div className="template-actions">
+                      <p className="muted">{composeFile.name}</p>
+                      <button
+                        type="button"
+                        className="secondary"
+                        onClick={() => setComposeFile(null)}
+                      >
+                        {strings.removeAttachment}
+                      </button>
+                    </div>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={sendingMessage || (!composeBody.trim() && !composeFile)}
+                  >
+                    {sendingMessage ? strings.saving : strings.sendMessage}
+                  </button>
                 </form>
               </>
             )}

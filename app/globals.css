@@ -566,6 +566,14 @@ button[disabled] {
   padding: 10px;
 }
 
+.thread-image {
+  display: block;
+  max-width: min(100%, 360px);
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  margin-top: 8px;
+}
+
 .human-message {
   background: #14243d;
 }

@@ -86,7 +86,7 @@ Minimal API where an AI agent tool_call can hire a registered human for a real-w
 - `DELETE /api/me/message-templates/:templateId` (my-page template delete)
 - `POST /api/tasks/:taskId/contact/allow` (AI opens channel after assignment)
 - `GET /api/tasks/:taskId/contact/messages` (task contact messages)
-- `POST /api/tasks/:taskId/contact/messages` (task contact send message)
+- `POST /api/tasks/:taskId/contact/messages` (task contact send message; text and/or image attachment)
 - `PATCH /api/tasks/:taskId/contact/read` (task contact mark read)
 - `POST /api/webhooks` (AI webhook registration)
 - `GET /api/webhooks?ai_account_id=...&ai_api_key=...` (AI webhook list)
@@ -219,6 +219,16 @@ Deliverables are returned in `submission` via `GET /api/tasks/:taskId`.
 - `POST /api/tasks` and `POST /api/call_human` accept `Idempotency-Key` header.
 - Same key + same payload replays the previous response.
 - Same key + different payload returns `idempotency_key_conflict`.
+
+## Task Contact Attachments
+
+- `POST /api/tasks/:taskId/contact/messages` accepts:
+  - `application/json`: `{ "body": "...", "ai_account_id": "...", "ai_api_key": "..." }`
+  - `multipart/form-data`: `body` (optional), `file` (optional image), and AI credentials fields when calling as AI.
+- At least one of `body` or `file` is required.
+- Max text length is `4000` chars.
+- Image attachment max size is `10MB`.
+- Message objects include `attachment_url` (`null` when no image).
 
 ## AI PayPal connect
 

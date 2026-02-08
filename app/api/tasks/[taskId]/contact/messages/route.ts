@@ -1,10 +1,44 @@
 import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
+import { saveUpload } from "@/lib/storage";
 import { resolveActorFromRequest } from "../_auth";
 
 function normalizeMessageBody(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
+}
+
+const MAX_MESSAGE_LENGTH = 4000;
+const MAX_ATTACHMENT_SIZE_BYTES = 10 * 1024 * 1024;
+
+async function parsePayload(request: Request): Promise<{
+  body: string;
+  ai_account_id?: string;
+  ai_api_key?: string;
+  file: File | null;
+}> {
+  const contentType = request.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) {
+    const payload = await request.json().catch(() => null);
+    return {
+      body: normalizeMessageBody(payload?.body),
+      ai_account_id:
+        typeof payload?.ai_account_id === "string" ? payload.ai_account_id : undefined,
+      ai_api_key: typeof payload?.ai_api_key === "string" ? payload.ai_api_key : undefined,
+      file: null
+    };
+  }
+
+  const form = await request.formData();
+  const upload = form.get("file");
+  return {
+    body: normalizeMessageBody(form.get("body")),
+    ai_account_id:
+      typeof form.get("ai_account_id") === "string" ? String(form.get("ai_account_id")) : undefined,
+    ai_api_key:
+      typeof form.get("ai_api_key") === "string" ? String(form.get("ai_api_key")) : undefined,
+    file: upload instanceof File ? upload : null
+  };
 }
 
 export async function GET(
@@ -40,7 +74,7 @@ export async function GET(
 
   const messages = await db
     .prepare(
-      `SELECT id, task_id, sender_type, sender_id, body, created_at, read_by_ai, read_by_human
+      `SELECT id, task_id, sender_type, sender_id, body, attachment_url, created_at, read_by_ai, read_by_human
        FROM contact_messages
        WHERE task_id = ?
        ORDER BY created_at ASC`
@@ -62,13 +96,20 @@ export async function POST(
   request: Request,
   { params }: { params: { taskId: string } }
 ) {
-  const payload = await request.json().catch(() => null);
-  const message = normalizeMessageBody(payload?.body);
-  if (!message) {
+  const payload = await parsePayload(request);
+  const hasBody = payload.body.length > 0;
+  const hasFile = payload.file instanceof File;
+  if (!hasBody && !hasFile) {
     return NextResponse.json({ status: "error", reason: "invalid_request" }, { status: 400 });
   }
-  if (message.length > 4000) {
+  if (payload.body.length > MAX_MESSAGE_LENGTH) {
     return NextResponse.json({ status: "error", reason: "invalid_request" }, { status: 400 });
+  }
+  if (hasFile && !payload.file.type.startsWith("image/")) {
+    return NextResponse.json({ status: "error", reason: "invalid_file_type" }, { status: 400 });
+  }
+  if (hasFile && payload.file.size > MAX_ATTACHMENT_SIZE_BYTES) {
+    return NextResponse.json({ status: "error", reason: "file_too_large" }, { status: 400 });
   }
 
   const db = getDb();
@@ -96,15 +137,26 @@ export async function POST(
     );
   }
 
+  const attachmentUrl = hasFile ? await saveUpload(payload.file) : null;
   const id = crypto.randomUUID();
   const createdAt = new Date().toISOString();
   const readByAi = actor.role === "ai" ? 1 : 0;
   const readByHuman = actor.role === "human" ? 1 : 0;
   await db.prepare(
     `INSERT INTO contact_messages
-     (id, task_id, sender_type, sender_id, body, created_at, read_by_ai, read_by_human)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(id, task.id, actor.role, actor.id, message, createdAt, readByAi, readByHuman);
+     (id, task_id, sender_type, sender_id, body, attachment_url, created_at, read_by_ai, read_by_human)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(
+    id,
+    task.id,
+    actor.role,
+    actor.id,
+    payload.body,
+    attachmentUrl,
+    createdAt,
+    readByAi,
+    readByHuman
+  );
 
   return NextResponse.json({
     status: "stored",
@@ -113,7 +165,8 @@ export async function POST(
       task_id: task.id,
       sender_type: actor.role,
       sender_id: actor.id,
-      body: message,
+      body: payload.body,
+      attachment_url: attachmentUrl,
       created_at: createdAt,
       read_by_ai: readByAi,
       read_by_human: readByHuman

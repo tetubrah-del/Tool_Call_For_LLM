@@ -234,6 +234,7 @@ async function initPostgres() {
       sender_type TEXT NOT NULL,
       sender_id TEXT NOT NULL,
       body TEXT NOT NULL,
+      attachment_url TEXT,
       created_at TEXT NOT NULL,
       read_by_ai INTEGER NOT NULL DEFAULT 0,
       read_by_human INTEGER NOT NULL DEFAULT 0
@@ -301,6 +302,7 @@ async function initPostgres() {
     `ALTER TABLE message_templates ADD COLUMN IF NOT EXISTS updated_at TEXT`,
     `ALTER TABLE task_contacts ADD COLUMN IF NOT EXISTS opened_at TEXT`,
     `ALTER TABLE task_contacts ADD COLUMN IF NOT EXISTS closed_at TEXT`,
+    `ALTER TABLE contact_messages ADD COLUMN IF NOT EXISTS attachment_url TEXT`,
     `ALTER TABLE contact_messages ADD COLUMN IF NOT EXISTS read_by_ai INTEGER`,
     `ALTER TABLE contact_messages ADD COLUMN IF NOT EXISTS read_by_human INTEGER`,
     `ALTER TABLE idempotency_keys ADD COLUMN IF NOT EXISTS status_code INTEGER`,
@@ -432,6 +434,7 @@ async function initSqlite() {
       sender_type TEXT NOT NULL,
       sender_id TEXT NOT NULL,
       body TEXT NOT NULL,
+      attachment_url TEXT,
       created_at TEXT NOT NULL,
       read_by_ai INTEGER NOT NULL DEFAULT 0,
       read_by_human INTEGER NOT NULL DEFAULT 0
@@ -503,6 +506,7 @@ async function initSqlite() {
   ensureSqliteColumn(db, "message_templates", "updated_at", "TEXT");
   ensureSqliteColumn(db, "task_contacts", "opened_at", "TEXT");
   ensureSqliteColumn(db, "task_contacts", "closed_at", "TEXT");
+  ensureSqliteColumn(db, "contact_messages", "attachment_url", "TEXT");
   ensureSqliteColumn(db, "contact_messages", "read_by_ai", "INTEGER");
   ensureSqliteColumn(db, "contact_messages", "read_by_human", "INTEGER");
 }
@@ -714,6 +718,7 @@ export type ContactMessage = {
   sender_type: "ai" | "human";
   sender_id: string;
   body: string;
+  attachment_url: string | null;
   created_at: string;
   read_by_ai: 0 | 1;
   read_by_human: 0 | 1;
