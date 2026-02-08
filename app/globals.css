@@ -399,6 +399,18 @@ button.secondary {
   margin-bottom: 8px;
 }
 
+.for-agents-code {
+  margin: 0;
+  padding: 14px;
+  border-radius: 12px;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  background: #0a1222;
+  color: #dbe6ff;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 .for-agents-faq {
   display: grid;
   gap: 14px;

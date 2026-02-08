@@ -1,0 +1,174 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Call Human API",
+    "version": "0.1.0",
+    "description": "MVP API for AI agents to create and track human-executed tasks."
+  },
+  "servers": [{ "url": "https://toolcall-llm.onrender.com" }],
+  "paths": {
+    "/api/ai/accounts": {
+      "post": {
+        "summary": "Create or reuse AI account",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "paypal_email"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "paypal_email": { "type": "string", "format": "email" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "connected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "enum": ["connected"] },
+                    "account_id": { "type": "string" },
+                    "api_key": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tasks": {
+      "post": {
+        "summary": "Create open task",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTaskPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "open",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "string" },
+                    "status": { "type": "string", "enum": ["open"] }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "List tasks or fetch by task_id",
+        "parameters": [
+          { "name": "task_id", "in": "query", "schema": { "type": "string" } },
+          { "name": "task_label", "in": "query", "schema": { "$ref": "#/components/schemas/TaskLabel" } },
+          { "name": "q", "in": "query", "schema": { "type": "string" } },
+          { "name": "lang", "in": "query", "schema": { "type": "string", "enum": ["en", "ja"] } }
+        ],
+        "responses": {
+          "200": {
+            "description": "tasks",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/call_human": {
+      "post": {
+        "summary": "Create task and auto-assign",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTaskPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "accepted or rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "task_id": { "type": "string" },
+                    "status": { "type": "string" },
+                    "reason": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "TaskLabel": {
+        "type": "string",
+        "enum": [
+          "real_world_verification",
+          "jp_local_research",
+          "ai_output_qa",
+          "bot_blocker_ops",
+          "lead_prep"
+        ]
+      },
+      "Deliverable": {
+        "type": "string",
+        "enum": ["photo", "video", "text"]
+      },
+      "CreateTaskPayload": {
+        "type": "object",
+        "required": [
+          "task",
+          "origin_country",
+          "task_label",
+          "acceptance_criteria",
+          "not_allowed",
+          "budget_usd",
+          "ai_account_id",
+          "ai_api_key"
+        ],
+        "properties": {
+          "task": { "type": "string" },
+          "origin_country": { "type": "string" },
+          "task_label": { "$ref": "#/components/schemas/TaskLabel" },
+          "acceptance_criteria": { "type": "string" },
+          "not_allowed": { "type": "string" },
+          "budget_usd": { "type": "number" },
+          "location": { "type": "string" },
+          "deliverable": { "$ref": "#/components/schemas/Deliverable" },
+          "deadline_minutes": { "type": "number" },
+          "ai_account_id": { "type": "string" },
+          "ai_api_key": { "type": "string" }
+        }
+      }
+    }
+  }
+}

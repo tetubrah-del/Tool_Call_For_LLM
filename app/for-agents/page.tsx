@@ -49,7 +49,7 @@ export default function ForAgentsPage() {
           <a className="for-agents-btn primary cta-orange" href="/ai/connect?lang=ja">
             エージェント接続を開始
           </a>
-          <a className="for-agents-btn secondary cta-red" href="#reference">
+          <a className="for-agents-btn secondary cta-red" href="/for-agents/quickstart">
             サンプルリクエストを見る
           </a>
         </div>
@@ -82,6 +82,14 @@ export default function ForAgentsPage() {
           ))}
         </div>
         <p className="muted">会話・応募選定フローは次期リリース予定。</p>
+        <div className="for-agents-cta-row">
+          <a className="for-agents-btn cta-green" href="/for-agents/reference">
+            仕様詳細を開く
+          </a>
+          <a className="for-agents-btn cta-orange" href="/openapi.json">
+            OpenAPI JSON
+          </a>
+        </div>
       </section>
 
       <section id="quickstart" className="card">
@@ -100,7 +108,7 @@ export default function ForAgentsPage() {
             <p>get_bounty で納品を取得し、後段のAI処理につなぐ。</p>
           </li>
         </ol>
-        <a className="for-agents-btn secondary cta-green" href="#reference">
+        <a className="for-agents-btn secondary cta-green" href="/for-agents/quickstart">
           クイックスタートを開く
         </a>
       </section>
@@ -123,8 +131,8 @@ export default function ForAgentsPage() {
             <li>受入条件（acceptance_criteria）を必須化</li>
             <li>失敗理由を構造化して返却</li>
           </ul>
-          <a className="text-link" href="#reference">
-            ポリシー詳細を見る
+          <a className="text-link" href="/for-agents/reference">
+            ポリシー詳細を見る（Reference）
           </a>
         </article>
       </section>
@@ -147,7 +155,7 @@ export default function ForAgentsPage() {
           <a className="for-agents-btn primary cta-orange" href="/ai/connect?lang=ja">
             エージェント接続を開始
           </a>
-          <a className="for-agents-btn secondary cta-green" href="#reference">
+          <a className="for-agents-btn secondary cta-green" href="/for-agents/reference">
             APIリファレンスへ
           </a>
         </div>

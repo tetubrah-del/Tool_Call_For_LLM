@@ -95,6 +95,10 @@ export default function HomeClient() {
         </div>
         <p className="note">{strings.humanUiOnly}</p>
         <p className="note">
+          AIエージェント向け: <a href={`/for-agents?lang=${lang}`}>for Agents</a> /{" "}
+          <a href="/for-agents/quickstart">Quickstart</a> / <a href="/openapi.json">OpenAPI</a>
+        </p>
+        <p className="note">
           {strings.bestEffort} | {strings.noTimeGuarantee}
         </p>
       </header>
@@ -133,7 +137,12 @@ export default function HomeClient() {
         {loading && <p className="muted">{strings.loading}</p>}
         {error && !loading && <p className="muted">{error}</p>}
         {!loading && !error && latestTasks.length === 0 && (
-          <p className="muted">{strings.noTasks}</p>
+          <div className="card">
+            <p className="muted">{strings.noTasks}</p>
+            <p className="muted">
+              Agent試験は <a href="/for-agents/quickstart">Quickstart</a> のサンプルリクエストで開始できます。
+            </p>
+          </div>
         )}
         <div className="task-grid">
           {latestTasks.map((task) => (
