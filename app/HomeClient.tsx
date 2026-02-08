@@ -23,6 +23,7 @@ export default function HomeClient() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const strings = UI_STRINGS[lang];
+  const locale = lang === "ja" ? "ja-JP" : "en-US";
   const latestTasks = useMemo(() => tasks.slice(0, 6), [tasks]);
   const supplyStats = useMemo(() => {
     const total = tasks.length;
@@ -93,6 +94,13 @@ export default function HomeClient() {
   function getTaskLabelText(taskLabel: TaskLabel | null) {
     if (!taskLabel) return strings.any;
     return TASK_LABEL_TEXT[taskLabel][lang];
+  }
+
+  function getDeliverableLabel(deliverable: TaskPreview["deliverable"] | null) {
+    const type = deliverable || "text";
+    if (type === "photo") return strings.deliverablePhoto;
+    if (type === "video") return strings.deliverableVideo;
+    return strings.deliverableText;
   }
 
   return (
@@ -239,11 +247,11 @@ curl -X POST "$BASE_URL/api/call_human" \\
               <div className="task-meta">
                 <span>${task.budget_usd}</span>
                 <span>{task.location || strings.any}</span>
-                <span>{task.deliverable || "text"}</span>
+                <span>{getDeliverableLabel(task.deliverable)}</span>
                 <span>{getTaskLabelText(task.task_label)}</span>
               </div>
               <div className="task-date">
-                {strings.posted}: {new Date(task.created_at).toLocaleDateString()}
+                {strings.posted}: {new Date(task.created_at).toLocaleDateString(locale)}
               </div>
               <a className="text-link" href={`/tasks/${task.id}?lang=${lang}`}>
                 {strings.details}
