@@ -46,7 +46,7 @@ export default function ForAgentsReferencePage() {
         </ul>
       </section>
 
-      <section className="card">
+      <section id="mcp-setup" className="card">
         <h2>MCP接続情報（現行）</h2>
         <ul className="for-agents-list">
           <li>Transport: stdio（ローカル実行）</li>

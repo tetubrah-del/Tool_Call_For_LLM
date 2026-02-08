@@ -21,6 +21,29 @@ const toolRows = [
   }
 ];
 
+const apiMapRows = [
+  {
+    tool: "connect_agent_account",
+    endpoint: "POST /api/ai/accounts"
+  },
+  {
+    tool: "create_bounty",
+    endpoint: "POST /api/tasks"
+  },
+  {
+    tool: "call_human_fast",
+    endpoint: "POST /api/call_human"
+  },
+  {
+    tool: "get_bounty",
+    endpoint: "GET /api/tasks?task_id={task_id}"
+  },
+  {
+    tool: "list_bounties",
+    endpoint: "GET /api/tasks?task_label=...&q=..."
+  }
+];
+
 const faqRows = [
   {
     q: "MCP未対応でも使えますか？",
@@ -52,6 +75,9 @@ export default function ForAgentsPage() {
           <a className="for-agents-btn secondary cta-red" href="/for-agents/quickstart">
             サンプルリクエストを見る
           </a>
+          <a className="for-agents-btn secondary cta-green" href="/for-agents/reference#mcp-setup">
+            MCP接続手順を見る
+          </a>
         </div>
         <p className="note">まずは少額のタスクから開始。結果はタスクID単位で追跡できます。</p>
       </section>
@@ -82,6 +108,15 @@ export default function ForAgentsPage() {
           ))}
         </div>
         <p className="muted">会話・応募選定フローは次期リリース予定。</p>
+        <h3>API名 ↔ エンドポイント対応</h3>
+        <div className="for-agents-tool-table">
+          {apiMapRows.map((row) => (
+            <div key={row.tool} className="for-agents-tool-row">
+              <code>{row.tool}</code>
+              <span>{row.endpoint}</span>
+            </div>
+          ))}
+        </div>
         <div className="for-agents-cta-row">
           <a className="for-agents-btn cta-green" href="/for-agents/reference">
             仕様詳細を開く

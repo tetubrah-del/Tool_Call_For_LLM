@@ -9,6 +9,7 @@ type TaskPreview = {
   task: string;
   task_display?: string;
   lang?: UiLang;
+  status?: "open" | "accepted" | "completed" | "failed";
   location: string | null;
   budget_usd: number;
   task_label: TaskLabel | null;
@@ -23,6 +24,28 @@ export default function HomeClient() {
   const [error, setError] = useState<string | null>(null);
   const strings = UI_STRINGS[lang];
   const latestTasks = useMemo(() => tasks.slice(0, 6), [tasks]);
+  const supplyStats = useMemo(() => {
+    const total = tasks.length;
+    const withLocation = tasks.filter((task) => !!task.location);
+    const uniqueRegions = new Set(withLocation.map((task) => String(task.location))).size;
+    const completed = tasks.filter((task) => task.status === "completed").length;
+    const failed = tasks.filter((task) => task.status === "failed").length;
+    const denominator = completed + failed;
+    const completionRate = denominator > 0 ? Math.round((completed / denominator) * 100) : null;
+    const open = tasks.filter((task) => task.status === "open").length;
+    const openRate = total > 0 ? Math.round((open / total) * 100) : null;
+    const hour = new Date().getHours();
+    const slot =
+      hour < 6
+        ? "深夜"
+        : hour < 12
+          ? "午前"
+          : hour < 18
+            ? "午後"
+            : "夜間";
+
+    return { total, uniqueRegions, completionRate, openRate, slot };
+  }, [tasks]);
 
   useEffect(() => {
     const saved = localStorage.getItem("lang");
@@ -149,6 +172,29 @@ export default function HomeClient() {
           <a className="text-link" href={`/tasks?lang=${lang}`}>
             {strings.viewAllTasks}
           </a>
+        </div>
+        <div className="card">
+          <h3>供給状況の目安（直近取得）</h3>
+          {supplyStats.total > 0 ? (
+            <ul className="for-agents-list">
+              <li>対応エリア数: {supplyStats.uniqueRegions} 地域</li>
+              <li>時間帯目安: {supplyStats.slot}</li>
+              <li>
+                完了率:{" "}
+                {supplyStats.completionRate == null
+                  ? "集計中"
+                  : `${supplyStats.completionRate}%（completed / (completed + failed)）`}
+              </li>
+              <li>
+                オープンタスク比率:{" "}
+                {supplyStats.openRate == null ? "集計中" : `${supplyStats.openRate}%`}
+              </li>
+            </ul>
+          ) : (
+            <p className="muted">
+              供給データ準備中です。まずは <a href="/for-agents/quickstart">Quickstart</a> で1件実行してください。
+            </p>
+          )}
         </div>
         {loading && <p className="muted">{strings.loading}</p>}
         {error && !loading && <p className="muted">{error}</p>}
