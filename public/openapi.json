@@ -47,6 +47,15 @@
     "/api/tasks": {
       "post": {
         "summary": "Create open task",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "Unique key to safely retry the same request."
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -97,6 +106,15 @@
     "/api/call_human": {
       "post": {
         "summary": "Create task and auto-assign",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "Unique key to safely retry the same request."
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -123,6 +141,47 @@
               }
             }
           }
+        }
+      }
+    },
+    "/api/webhooks": {
+      "post": {
+        "summary": "Register webhook endpoint",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["ai_account_id", "ai_api_key", "url"],
+                "properties": {
+                  "ai_account_id": { "type": "string" },
+                  "ai_api_key": { "type": "string" },
+                  "url": { "type": "string", "format": "uri" },
+                  "events": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": ["task.accepted", "task.completed", "task.failed"]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "created" }
+        }
+      },
+      "get": {
+        "summary": "List webhook endpoints",
+        "parameters": [
+          { "name": "ai_account_id", "in": "query", "required": true, "schema": { "type": "string" } },
+          { "name": "ai_api_key", "in": "query", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "webhooks" }
         }
       }
     }

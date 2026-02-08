@@ -30,6 +30,7 @@ export default function ForAgentsQuickstartPage() {
       <section className="card">
         <h2>Step 2: タスク作成（即時アサイン）</h2>
         <pre className="for-agents-code"><code>{`curl -X POST "$BASE_URL/api/call_human" \\
+  -H 'Idempotency-Key: run-001' \\
   -H 'Content-Type: application/json' \\
   -d '{
     "task": "Take a photo of the nearest public park entrance",
@@ -61,6 +62,18 @@ export default function ForAgentsQuickstartPage() {
           <li>`deadline_minutes` を短くして `timeout` ハンドリングを確認</li>
           <li>`no_human_available` を前提に再試行制御を実装</li>
         </ul>
+      </section>
+
+      <section className="card">
+        <h2>P1: Webhook登録（任意）</h2>
+        <pre className="for-agents-code"><code>{`curl -X POST "$BASE_URL/api/webhooks" \\
+  -H 'Content-Type: application/json' \\
+  -d '{
+    "ai_account_id": "<ACCOUNT_ID>",
+    "ai_api_key": "<API_KEY>",
+    "url": "https://your-agent.example.com/webhooks/toolcall",
+    "events": ["task.accepted", "task.completed", "task.failed"]
+  }'`}</code></pre>
       </section>
     </div>
   );

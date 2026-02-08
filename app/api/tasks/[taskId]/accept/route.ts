@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { getNormalizedTask } from "@/lib/task-api";
+import { dispatchTaskEvent } from "@/lib/webhooks";
 
 async function parseRequest(request: Request) {
   const contentType = request.headers.get("content-type") || "";
@@ -54,6 +55,9 @@ export async function POST(
     params.taskId
   );
   db.prepare(`UPDATE humans SET status = 'busy' WHERE id = ?`).run(humanId);
+  void dispatchTaskEvent(db, { eventType: "task.accepted", taskId: params.taskId }).catch(
+    () => {}
+  );
 
   return NextResponse.json({ status: "accepted", task_id: params.taskId });
 }

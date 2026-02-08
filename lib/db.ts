@@ -84,6 +84,39 @@ function ensureDb() {
       text TEXT,
       created_at TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS idempotency_keys (
+      route TEXT NOT NULL,
+      idem_key TEXT NOT NULL,
+      ai_account_id TEXT,
+      request_hash TEXT NOT NULL,
+      status_code INTEGER,
+      response_body TEXT,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY (route, idem_key, ai_account_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS webhook_endpoints (
+      id TEXT PRIMARY KEY,
+      ai_account_id TEXT NOT NULL,
+      url TEXT NOT NULL,
+      secret TEXT NOT NULL,
+      status TEXT NOT NULL,
+      events TEXT,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS webhook_deliveries (
+      id TEXT PRIMARY KEY,
+      webhook_id TEXT NOT NULL,
+      event_id TEXT NOT NULL,
+      event_type TEXT NOT NULL,
+      task_id TEXT NOT NULL,
+      status_code INTEGER,
+      response_body TEXT,
+      error TEXT,
+      created_at TEXT NOT NULL
+    );
   `);
 
   ensureColumn(instance, "tasks", "task_en", "TEXT");
@@ -107,6 +140,12 @@ function ensureDb() {
   ensureColumn(instance, "humans", "email", "TEXT");
   ensureColumn(instance, "humans", "paypal_email", "TEXT");
   ensureColumn(instance, "humans", "country", "TEXT");
+  ensureColumn(instance, "idempotency_keys", "status_code", "INTEGER");
+  ensureColumn(instance, "idempotency_keys", "response_body", "TEXT");
+  ensureColumn(instance, "webhook_endpoints", "events", "TEXT");
+  ensureColumn(instance, "webhook_deliveries", "status_code", "INTEGER");
+  ensureColumn(instance, "webhook_deliveries", "response_body", "TEXT");
+  ensureColumn(instance, "webhook_deliveries", "error", "TEXT");
 
   startTimeoutSweeper(instance);
 

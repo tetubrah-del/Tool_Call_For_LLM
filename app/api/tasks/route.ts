@@ -5,6 +5,7 @@ import { getNormalizedTask, getTaskDisplay } from "@/lib/task-api";
 import { MIN_BUDGET_USD, OPERATOR_COUNTRY } from "@/lib/payments";
 import { normalizeCountry } from "@/lib/country";
 import { normalizeTaskLabel } from "@/lib/task-labels";
+import { finishIdempotency, startIdempotency } from "@/lib/idempotency";
 
 export async function GET(request: Request) {
   const db = getDb();
@@ -151,6 +152,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const idemKey = request.headers.get("Idempotency-Key")?.trim() || null;
   const payload = await request.json();
   const task = typeof payload?.task === "string" ? payload.task.trim() : "";
   const budgetUsd = Number(payload?.budget_usd);
@@ -167,42 +169,54 @@ export async function POST(request: Request) {
   const notAllowed =
     typeof payload?.not_allowed === "string" ? payload.not_allowed.trim() : "";
 
-  if (!task || !Number.isFinite(budgetUsd)) {
-    return NextResponse.json({ status: "error" }, { status: 400 });
+  const db = getDb();
+  const idemStart = startIdempotency(db, {
+    route: "/api/tasks",
+    idemKey,
+    aiAccountId: aiAccountId || null,
+    payload
+  });
+  if (idemStart.replay) {
+    return NextResponse.json(idemStart.body, {
+      status: idemStart.statusCode,
+      headers: idemKey ? { "Idempotency-Replayed": "true" } : undefined
+    });
   }
-  if (!originCountry) {
-    return NextResponse.json(
-      { status: "error", reason: "missing_origin_country" },
-      { status: 400 }
-    );
-  }
-  if (!taskLabel) {
-    return NextResponse.json(
-      { status: "error", reason: "invalid_request" },
-      { status: 400 }
-    );
-  }
-  if (!acceptanceCriteria || !notAllowed) {
-    return NextResponse.json(
-      { status: "error", reason: "invalid_request" },
-      { status: 400 }
-    );
-  }
-  if (budgetUsd < MIN_BUDGET_USD) {
-    return NextResponse.json(
-      { status: "error", reason: "below_min_budget" },
-      { status: 400 }
-    );
+  if (!idemStart.replay && idemStart.blocked) {
+    return NextResponse.json(idemStart.body, { status: idemStart.statusCode });
   }
 
-  const db = getDb();
+  function respond(body: any, status = 200) {
+    finishIdempotency(db, {
+      route: "/api/tasks",
+      idemKey,
+      aiAccountId: aiAccountId || null,
+      statusCode: status,
+      responseBody: body
+    });
+    return NextResponse.json(body, { status });
+  }
+
+  if (!task || !Number.isFinite(budgetUsd)) {
+    return respond({ status: "error" }, 400);
+  }
+  if (!originCountry) {
+    return respond({ status: "error", reason: "missing_origin_country" }, 400);
+  }
+  if (!taskLabel) {
+    return respond({ status: "error", reason: "invalid_request" }, 400);
+  }
+  if (!acceptanceCriteria || !notAllowed) {
+    return respond({ status: "error", reason: "invalid_request" }, 400);
+  }
+  if (budgetUsd < MIN_BUDGET_USD) {
+    return respond({ status: "error", reason: "below_min_budget" }, 400);
+  }
+
   let payerPaypalEmail: string | null = null;
   if (aiAccountId || aiApiKey) {
     if (!aiAccountId || !aiApiKey) {
-      return NextResponse.json(
-        { status: "error", reason: "invalid_request" },
-        { status: 400 }
-      );
+      return respond({ status: "error", reason: "invalid_request" }, 400);
     }
     const aiAccount = db
       .prepare(`SELECT * FROM ai_accounts WHERE id = ?`)
@@ -210,10 +224,7 @@ export async function POST(request: Request) {
       | { id: string; paypal_email: string; api_key: string; status: string }
       | undefined;
     if (!aiAccount || aiAccount.api_key !== aiApiKey || aiAccount.status !== "active") {
-      return NextResponse.json(
-        { status: "error", reason: "invalid_request" },
-        { status: 400 }
-      );
+      return respond({ status: "error", reason: "invalid_request" }, 400);
     }
     payerPaypalEmail = aiAccount.paypal_email;
   }
@@ -252,5 +263,5 @@ export async function POST(request: Request) {
     createdAt
   );
 
-  return NextResponse.json({ id, status: "open" });
+  return respond({ id, status: "open" });
 }

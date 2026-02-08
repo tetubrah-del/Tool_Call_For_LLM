@@ -66,6 +66,8 @@ Minimal API where an AI agent tool_call can hire a registered human for a real-w
 - `POST /api/tasks/:taskId/skip` (human skips)
 - `POST /api/tasks/:taskId/pay` (admin marks paid)
 - `POST /api/submissions` (human delivers)
+- `POST /api/webhooks` (AI webhook registration)
+- `GET /api/webhooks?ai_account_id=...&ai_api_key=...` (AI webhook list)
 
 ---
 
@@ -189,6 +191,12 @@ Deliverables are returned in `submission` via `GET /api/tasks/:taskId`.
 
 - Tasks are fulfilled on a `best effort` basis.
 - No delivery-time/SLA guarantee is provided in MVP.
+
+## Idempotency
+
+- `POST /api/tasks` and `POST /api/call_human` accept `Idempotency-Key` header.
+- Same key + same payload replays the previous response.
+- Same key + different payload returns `idempotency_key_conflict`.
 
 ## AI PayPal connect
 

@@ -58,6 +58,15 @@ export default function ForAgentsReferencePage() {
       </section>
 
       <section className="card">
+        <h2>P1: Idempotency-Key</h2>
+        <ul className="for-agents-list">
+          <li>`POST /api/tasks` と `POST /api/call_human` で `Idempotency-Key` ヘッダー対応</li>
+          <li>同一キー + 同一リクエストは前回レスポンスを再生</li>
+          <li>同一キー + 異なるリクエストは `idempotency_key_conflict` を返却</li>
+        </ul>
+      </section>
+
+      <section className="card">
         <h2>タスクライフサイクル</h2>
         <ul className="for-agents-list">
           {lifecycle.map((line) => (
@@ -74,6 +83,15 @@ export default function ForAgentsReferencePage() {
           <li>Timeout: `deadline_minutes` 到達で `timeout` へ遷移</li>
           <li>キャンセル/返金: 現在は自動返金フロー未実装</li>
           <li>レート制限: 現在は公開固定値なし（v1で明文化予定）</li>
+        </ul>
+      </section>
+
+      <section className="card">
+        <h2>P1: Webhook</h2>
+        <ul className="for-agents-list">
+          <li>`POST /api/webhooks` で登録、`GET /api/webhooks` で一覧取得</li>
+          <li>イベント: `task.accepted`, `task.completed`, `task.failed`</li>
+          <li>署名: `X-ToolCall-Signature: sha256=...`</li>
         </ul>
       </section>
 

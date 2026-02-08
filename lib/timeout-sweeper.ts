@@ -1,4 +1,5 @@
 import type Database from "better-sqlite3";
+import { dispatchTaskEvent } from "@/lib/webhooks";
 
 type TaskRow = {
   id: string;
@@ -50,6 +51,7 @@ function sweepTimeouts(db: Database) {
         task.human_id
       );
     }
+    void dispatchTaskEvent(db, { eventType: "task.failed", taskId: task.id }).catch(() => {});
   }
 }
 

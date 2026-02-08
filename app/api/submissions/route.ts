@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { saveUpload } from "@/lib/storage";
 import { getNormalizedTask } from "@/lib/task-api";
+import { dispatchTaskEvent } from "@/lib/webhooks";
 
 async function parseRequest(request: Request) {
   const contentType = request.headers.get("content-type") || "";
@@ -81,6 +82,7 @@ export async function POST(request: Request) {
   if (task.human_id) {
     db.prepare(`UPDATE humans SET status = 'available' WHERE id = ?`).run(task.human_id);
   }
+  void dispatchTaskEvent(db, { eventType: "task.completed", taskId }).catch(() => {});
 
   return NextResponse.json({ status: "stored", submission_id: submissionId });
 }
