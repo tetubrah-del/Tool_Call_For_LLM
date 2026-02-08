@@ -40,8 +40,31 @@ function getPool() {
     if (!DATABASE_URL) {
       throw new Error("DATABASE_URL is required for Postgres.");
     }
-    const useSsl =
-      DATABASE_URL.includes("sslmode=require") || process.env.PGSSLMODE === "require";
+    const pgSslMode = process.env.PGSSLMODE?.trim().toLowerCase();
+    let useSsl = false;
+    try {
+      const parsed = new URL(DATABASE_URL);
+      const sslModeFromUrl = parsed.searchParams.get("sslmode")?.trim().toLowerCase();
+      const sslFromUrl = parsed.searchParams.get("ssl")?.trim().toLowerCase();
+      useSsl =
+        sslModeFromUrl === "require" ||
+        sslModeFromUrl === "prefer" ||
+        sslModeFromUrl === "verify-ca" ||
+        sslModeFromUrl === "verify-full" ||
+        sslModeFromUrl === "no-verify" ||
+        sslFromUrl === "true" ||
+        sslFromUrl === "1";
+    } catch {
+      // Keep compatibility with non-standard connection strings.
+      const lowerUrl = DATABASE_URL.toLowerCase();
+      useSsl =
+        lowerUrl.includes("sslmode=require") ||
+        lowerUrl.includes("sslmode=prefer") ||
+        lowerUrl.includes("ssl=true");
+    }
+    if (pgSslMode === "require") {
+      useSsl = true;
+    }
     pool = new Pool({
       connectionString: DATABASE_URL,
       ssl: useSsl ? { rejectUnauthorized: false } : undefined
