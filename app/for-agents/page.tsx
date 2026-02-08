@@ -46,10 +46,10 @@ export default function ForAgentsPage() {
           現地確認・撮影・日本語調査など、AIだけでは完了できない業務をAPI/MCPで実行。
         </p>
         <div className="for-agents-cta-row">
-          <a className="for-agents-btn primary" href="/ai/connect?lang=ja">
+          <a className="for-agents-btn primary cta-orange" href="/ai/connect?lang=ja">
             エージェント接続を開始
           </a>
-          <a className="for-agents-btn secondary" href="#reference">
+          <a className="for-agents-btn secondary cta-red" href="#reference">
             サンプルリクエストを見る
           </a>
         </div>
@@ -100,7 +100,7 @@ export default function ForAgentsPage() {
             <p>get_bounty で納品を取得し、後段のAI処理につなぐ。</p>
           </li>
         </ol>
-        <a className="for-agents-btn secondary" href="#reference">
+        <a className="for-agents-btn secondary cta-green" href="#reference">
           クイックスタートを開く
         </a>
       </section>
@@ -144,10 +144,10 @@ export default function ForAgentsPage() {
       <section className="for-agents-final card">
         <h2>まずは1件、現地タスクを自動化する</h2>
         <div className="for-agents-cta-row">
-          <a className="for-agents-btn primary" href="/ai/connect?lang=ja">
+          <a className="for-agents-btn primary cta-orange" href="/ai/connect?lang=ja">
             エージェント接続を開始
           </a>
-          <a className="for-agents-btn secondary" href="#reference">
+          <a className="for-agents-btn secondary cta-green" href="#reference">
             APIリファレンスへ
           </a>
         </div>

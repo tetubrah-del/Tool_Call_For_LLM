@@ -2,16 +2,16 @@
 
 :root {
   color-scheme: light;
-  --bg: #f6f1e7;
-  --surface: #fff8ef;
-  --surface-strong: #fff3e1;
-  --ink: #1c1b1a;
-  --muted: #5b5752;
-  --border: #e6d7c7;
-  --accent: #cc4b2c;
-  --accent-strong: #a63a20;
-  --accent-soft: #f3c3ab;
-  --shadow: 0 20px 50px rgba(20, 12, 4, 0.12);
+  --bg: #06090f;
+  --surface: #0d1422;
+  --surface-strong: #111c30;
+  --ink: #e8edf7;
+  --muted: #9ca8bf;
+  --border: #22304a;
+  --accent: #ff8a1c;
+  --accent-strong: #ff6b00;
+  --accent-soft: #4d2f12;
+  --shadow: 0 20px 50px rgba(2, 4, 10, 0.42);
   --radius-lg: 22px;
   --radius-md: 16px;
   font-family: "Space Grotesk", "IBM Plex Sans", "Segoe UI", sans-serif;
@@ -24,9 +24,9 @@
 body {
   margin: 0;
   background:
-    radial-gradient(circle at 10% 20%, rgba(233, 190, 150, 0.35), transparent 50%),
-    radial-gradient(circle at 80% 10%, rgba(255, 226, 201, 0.7), transparent 45%),
-    linear-gradient(180deg, #fdf6ec 0%, #f3e8da 60%, #efe2d2 100%);
+    radial-gradient(circle at 12% 18%, rgba(255, 138, 28, 0.16), transparent 44%),
+    radial-gradient(circle at 82% 16%, rgba(27, 44, 78, 0.52), transparent 48%),
+    linear-gradient(180deg, #070a12 0%, #0a1321 58%, #0c1728 100%);
   color: var(--ink);
 }
 
@@ -62,12 +62,12 @@ input, textarea, select, button {
   border: 1px solid var(--border);
   border-radius: 10px;
   font-size: 14px;
-  background: white;
+  background: #0f1a2d;
   color: var(--ink);
 }
 
 select {
-  background: white;
+  background: #0f1a2d;
 }
 
 button {
@@ -78,7 +78,7 @@ button {
 }
 
 button.secondary {
-  background: #f2ece4;
+  background: #15233a;
   color: var(--ink);
   border: 1px solid var(--border);
 }
@@ -118,8 +118,8 @@ button.secondary {
   top: 0;
   z-index: 10;
   backdrop-filter: blur(10px);
-  background: rgba(253, 246, 236, 0.9);
-  border-bottom: 1px solid rgba(230, 215, 199, 0.8);
+  background: rgba(7, 11, 20, 0.9);
+  border-bottom: 1px solid rgba(38, 56, 88, 0.75);
 }
 
 .nav-inner {
@@ -163,7 +163,7 @@ button.secondary {
 }
 
 .user-pill {
-  background: #fff3e1;
+  background: #15233a;
   color: var(--ink);
   padding: 6px 10px;
   border-radius: 999px;
@@ -215,7 +215,7 @@ button.secondary {
 .lang {
   min-width: 180px;
   align-self: flex-start;
-  background: white;
+  background: #0f1a2d;
   padding: 12px 14px;
   border-radius: 14px;
   border: 1px solid var(--border);
@@ -237,7 +237,7 @@ button.secondary {
   align-items: center;
   padding: 22px;
   border-radius: var(--radius-md);
-  background: white;
+  background: #101a2d;
   border: 1px solid var(--border);
   box-shadow: 0 8px 24px rgba(40, 18, 5, 0.08);
   transition: transform 0.25s ease, box-shadow 0.25s ease;
@@ -245,8 +245,8 @@ button.secondary {
 }
 
 .cta.secondary {
-  background: #fff0e1;
-  border-color: #f0d3bf;
+  background: #13233b;
+  border-color: #284062;
 }
 
 .cta:hover {
@@ -298,14 +298,48 @@ button.secondary {
 }
 
 .for-agents-btn.primary {
-  background: var(--ink);
-  color: #fff;
+  background: #111c30;
+  color: var(--ink);
 }
 
 .for-agents-btn.secondary {
-  background: #f2ece4;
+  background: #15233a;
   color: var(--ink);
   border-color: var(--border);
+}
+
+.for-agents-btn.cta-orange {
+  background: #ff8a1c;
+  border-color: #ff8a1c;
+  color: #111318;
+}
+
+.for-agents-btn.cta-orange:hover {
+  background: #ff6b00;
+  border-color: #ff6b00;
+  color: #0d0f13;
+}
+
+.for-agents-btn.cta-red {
+  background: #e03131;
+  border-color: #e03131;
+  color: #fff6f6;
+}
+
+.for-agents-btn.cta-red:hover {
+  background: #c92a2a;
+  border-color: #c92a2a;
+}
+
+.for-agents-btn.cta-green {
+  background: #2f9e44;
+  border-color: #2f9e44;
+  color: #f3fff4;
+}
+
+.for-agents-btn.cta-green:hover {
+  background: #2b8a3e;
+  border-color: #2b8a3e;
 }
 
 .for-agents-grid-3 {
@@ -335,7 +369,7 @@ button.secondary {
   gap: 12px;
   padding: 12px 14px;
   border-bottom: 1px solid var(--border);
-  background: #fffdf9;
+  background: #101a2d;
 }
 
 .for-agents-tool-row:last-child {
@@ -380,7 +414,7 @@ button.secondary {
 }
 
 .for-agents-final {
-  background: linear-gradient(135deg, #fff9ef 0%, #ffe7d3 100%);
+  background: linear-gradient(135deg, #0f1a2d 0%, #10233f 100%);
 }
 
 @media (max-width: 680px) {
