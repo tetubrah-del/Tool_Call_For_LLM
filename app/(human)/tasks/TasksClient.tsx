@@ -48,6 +48,7 @@ export default function TasksClient() {
   const [error, setError] = useState<string | null>(null);
 
   const strings = UI_STRINGS[lang];
+  const showBestEffort = Boolean(strings.bestEffort && strings.noTimeGuarantee);
   const statusLabels: Record<Task["status"], string> = {
     open: strings.statusOpen,
     accepted: strings.statusAccepted,
@@ -194,9 +195,11 @@ export default function TasksClient() {
       </div>
 
       <div className="card filter-card">
-        <p className="muted">
-          {strings.bestEffort} | {strings.noTimeGuarantee}
-        </p>
+        {showBestEffort && (
+          <p className="muted">
+            {strings.bestEffort} | {strings.noTimeGuarantee}
+          </p>
+        )}
         <label>
           {strings.searchKeyword}
           <input
@@ -301,9 +304,11 @@ export default function TasksClient() {
               {showTranslationPending && (
                 <p className="muted">{strings.translationPending}</p>
               )}
-              <p className="muted">
-                {strings.bestEffort} | {strings.noTimeGuarantee}
-              </p>
+              {showBestEffort && (
+                <p className="muted">
+                  {strings.bestEffort} | {strings.noTimeGuarantee}
+                </p>
+              )}
               {showIntlFeeNote && <p className="muted">{strings.intlFeeNote}</p>}
               <p className="muted">
                 {strings.payout}: ${netPayout} | {strings.location}:{" "}

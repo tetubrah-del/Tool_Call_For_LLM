@@ -143,6 +143,7 @@ export default function TaskDetailClient() {
     0
   );
   const showIntlFeeNote = Boolean(task.is_international_payout);
+  const showBestEffort = Boolean(strings.bestEffort && strings.noTimeGuarantee);
   const canSubmit =
     deliverable === "text" ? text.trim().length > 0 : Boolean(file);
 
@@ -154,9 +155,11 @@ export default function TaskDetailClient() {
         {showTranslationPending && (
           <p className="muted">{strings.translationPending}</p>
         )}
-        <p className="muted">
-          {strings.bestEffort} | {strings.noTimeGuarantee}
-        </p>
+        {showBestEffort && (
+          <p className="muted">
+            {strings.bestEffort} | {strings.noTimeGuarantee}
+          </p>
+        )}
         {showIntlFeeNote && <p className="muted">{strings.intlFeeNote}</p>}
         <p className="muted">
           {strings.deliverable}: {deliverable} | {strings.payout}: ${netPayout} |{" "}

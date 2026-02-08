@@ -27,6 +27,8 @@ export default function HomeClient() {
   const strings = UI_STRINGS[lang];
   const locale = lang === "ja" ? "ja-JP" : "en-US";
   const latestTasks = useMemo(() => tasks.slice(0, 6), [tasks]);
+  const showHumanUiOnly = Boolean(strings.humanUiOnly);
+  const showBestEffort = Boolean(strings.bestEffort && strings.noTimeGuarantee);
   const supplyStats = useMemo(() => {
     const total = tasks.length;
     const withLocation = tasks.filter((task) => !!task.location);
@@ -113,7 +115,7 @@ export default function HomeClient() {
             <p className="subtitle">{strings.heroSubtitle}</p>
           </div>
         </div>
-        <p className="note">{strings.humanUiOnly}</p>
+        {showHumanUiOnly && <p className="note">{strings.humanUiOnly}</p>}
         <div className="agent-start-banner">
           <strong>AIエージェント向け開始導線</strong>
           <p className="note">
@@ -122,9 +124,11 @@ export default function HomeClient() {
             <a href="/for-agents/reference">Reference</a> / <a href="/openapi.json">OpenAPI</a>
           </p>
         </div>
-        <p className="note">
-          {strings.bestEffort} | {strings.noTimeGuarantee}
-        </p>
+        {showBestEffort && (
+          <p className="note">
+            {strings.bestEffort} | {strings.noTimeGuarantee}
+          </p>
+        )}
       </header>
 
       <section className="card">

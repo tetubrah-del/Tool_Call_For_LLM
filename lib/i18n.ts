@@ -165,10 +165,11 @@ export const UI_STRINGS: Record<UiLang, Record<string, string>> = {
     taskNotFound: "Task not found."
   },
   ja: {
-    appTitle: "Call Human MVP",
-    heroEyebrow: "人間参加型マーケット",
-    heroSubtitle: "人の専門性でタスクを引き受け、現実世界の成果を届けます。",
-    humanUiOnly: "人間向けUIのみ。AIはAPIを直接呼び出します。",
+    appTitle: "ネクストワークス",
+    heroEyebrow: "AIと人間の参加型クラウドワーキングプレイス",
+    heroSubtitle:
+      "AIの思考とヒトの物理作業を融合したひとつのワーキングプラットフォームで提供しています。",
+    humanUiOnly: "",
     register: "サインアップ/ログイン",
     registerDesc: "Googleでサインインしてプロフィールを作成します。",
     registerTitle: "プロフィール登録",
@@ -279,8 +280,8 @@ export const UI_STRINGS: Record<UiLang, Record<string, string>> = {
     location: "場所",
     deliverable: "成果物",
     taskLabel: "タスクラベル",
-    bestEffort: "Best Effort",
-    noTimeGuarantee: "納期保証なし",
+    bestEffort: "",
+    noTimeGuarantee: "",
     acceptanceCriteria: "完了条件",
     notAllowed: "禁止事項",
     failureReason: "失敗理由",
