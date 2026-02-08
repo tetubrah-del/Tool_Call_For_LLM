@@ -46,14 +46,6 @@ export default function MyPageClient() {
           <p className="eyebrow">{strings.dashboardEyebrow}</p>
           <h1>{strings.dashboardTitle}</h1>
         </div>
-        <button
-          type="submit"
-          form={formId}
-          className="save-button"
-          disabled={activeTab !== "profile"}
-        >
-          {strings.save}
-        </button>
       </section>
 
       <nav className="tabs">
@@ -75,7 +67,8 @@ export default function MyPageClient() {
             <RegisterClient
               title={strings.myPageTitle}
               formId={formId}
-              showSubmit={false}
+              showSubmit
+              submitLabel={strings.save}
             />
           </div>
         )}

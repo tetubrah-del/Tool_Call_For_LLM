@@ -9,12 +9,16 @@ type RegisterClientProps = {
   title?: string | null;
   formId?: string;
   showSubmit?: boolean;
+  submitLabel?: string;
+  submitClassName?: string;
 };
 
 export default function RegisterClient({
   title,
   formId = "profile-form",
-  showSubmit = true
+  showSubmit = true,
+  submitLabel,
+  submitClassName
 }: RegisterClientProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -185,8 +189,12 @@ export default function RegisterClient({
           />
         </label>
         {showSubmit && (
-          <button type="submit" disabled={status === "saving"}>
-            {status === "saving" ? strings.saving : strings.saveProfile}
+          <button
+            type="submit"
+            disabled={status === "saving"}
+            className={submitClassName}
+          >
+            {status === "saving" ? strings.saving : submitLabel ?? strings.saveProfile}
           </button>
         )}
       </form>
