@@ -4,10 +4,9 @@ import { useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { normalizeLang, UI_STRINGS } from "@/lib/i18n";
 import RegisterClient from "../register/RegisterClient";
-import PhotosPanel from "./PhotosPanel";
 import MessagesPanel from "./MessagesPanel";
 
-type TabKey = "profile" | "photos" | "payments" | "messages" | "api";
+type TabKey = "profile" | "payments" | "messages" | "api";
 
 export default function MyPageClient() {
   const searchParams = useSearchParams();
@@ -18,7 +17,6 @@ export default function MyPageClient() {
 
   const tabs: Array<{ key: TabKey; label: string }> = [
     { key: "profile", label: strings.tabProfile },
-    { key: "photos", label: strings.tabPhotos },
     { key: "payments", label: strings.tabPayments },
     { key: "messages", label: strings.tabMessages },
     { key: "api", label: strings.tabApi }
@@ -72,9 +70,8 @@ export default function MyPageClient() {
             />
           </div>
         )}
-        {activeTab === "photos" && <PhotosPanel lang={lang} />}
         {activeTab === "messages" && <MessagesPanel lang={lang} />}
-        {activeTab !== "profile" && activeTab !== "photos" && activeTab !== "messages" && (
+        {activeTab !== "profile" && activeTab !== "messages" && (
           <div className="card empty-state">{strings.comingSoon}</div>
         )}
       </section>
