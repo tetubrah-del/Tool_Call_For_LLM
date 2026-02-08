@@ -231,6 +231,47 @@ async function initPostgres() {
   for (const statement of statements) {
     await db.query(statement);
   }
+
+  const migrationStatements = [
+    `ALTER TABLE humans ADD COLUMN IF NOT EXISTS email TEXT`,
+    `ALTER TABLE humans ADD COLUMN IF NOT EXISTS paypal_email TEXT`,
+    `ALTER TABLE humans ADD COLUMN IF NOT EXISTS country TEXT`,
+    `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS task_en TEXT`,
+    `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS origin_country TEXT`,
+    `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS task_label TEXT`,
+    `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS acceptance_criteria TEXT`,
+    `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS not_allowed TEXT`,
+    `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS ai_account_id TEXT`,
+    `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS payer_paypal_email TEXT`,
+    `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS payee_paypal_email TEXT`,
+    `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS deadline_at TEXT`,
+    `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS failure_reason TEXT`,
+    `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS submission_id TEXT`,
+    `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS fee_rate DOUBLE PRECISION`,
+    `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS fee_amount DOUBLE PRECISION`,
+    `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS payout_amount DOUBLE PRECISION`,
+    `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS paypal_fee_amount DOUBLE PRECISION`,
+    `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS paid_status TEXT`,
+    `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS paid_at TEXT`,
+    `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS paid_method TEXT`,
+    `ALTER TABLE human_photos ADD COLUMN IF NOT EXISTS is_public INTEGER`,
+    `ALTER TABLE human_inquiries ADD COLUMN IF NOT EXISTS is_read INTEGER`,
+    `ALTER TABLE message_templates ADD COLUMN IF NOT EXISTS updated_at TEXT`,
+    `ALTER TABLE task_contacts ADD COLUMN IF NOT EXISTS opened_at TEXT`,
+    `ALTER TABLE task_contacts ADD COLUMN IF NOT EXISTS closed_at TEXT`,
+    `ALTER TABLE contact_messages ADD COLUMN IF NOT EXISTS read_by_ai INTEGER`,
+    `ALTER TABLE contact_messages ADD COLUMN IF NOT EXISTS read_by_human INTEGER`,
+    `ALTER TABLE idempotency_keys ADD COLUMN IF NOT EXISTS status_code INTEGER`,
+    `ALTER TABLE idempotency_keys ADD COLUMN IF NOT EXISTS response_body TEXT`,
+    `ALTER TABLE webhook_endpoints ADD COLUMN IF NOT EXISTS events TEXT`,
+    `ALTER TABLE webhook_deliveries ADD COLUMN IF NOT EXISTS status_code INTEGER`,
+    `ALTER TABLE webhook_deliveries ADD COLUMN IF NOT EXISTS response_body TEXT`,
+    `ALTER TABLE webhook_deliveries ADD COLUMN IF NOT EXISTS error TEXT`
+  ];
+
+  for (const statement of migrationStatements) {
+    await db.query(statement);
+  }
 }
 
 async function initSqlite() {

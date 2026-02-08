@@ -34,6 +34,16 @@ export default function RegisterClient({
   const { status: sessionStatus } = useSession();
   const strings = UI_STRINGS[lang];
 
+  async function parseApiResponse(res: Response) {
+    const raw = await res.text();
+    if (!raw) return {};
+    try {
+      return JSON.parse(raw) as Record<string, any>;
+    } catch {
+      return { reason: raw.slice(0, 200) };
+    }
+  }
+
   useEffect(() => {
     let cancelled = false;
     async function loadProfile() {
@@ -100,12 +110,11 @@ export default function RegisterClient({
         })
       });
 
+      const data = await parseApiResponse(res);
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data?.reason || "failed");
+        throw new Error(data?.reason || `request_failed_${res.status}`);
       }
 
-      const data = await res.json();
       setHumanId(data.id);
       localStorage.setItem("human_id", data.id);
       setStatus("done");
