@@ -392,6 +392,30 @@ button[disabled] {
   padding: 8px 14px;
 }
 
+.photo-list-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.profile-link-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid #2b6cb0;
+  background: #112742;
+  color: #88c6ff;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.profile-link-button:hover {
+  background: #16345a;
+  color: #c5e4ff;
+}
+
 .switch-row {
   display: flex;
   align-items: center;
@@ -429,6 +453,42 @@ button[disabled] {
 
 .photo-item-meta {
   padding: 10px 12px 12px;
+}
+
+.danger-text-button {
+  width: auto;
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: transparent;
+  color: #ff7e88;
+  border: 1px solid rgba(255, 126, 136, 0.45);
+  font-size: 12px;
+}
+
+.danger-text-button:hover {
+  background: rgba(255, 126, 136, 0.1);
+  color: #ffc8cd;
+  border-color: rgba(255, 180, 187, 0.7);
+}
+
+.public-profile {
+  display: grid;
+  gap: 18px;
+}
+
+.public-profile-card h1 {
+  margin: 0 0 10px;
+}
+
+.public-profile-name {
+  margin: 0;
+  font-size: clamp(24px, 3.2vw, 34px);
+  letter-spacing: -0.02em;
+  font-weight: 700;
+}
+
+.public-photos-card h2 {
+  margin: 0 0 12px;
 }
 
 .cta-grid {

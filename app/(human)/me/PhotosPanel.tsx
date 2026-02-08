@@ -17,6 +17,7 @@ type PhotosPanelProps = {
 export default function PhotosPanel({ lang }: PhotosPanelProps) {
   const strings = UI_STRINGS[lang];
   const [photos, setPhotos] = useState<Photo[]>([]);
+  const [humanId, setHumanId] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [isPublicByDefault, setIsPublicByDefault] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -32,6 +33,7 @@ export default function PhotosPanel({ lang }: PhotosPanelProps) {
         throw new Error("failed");
       }
       const data = await res.json();
+      setHumanId(data.human_id || null);
       setPhotos(data.photos || []);
     } catch (err: any) {
       setError(err.message || "failed");
@@ -92,6 +94,17 @@ export default function PhotosPanel({ lang }: PhotosPanelProps) {
     }
   }
 
+  async function deletePhoto(photoId: string) {
+    setError(null);
+    const current = photos;
+    setPhotos((prev) => prev.filter((photo) => photo.id !== photoId));
+    const res = await fetch(`/api/me/photos/${photoId}`, { method: "DELETE" });
+    if (!res.ok) {
+      setError(strings.failed);
+      setPhotos(current);
+    }
+  }
+
   return (
     <div className="photos-panel">
       <form className="card photo-upload-card" onSubmit={uploadPhoto}>
@@ -122,9 +135,16 @@ export default function PhotosPanel({ lang }: PhotosPanelProps) {
       <div className="card photo-list-card">
         <div className="photo-list-head">
           <h3>{strings.photoListTitle}</h3>
-          <button type="button" className="secondary" onClick={loadPhotos} disabled={loading}>
-            {loading ? strings.loading : strings.refresh}
-          </button>
+          <div className="photo-list-actions">
+            {humanId && (
+              <a href={`/profile/${humanId}?lang=${lang}`} className="profile-link-button">
+                {strings.publicProfileLink}
+              </a>
+            )}
+            <button type="button" className="secondary" onClick={loadPhotos} disabled={loading}>
+              {loading ? strings.loading : strings.refresh}
+            </button>
+          </div>
         </div>
         {error && (
           <p className="muted">
@@ -147,6 +167,13 @@ export default function PhotosPanel({ lang }: PhotosPanelProps) {
                     onChange={(e) => togglePublic(photo.id, e.target.checked)}
                   />
                 </label>
+                <button
+                  type="button"
+                  className="danger-text-button"
+                  onClick={() => deletePhoto(photo.id)}
+                >
+                  {strings.deletePhoto}
+                </button>
               </div>
             </article>
           ))}

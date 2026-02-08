@@ -13,3 +13,13 @@ export async function saveUpload(file: File) {
   fs.writeFileSync(fullPath, buffer);
   return `/uploads/${filename}`;
 }
+
+export function deleteUpload(publicUrl: string | null | undefined) {
+  if (!publicUrl || !publicUrl.startsWith("/uploads/")) return;
+  const filename = path.basename(publicUrl);
+  const fullPath = path.join(UPLOAD_DIR, filename);
+  if (!fullPath.startsWith(UPLOAD_DIR)) return;
+  if (fs.existsSync(fullPath)) {
+    fs.unlinkSync(fullPath);
+  }
+}

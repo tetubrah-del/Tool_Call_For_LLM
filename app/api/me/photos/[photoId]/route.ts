@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getDb } from "@/lib/db";
+import { deleteUpload } from "@/lib/storage";
 
 function resolveBool(value: unknown): boolean | null {
   if (typeof value === "boolean") return value;
@@ -57,4 +58,33 @@ export async function PATCH(
   );
 
   return NextResponse.json({ status: "updated", id: params.photoId, is_public: isPublic ? 1 : 0 });
+}
+
+export async function DELETE(
+  _request: Request,
+  { params }: { params: { photoId: string } }
+) {
+  const session = await getServerSession(authOptions);
+  const email = session?.user?.email;
+  if (!email) {
+    return NextResponse.json({ status: "unauthorized" }, { status: 401 });
+  }
+
+  const humanId = getCurrentHumanId(email);
+  if (!humanId) {
+    return NextResponse.json({ status: "error", reason: "profile_not_found" }, { status: 404 });
+  }
+
+  const db = getDb();
+  const current = db
+    .prepare(`SELECT id, photo_url FROM human_photos WHERE id = ? AND human_id = ?`)
+    .get(params.photoId, humanId) as { id: string; photo_url: string } | undefined;
+  if (!current?.id) {
+    return NextResponse.json({ status: "not_found" }, { status: 404 });
+  }
+
+  db.prepare(`DELETE FROM human_photos WHERE id = ?`).run(params.photoId);
+  deleteUpload(current.photo_url);
+
+  return NextResponse.json({ status: "deleted", id: params.photoId });
 }

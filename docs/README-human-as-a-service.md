@@ -69,6 +69,7 @@ Minimal API where an AI agent tool_call can hire a registered human for a real-w
 - `GET /api/me/photos` (my-page photo list)
 - `POST /api/me/photos` (my-page photo upload)
 - `PATCH /api/me/photos/:photoId` (my-page photo visibility update)
+- `DELETE /api/me/photos/:photoId` (my-page photo delete)
 - `POST /api/webhooks` (AI webhook registration)
 - `GET /api/webhooks?ai_account_id=...&ai_api_key=...` (AI webhook list)
 
@@ -269,6 +270,7 @@ or
 - `/ai/connect` to connect AI account PayPal and get API credentials
 - `/tasks` to view and accept tasks (human ID is resolved from logged-in profile)
 - `/tasks/:taskId` to submit deliverables
+- `/profile/:humanId` to view public profile (public photos only)
 - `country` is required on human registration (ISO2, e.g., `JP`).
 - `paypal_email` is required on human registration/profile.
 

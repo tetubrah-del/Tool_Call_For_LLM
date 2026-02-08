@@ -33,7 +33,7 @@ export async function GET() {
 
   const humanId = getCurrentHumanId(email);
   if (!humanId) {
-    return NextResponse.json({ photos: [] });
+    return NextResponse.json({ human_id: null, photos: [] });
   }
 
   const db = getDb();
@@ -46,7 +46,7 @@ export async function GET() {
     )
     .all(humanId);
 
-  return NextResponse.json({ photos });
+  return NextResponse.json({ human_id: humanId, photos });
 }
 
 export async function POST(request: Request) {
