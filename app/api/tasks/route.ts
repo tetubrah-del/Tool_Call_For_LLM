@@ -25,7 +25,9 @@ export async function GET(request: Request) {
   }
 
   if (humanId) {
-    const human = db.prepare(`SELECT * FROM humans WHERE id = ?`).get(humanId);
+    const human = await db
+      .prepare(`SELECT * FROM humans WHERE id = ?`)
+      .get(humanId);
     if (!human) {
       return NextResponse.json({ status: "not_found" }, { status: 404 });
     }
@@ -57,7 +59,7 @@ export async function GET(request: Request) {
       openWhere.push("task_label = ?");
       openParams.push(filterTaskLabel);
     }
-    const openTasks = db
+    const openTasks = await db
       .prepare(
         `SELECT * FROM tasks
          WHERE ${openWhere.join(" AND ")}
@@ -71,7 +73,7 @@ export async function GET(request: Request) {
       assignedWhere.push("task_label = ?");
       assignedParams.push(filterTaskLabel);
     }
-    const assignedTasks = db
+    const assignedTasks = await db
       .prepare(
         `SELECT * FROM tasks
          WHERE ${assignedWhere.join(" AND ")}
@@ -84,23 +86,24 @@ export async function GET(request: Request) {
       byId.set(task.id, task);
     }
 
-    const tasks = Array.from(byId.values()).map((task: any) => {
-      const display = getTaskDisplay(db, task, lang);
+    const tasks = [];
+    for (const task of Array.from(byId.values())) {
+      const display = await getTaskDisplay(db, task, lang);
       if (!task.deliverable) {
-        db.prepare(`UPDATE tasks SET deliverable = 'text' WHERE id = ?`).run(
-          task.id
-        );
+        await db
+          .prepare(`UPDATE tasks SET deliverable = 'text' WHERE id = ?`)
+          .run(task.id);
       }
       const normalizedTaskLabel = normalizeTaskLabel(task.task_label);
-      return {
+      tasks.push({
         ...task,
         task_label: normalizedTaskLabel,
         deliverable: task.deliverable || "text",
         task_display: display.display,
         lang: display.lang,
         is_international_payout: human.country !== OPERATOR_COUNTRY
-      };
-    });
+      });
+    }
 
     const filteredByKeyword =
       keyword.length === 0
@@ -119,28 +122,29 @@ export async function GET(request: Request) {
     where.push("task_label = ?");
     params.push(filterTaskLabel);
   }
-  const tasks = db
+  const tasks = await db
     .prepare(
       `SELECT * FROM tasks ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY created_at DESC`
     )
     .all(...params);
-  const normalized = tasks.map((task: any) => {
-    const display = getTaskDisplay(db, task, lang);
+  const normalized = [];
+  for (const task of tasks) {
+    const display = await getTaskDisplay(db, task, lang);
     if (!task.deliverable) {
-      db.prepare(`UPDATE tasks SET deliverable = 'text' WHERE id = ?`).run(
-        task.id
-      );
+      await db
+        .prepare(`UPDATE tasks SET deliverable = 'text' WHERE id = ?`)
+        .run(task.id);
     }
     const normalizedTaskLabel = normalizeTaskLabel(task.task_label);
-    return {
+    normalized.push({
       ...task,
       task_label: normalizedTaskLabel,
       deliverable: task.deliverable || "text",
       task_display: display.display,
       lang: display.lang,
       paid_status: task.paid_status ?? "unpaid"
-    };
-  });
+    });
+  }
   const filteredByKeyword =
     keyword.length === 0
       ? normalized
@@ -170,7 +174,7 @@ export async function POST(request: Request) {
     typeof payload?.not_allowed === "string" ? payload.not_allowed.trim() : "";
 
   const db = getDb();
-  const idemStart = startIdempotency(db, {
+  const idemStart = await startIdempotency(db, {
     route: "/api/tasks",
     idemKey,
     aiAccountId: aiAccountId || null,
@@ -186,8 +190,8 @@ export async function POST(request: Request) {
     return NextResponse.json(idemStart.body, { status: idemStart.statusCode });
   }
 
-  function respond(body: any, status = 200) {
-    finishIdempotency(db, {
+  async function respond(body: any, status = 200) {
+    await finishIdempotency(db, {
       route: "/api/tasks",
       idemKey,
       aiAccountId: aiAccountId || null,
@@ -218,7 +222,7 @@ export async function POST(request: Request) {
     if (!aiAccountId || !aiApiKey) {
       return respond({ status: "error", reason: "invalid_request" }, 400);
     }
-    const aiAccount = db
+    const aiAccount = await db
       .prepare(`SELECT * FROM ai_accounts WHERE id = ?`)
       .get(aiAccountId) as
       | { id: string; paypal_email: string; api_key: string; status: string }
@@ -242,7 +246,7 @@ export async function POST(request: Request) {
       ? new Date(Date.parse(createdAt) + deadlineMinutes * 60 * 1000).toISOString()
       : null;
 
-  db.prepare(
+  await db.prepare(
     `INSERT INTO tasks (id, task, task_en, location, budget_usd, origin_country, task_label, acceptance_criteria, not_allowed, ai_account_id, payer_paypal_email, payee_paypal_email, deliverable, deadline_minutes, deadline_at, status, failure_reason, human_id, submission_id, paid_status, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, 'open', NULL, NULL, NULL, 'unpaid', ?)`
   ).run(

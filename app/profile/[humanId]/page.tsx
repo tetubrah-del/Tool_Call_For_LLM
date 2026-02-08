@@ -2,7 +2,7 @@ import { normalizeLang, UI_STRINGS } from "@/lib/i18n";
 import { getDb } from "@/lib/db";
 import PublicInquiryForm from "./PublicInquiryForm";
 
-export default function PublicProfilePage({
+export default async function PublicProfilePage({
   params,
   searchParams
 }: {
@@ -15,7 +15,7 @@ export default function PublicProfilePage({
   const strings = UI_STRINGS[lang];
   const db = getDb();
 
-  const human = db
+  const human = await db
     .prepare(`SELECT id, name, location, country, status FROM humans WHERE id = ? LIMIT 1`)
     .get(params.humanId) as
     | { id: string; name: string; location: string | null; country: string | null; status: string }
@@ -30,7 +30,7 @@ export default function PublicProfilePage({
     );
   }
 
-  const photos = db
+  const photos = await db
     .prepare(
       `SELECT id, photo_url, created_at
        FROM human_photos

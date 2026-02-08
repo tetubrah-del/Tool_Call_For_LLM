@@ -71,19 +71,21 @@ export async function POST(request: Request) {
   const submissionId = crypto.randomUUID();
   const createdAt = new Date().toISOString();
 
-  db.prepare(
+  await db.prepare(
     `INSERT INTO submissions (id, task_id, type, content_url, text, created_at)
      VALUES (?, ?, ?, ?, ?, ?)`
   ).run(submissionId, taskId, type, contentUrl, text, createdAt);
 
-  db.prepare(`UPDATE tasks SET status = 'completed', submission_id = ? WHERE id = ?`).run(
+  await db.prepare(`UPDATE tasks SET status = 'completed', submission_id = ? WHERE id = ?`).run(
     submissionId,
     taskId
   );
   if (task.human_id) {
-    db.prepare(`UPDATE humans SET status = 'available' WHERE id = ?`).run(task.human_id);
+    await db
+      .prepare(`UPDATE humans SET status = 'available' WHERE id = ?`)
+      .run(task.human_id);
   }
-  closeContactChannel(db, taskId);
+  await closeContactChannel(db, taskId);
   void dispatchTaskEvent(db, { eventType: "task.completed", taskId }).catch(() => {});
 
   return NextResponse.json({ status: "stored", submission_id: submissionId });

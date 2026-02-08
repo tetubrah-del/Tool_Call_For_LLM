@@ -12,7 +12,7 @@ export async function GET(
   { params }: { params: { taskId: string } }
 ) {
   const db = getDb();
-  const task = db
+  const task = await db
     .prepare(`SELECT id, ai_account_id, human_id, status FROM tasks WHERE id = ?`)
     .get(params.taskId) as
     | { id: string; ai_account_id: string | null; human_id: string | null; status: string }
@@ -26,7 +26,7 @@ export async function GET(
     return NextResponse.json({ status: "unauthorized" }, { status: 401 });
   }
 
-  const channel = db
+  const channel = await db
     .prepare(`SELECT task_id, status, opened_at, closed_at FROM task_contacts WHERE task_id = ?`)
     .get(task.id) as
     | { task_id: string; status: "pending" | "open" | "closed"; opened_at: string | null; closed_at: string | null }
@@ -38,7 +38,7 @@ export async function GET(
     );
   }
 
-  const messages = db
+  const messages = await db
     .prepare(
       `SELECT id, task_id, sender_type, sender_id, body, created_at, read_by_ai, read_by_human
        FROM contact_messages
@@ -72,7 +72,7 @@ export async function POST(
   }
 
   const db = getDb();
-  const task = db
+  const task = await db
     .prepare(`SELECT id, ai_account_id, human_id, status FROM tasks WHERE id = ?`)
     .get(params.taskId) as
     | { id: string; ai_account_id: string | null; human_id: string | null; status: string }
@@ -86,7 +86,7 @@ export async function POST(
     return NextResponse.json({ status: "unauthorized" }, { status: 401 });
   }
 
-  const channel = db
+  const channel = await db
     .prepare(`SELECT task_id, status FROM task_contacts WHERE task_id = ?`)
     .get(task.id) as { task_id: string; status: "pending" | "open" | "closed" } | undefined;
   if (!channel?.task_id || channel.status !== "open") {
@@ -100,7 +100,7 @@ export async function POST(
   const createdAt = new Date().toISOString();
   const readByAi = actor.role === "ai" ? 1 : 0;
   const readByHuman = actor.role === "human" ? 1 : 0;
-  db.prepare(
+  await db.prepare(
     `INSERT INTO contact_messages
      (id, task_id, sender_type, sender_id, body, created_at, read_by_ai, read_by_human)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`

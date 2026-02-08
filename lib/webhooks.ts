@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import type Database from "better-sqlite3";
+import type { DbClient } from "@/lib/db";
 import { getNormalizedTask } from "@/lib/task-api";
 
 export type WebhookEventType = "task.accepted" | "task.completed" | "task.failed";
@@ -27,7 +27,7 @@ function parseTaskId(task: any): string {
 }
 
 export async function dispatchTaskEvent(
-  db: Database.Database,
+  db: DbClient,
   params: {
     eventType: WebhookEventType;
     taskId: string;
@@ -37,13 +37,13 @@ export async function dispatchTaskEvent(
   const task = await getNormalizedTask(db, taskId, "en");
   if (!task || !task.ai_account_id) return;
 
-  const endpoints = db
+  const endpoints = await db
     .prepare(
       `SELECT id, ai_account_id, url, secret, status, events
        FROM webhook_endpoints
        WHERE ai_account_id = ? AND status = 'active'`
     )
-    .all(task.ai_account_id) as WebhookEndpoint[];
+    .all<WebhookEndpoint>(task.ai_account_id);
 
   if (!endpoints.length) return;
 
@@ -87,7 +87,7 @@ export async function dispatchTaskEvent(
           error = typeof err?.message === "string" ? err.message : "webhook_dispatch_error";
         }
 
-        db.prepare(
+        await db.prepare(
           `INSERT INTO webhook_deliveries
            (id, webhook_id, event_id, event_type, task_id, status_code, response_body, error, created_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`

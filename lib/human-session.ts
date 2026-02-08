@@ -1,9 +1,9 @@
 import { getDb } from "@/lib/db";
 
-export function getCurrentHumanIdByEmail(email: string): string | null {
+export async function getCurrentHumanIdByEmail(email: string): Promise<string | null> {
   const db = getDb();
-  const row = db
+  const row = await db
     .prepare(`SELECT id FROM humans WHERE email = ? ORDER BY created_at DESC LIMIT 1`)
-    .get(email) as { id: string } | undefined;
+    .get<{ id: string }>(email);
   return row?.id ?? null;
 }

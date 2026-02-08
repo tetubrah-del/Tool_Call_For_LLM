@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ status: "unauthorized" }, { status: 401 });
   }
 
-  const humanId = getCurrentHumanIdByEmail(email);
+  const humanId = await getCurrentHumanIdByEmail(email);
   if (!humanId) {
     return NextResponse.json({ status: "error", reason: "profile_not_found" }, { status: 404 });
   }
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
   const db = getDb();
-  db.prepare(
+  await db.prepare(
     `INSERT INTO message_templates (id, human_id, title, body, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?)`
   ).run(id, humanId, title, body, now, now);

@@ -42,7 +42,7 @@ export async function POST(request: Request) {
   const id = crypto.randomUUID();
   const createdAt = new Date().toISOString();
 
-  db.prepare(
+  await db.prepare(
     `INSERT INTO humans (id, name, email, paypal_email, location, country, min_budget_usd, status, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, 'available', ?)`
   ).run(id, name, email, paypalEmail, location, country, minBudgetUsd, createdAt);
@@ -57,6 +57,8 @@ export async function POST(request: Request) {
 
 export async function GET() {
   const db = getDb();
-  const humans = db.prepare(`SELECT * FROM humans ORDER BY created_at DESC`).all();
+  const humans = await db
+    .prepare(`SELECT * FROM humans ORDER BY created_at DESC`)
+    .all();
   return NextResponse.json({ humans });
 }

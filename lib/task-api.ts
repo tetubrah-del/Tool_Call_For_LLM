@@ -1,5 +1,4 @@
-import type Database from "better-sqlite3";
-import type { FailureReason, Task, Submission } from "@/lib/db";
+import type { DbClient, FailureReason, Task, Submission } from "@/lib/db";
 import { normalizeLang, type UiLang } from "@/lib/i18n";
 import { normalizeTaskLabel, type TaskLabel } from "@/lib/task-labels";
 import { closeContactChannel } from "@/lib/contact-channel";
@@ -80,29 +79,29 @@ function computeDeadlineAt(task: Task): string | null {
 }
 
 async function fetchSubmission(
-  db: Database,
+  db: DbClient,
   task: Task
 ): Promise<NormalizedSubmission> {
   if (task.submission_id) {
-    const submission = db
+    const submission = await db
       .prepare(`SELECT * FROM submissions WHERE id = ?`)
-      .get(task.submission_id);
+      .get<Submission>(task.submission_id);
     return submission || null;
   }
 
-  const submission = db
+  const submission = await db
     .prepare(
       `SELECT * FROM submissions WHERE task_id = ? ORDER BY created_at DESC LIMIT 1`
     )
-    .get(task.id);
+    .get<Submission>(task.id);
   return submission || null;
 }
 
-function applyTimeoutIfNeeded(
-  db: Database,
+async function applyTimeoutIfNeeded(
+  db: DbClient,
   task: Task,
   deadlineAt: string | null
-): Task {
+): Promise<Task> {
   if (!deadlineAt) return task;
   if (task.status === "completed" || task.status === "failed") return task;
 
@@ -110,15 +109,15 @@ function applyTimeoutIfNeeded(
   if (!Number.isFinite(deadlineMs)) return task;
   if (Date.now() <= deadlineMs) return task;
 
-  db.prepare(
+  await db.prepare(
     `UPDATE tasks SET status = 'failed', failure_reason = 'timeout', deadline_at = ? WHERE id = ?`
   ).run(deadlineAt, task.id);
   if (task.human_id) {
-    db.prepare(`UPDATE humans SET status = 'available' WHERE id = ?`).run(
+    await db.prepare(`UPDATE humans SET status = 'available' WHERE id = ?`).run(
       task.human_id
     );
   }
-  closeContactChannel(db, task.id);
+  await closeContactChannel(db, task.id);
 
   const updated: Task = {
     ...task,
@@ -129,37 +128,37 @@ function applyTimeoutIfNeeded(
   return updated;
 }
 
-function ensureTaskEnglish(db: Database, task: Task): string {
+async function ensureTaskEnglish(db: DbClient, task: Task): Promise<string> {
   const taskEn = task.task_en || task.task;
   if (!task.task_en) {
-    db.prepare(`UPDATE tasks SET task_en = ? WHERE id = ?`).run(taskEn, task.id);
+    await db.prepare(`UPDATE tasks SET task_en = ? WHERE id = ?`).run(taskEn, task.id);
   }
   return taskEn;
 }
 
-export function getTaskDisplay(
-  db: Database,
+export async function getTaskDisplay(
+  db: DbClient,
   task: Task,
   langValue: string | null
-): { display: string; lang: UiLang } {
+): Promise<{ display: string; lang: UiLang }> {
   const lang = normalizeLang(langValue);
-  const taskEn = ensureTaskEnglish(db, task);
+  const taskEn = await ensureTaskEnglish(db, task);
   if (lang === "en") {
     return { display: taskEn, lang };
   }
 
-  const existing = db
+  const existing = await db
     .prepare(
       `SELECT text FROM task_translations WHERE task_id = ? AND lang = ?`
     )
-    .get(task.id, lang) as { text: string } | undefined;
+    .get<{ text: string }>(task.id, lang);
 
   if (existing?.text) {
     return { display: existing.text, lang };
   }
 
   const now = new Date().toISOString();
-  db.prepare(
+  await db.prepare(
     `INSERT INTO task_translations (task_id, lang, text, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?)`
   ).run(task.id, lang, taskEn, now, now);
@@ -168,26 +167,28 @@ export function getTaskDisplay(
 }
 
 export async function getNormalizedTask(
-  db: Database,
+  db: DbClient,
   taskId: string,
   langValue: string | null
 ): Promise<NormalizedTask | null> {
-  const rawTask = db.prepare(`SELECT * FROM tasks WHERE id = ?`).get(taskId);
+  const rawTask = await db
+    .prepare(`SELECT * FROM tasks WHERE id = ?`)
+    .get<Task>(taskId);
   if (!rawTask) return null;
 
   const task = rawTask as Task;
   const deadlineAt = computeDeadlineAt(task);
-  const finalTask = applyTimeoutIfNeeded(db, task, deadlineAt);
+  const finalTask = await applyTimeoutIfNeeded(db, task, deadlineAt);
   const submission = await fetchSubmission(db, finalTask);
   const normalizedDeliverable = finalTask.deliverable || "text";
-  const { display: taskDisplay, lang } = getTaskDisplay(
+  const { display: taskDisplay, lang } = await getTaskDisplay(
     db,
     finalTask,
     langValue
   );
 
   if (!finalTask.deliverable) {
-    db.prepare(`UPDATE tasks SET deliverable = 'text' WHERE id = ?`).run(
+    await db.prepare(`UPDATE tasks SET deliverable = 'text' WHERE id = ?`).run(
       finalTask.id
     );
   }

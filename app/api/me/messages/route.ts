@@ -11,13 +11,13 @@ export async function GET() {
     return NextResponse.json({ status: "unauthorized" }, { status: 401 });
   }
 
-  const humanId = getCurrentHumanIdByEmail(email);
+  const humanId = await getCurrentHumanIdByEmail(email);
   if (!humanId) {
     return NextResponse.json({ human_id: null, inquiries: [], templates: [] });
   }
 
   const db = getDb();
-  const inquiries = db
+  const inquiries = await db
     .prepare(
       `SELECT id, human_id, from_name, from_email, subject, body, COALESCE(is_read, 0) AS is_read, created_at
        FROM human_inquiries
@@ -25,7 +25,7 @@ export async function GET() {
        ORDER BY created_at DESC`
     )
     .all(humanId);
-  const templates = db
+  const templates = await db
     .prepare(
       `SELECT id, human_id, title, body, created_at, updated_at
        FROM message_templates
@@ -33,7 +33,7 @@ export async function GET() {
        ORDER BY updated_at DESC`
     )
     .all(humanId);
-  const channels = db
+  const channels = await db
     .prepare(
       `SELECT
          tc.task_id,

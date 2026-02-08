@@ -18,7 +18,7 @@ export async function PATCH(
     return NextResponse.json({ status: "unauthorized" }, { status: 401 });
   }
 
-  const humanId = getCurrentHumanIdByEmail(email);
+  const humanId = await getCurrentHumanIdByEmail(email);
   if (!humanId) {
     return NextResponse.json({ status: "error", reason: "profile_not_found" }, { status: 404 });
   }
@@ -34,7 +34,7 @@ export async function PATCH(
   }
 
   const db = getDb();
-  const current = db
+  const current = await db
     .prepare(`SELECT id FROM message_templates WHERE id = ? AND human_id = ?`)
     .get(params.templateId, humanId) as { id: string } | undefined;
   if (!current?.id) {
@@ -42,7 +42,7 @@ export async function PATCH(
   }
 
   const now = new Date().toISOString();
-  db.prepare(`UPDATE message_templates SET title = ?, body = ?, updated_at = ? WHERE id = ?`).run(
+  await db.prepare(`UPDATE message_templates SET title = ?, body = ?, updated_at = ? WHERE id = ?`).run(
     title,
     body,
     now,
@@ -62,19 +62,19 @@ export async function DELETE(
     return NextResponse.json({ status: "unauthorized" }, { status: 401 });
   }
 
-  const humanId = getCurrentHumanIdByEmail(email);
+  const humanId = await getCurrentHumanIdByEmail(email);
   if (!humanId) {
     return NextResponse.json({ status: "error", reason: "profile_not_found" }, { status: 404 });
   }
 
   const db = getDb();
-  const current = db
+  const current = await db
     .prepare(`SELECT id FROM message_templates WHERE id = ? AND human_id = ?`)
     .get(params.templateId, humanId) as { id: string } | undefined;
   if (!current?.id) {
     return NextResponse.json({ status: "not_found" }, { status: 404 });
   }
 
-  db.prepare(`DELETE FROM message_templates WHERE id = ?`).run(params.templateId);
+  await db.prepare(`DELETE FROM message_templates WHERE id = ?`).run(params.templateId);
   return NextResponse.json({ status: "deleted", id: params.templateId });
 }

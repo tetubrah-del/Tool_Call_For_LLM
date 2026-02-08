@@ -8,7 +8,7 @@ export async function PATCH(
 ) {
   const payload = await request.json().catch(() => null);
   const db = getDb();
-  const task = db
+  const task = await db
     .prepare(`SELECT id, ai_account_id, human_id, status FROM tasks WHERE id = ?`)
     .get(params.taskId) as
     | { id: string; ai_account_id: string | null; human_id: string | null; status: string }
@@ -22,7 +22,7 @@ export async function PATCH(
     return NextResponse.json({ status: "unauthorized" }, { status: 401 });
   }
 
-  const channel = db
+  const channel = await db
     .prepare(`SELECT task_id, status FROM task_contacts WHERE task_id = ?`)
     .get(task.id) as { task_id: string; status: "pending" | "open" | "closed" } | undefined;
   if (!channel?.task_id) {
@@ -33,9 +33,13 @@ export async function PATCH(
   }
 
   if (actor.role === "ai") {
-    db.prepare(`UPDATE contact_messages SET read_by_ai = 1 WHERE task_id = ?`).run(task.id);
+    await db
+      .prepare(`UPDATE contact_messages SET read_by_ai = 1 WHERE task_id = ?`)
+      .run(task.id);
   } else {
-    db.prepare(`UPDATE contact_messages SET read_by_human = 1 WHERE task_id = ?`).run(task.id);
+    await db
+      .prepare(`UPDATE contact_messages SET read_by_human = 1 WHERE task_id = ?`)
+      .run(task.id);
   }
 
   return NextResponse.json({ status: "updated", task_id: task.id });

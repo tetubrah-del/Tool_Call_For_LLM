@@ -1,4 +1,4 @@
-import type Database from "better-sqlite3";
+import type { DbClient } from "@/lib/db";
 import { dispatchTaskEvent } from "@/lib/webhooks";
 import { closeContactChannel } from "@/lib/contact-channel";
 
@@ -24,16 +24,16 @@ function computeDeadlineAt(task: TaskRow): string | null {
   return new Date(deadlineMs).toISOString();
 }
 
-function sweepTimeouts(db: Database) {
+async function sweepTimeouts(db: DbClient) {
   const now = Date.now();
-  const candidates = db
+  const candidates = await db
     .prepare(
       `SELECT id, deadline_at, deadline_minutes, created_at, status, human_id
        FROM tasks
        WHERE status IN ('open', 'accepted')
          AND (deadline_at IS NOT NULL OR deadline_minutes IS NOT NULL)`
     )
-    .all() as TaskRow[];
+    .all<TaskRow>();
 
   for (const task of candidates) {
     const deadlineAt = computeDeadlineAt(task);
@@ -41,26 +41,28 @@ function sweepTimeouts(db: Database) {
     const deadlineMs = Date.parse(deadlineAt);
     if (!Number.isFinite(deadlineMs) || now <= deadlineMs) continue;
 
-    db.prepare(
+    await db.prepare(
       `UPDATE tasks
        SET status = 'failed', failure_reason = 'timeout', deadline_at = ?
        WHERE id = ?`
     ).run(deadlineAt, task.id);
 
     if (task.human_id) {
-      db.prepare(`UPDATE humans SET status = 'available' WHERE id = ?`).run(
+      await db.prepare(`UPDATE humans SET status = 'available' WHERE id = ?`).run(
         task.human_id
       );
     }
-    closeContactChannel(db, task.id);
+    await closeContactChannel(db, task.id);
     void dispatchTaskEvent(db, { eventType: "task.failed", taskId: task.id }).catch(() => {});
   }
 }
 
-export function startTimeoutSweeper(db: Database) {
+export function startTimeoutSweeper(db: DbClient) {
   const g = globalThis as typeof globalThis & { [SWEEPER_KEY]?: boolean };
   if (g[SWEEPER_KEY]) return;
   g[SWEEPER_KEY] = true;
 
-  setInterval(() => sweepTimeouts(db), SWEEP_INTERVAL_MS).unref?.();
+  setInterval(() => {
+    void sweepTimeouts(db);
+  }, SWEEP_INTERVAL_MS).unref?.();
 }

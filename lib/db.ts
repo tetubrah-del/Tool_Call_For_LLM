@@ -1,21 +1,241 @@
 import fs from "fs";
 import path from "path";
 import Database from "better-sqlite3";
+import { Pool } from "pg";
 import { startTimeoutSweeper } from "@/lib/timeout-sweeper";
 import type { TaskLabel } from "@/lib/task-labels";
 
+type QueryResult<T> = {
+  rows: T[];
+  rowCount: number;
+};
+
+export type DbClient = {
+  prepare: (sql: string) => {
+    get: <T = any>(...params: Array<string | number | null>) => Promise<T | undefined>;
+    all: <T = any>(...params: Array<string | number | null>) => Promise<T[]>;
+    run: (...params: Array<string | number | null>) => Promise<number>;
+  };
+  query: <T = any>(sql: string, params?: Array<string | number | null>) => Promise<QueryResult<T>>;
+};
+
+type DbMode = "postgres" | "sqlite";
+
 const DB_PATH = path.join(process.cwd(), "data", "app.db");
+const DATABASE_URL = process.env.DATABASE_URL?.trim();
 
-let db: Database.Database | null = null;
+let mode: DbMode | null = null;
+let initPromise: Promise<void> | null = null;
+let client: DbClient | null = null;
+let sweeperStarted = false;
+let pool: Pool | null = null;
+let sqliteDb: Database.Database | null = null;
 
-function ensureDb() {
-  if (db) return db;
+function resolveMode(): DbMode {
+  return DATABASE_URL ? "postgres" : "sqlite";
+}
 
-  fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
-  const instance = new Database(DB_PATH);
-  instance.pragma("journal_mode = WAL");
+function getPool() {
+  if (!pool) {
+    if (!DATABASE_URL) {
+      throw new Error("DATABASE_URL is required for Postgres.");
+    }
+    const useSsl =
+      DATABASE_URL.includes("sslmode=require") || process.env.PGSSLMODE === "require";
+    pool = new Pool({
+      connectionString: DATABASE_URL,
+      ssl: useSsl ? { rejectUnauthorized: false } : undefined
+    });
+  }
+  return pool;
+}
 
-  instance.exec(`
+function getSqliteDb() {
+  if (!sqliteDb) {
+    fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
+    sqliteDb = new Database(DB_PATH);
+    sqliteDb.pragma("journal_mode = WAL");
+  }
+  return sqliteDb;
+}
+
+function toPgSql(sql: string) {
+  let index = 0;
+  let out = "";
+  for (let i = 0; i < sql.length; i += 1) {
+    const ch = sql[i];
+    if (ch === "?") {
+      index += 1;
+      out += `$${index}`;
+    } else {
+      out += ch;
+    }
+  }
+  return out;
+}
+
+function ensureSqliteColumn(
+  instance: Database.Database,
+  table: string,
+  column: string,
+  type: string
+) {
+  const rows = instance.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+  if (rows.some((row) => row.name === column)) return;
+  instance.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+}
+
+async function initPostgres() {
+  const db = getPool();
+  const statements = [
+    `CREATE TABLE IF NOT EXISTS humans (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      email TEXT,
+      paypal_email TEXT,
+      location TEXT,
+      country TEXT NOT NULL,
+      min_budget_usd DOUBLE PRECISION NOT NULL,
+      status TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS ai_accounts (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      paypal_email TEXT NOT NULL,
+      api_key TEXT NOT NULL,
+      status TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS tasks (
+      id TEXT PRIMARY KEY,
+      task TEXT NOT NULL,
+      task_en TEXT,
+      location TEXT,
+      budget_usd DOUBLE PRECISION NOT NULL,
+      origin_country TEXT,
+      task_label TEXT,
+      acceptance_criteria TEXT,
+      not_allowed TEXT,
+      ai_account_id TEXT,
+      payer_paypal_email TEXT,
+      payee_paypal_email TEXT,
+      deliverable TEXT,
+      deadline_minutes DOUBLE PRECISION,
+      deadline_at TEXT,
+      status TEXT NOT NULL,
+      failure_reason TEXT,
+      human_id TEXT,
+      submission_id TEXT,
+      fee_rate DOUBLE PRECISION,
+      fee_amount DOUBLE PRECISION,
+      payout_amount DOUBLE PRECISION,
+      paypal_fee_amount DOUBLE PRECISION,
+      paid_status TEXT,
+      paid_at TEXT,
+      paid_method TEXT,
+      created_at TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS task_translations (
+      task_id TEXT NOT NULL,
+      lang TEXT NOT NULL,
+      text TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (task_id, lang)
+    )`,
+    `CREATE TABLE IF NOT EXISTS submissions (
+      id TEXT PRIMARY KEY,
+      task_id TEXT NOT NULL,
+      type TEXT NOT NULL,
+      content_url TEXT,
+      text TEXT,
+      created_at TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS human_photos (
+      id TEXT PRIMARY KEY,
+      human_id TEXT NOT NULL,
+      photo_url TEXT NOT NULL,
+      is_public INTEGER NOT NULL,
+      created_at TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS human_inquiries (
+      id TEXT PRIMARY KEY,
+      human_id TEXT NOT NULL,
+      from_name TEXT,
+      from_email TEXT,
+      subject TEXT NOT NULL,
+      body TEXT NOT NULL,
+      is_read INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS message_templates (
+      id TEXT PRIMARY KEY,
+      human_id TEXT NOT NULL,
+      title TEXT NOT NULL,
+      body TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS task_contacts (
+      task_id TEXT PRIMARY KEY,
+      ai_account_id TEXT NOT NULL,
+      human_id TEXT NOT NULL,
+      status TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      opened_at TEXT,
+      closed_at TEXT
+    )`,
+    `CREATE TABLE IF NOT EXISTS contact_messages (
+      id TEXT PRIMARY KEY,
+      task_id TEXT NOT NULL,
+      sender_type TEXT NOT NULL,
+      sender_id TEXT NOT NULL,
+      body TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      read_by_ai INTEGER NOT NULL DEFAULT 0,
+      read_by_human INTEGER NOT NULL DEFAULT 0
+    )`,
+    `CREATE TABLE IF NOT EXISTS idempotency_keys (
+      route TEXT NOT NULL,
+      idem_key TEXT NOT NULL,
+      ai_account_id TEXT NOT NULL,
+      request_hash TEXT NOT NULL,
+      status_code INTEGER,
+      response_body TEXT,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY (route, idem_key, ai_account_id)
+    )`,
+    `CREATE TABLE IF NOT EXISTS webhook_endpoints (
+      id TEXT PRIMARY KEY,
+      ai_account_id TEXT NOT NULL,
+      url TEXT NOT NULL,
+      secret TEXT NOT NULL,
+      status TEXT NOT NULL,
+      events TEXT,
+      created_at TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS webhook_deliveries (
+      id TEXT PRIMARY KEY,
+      webhook_id TEXT NOT NULL,
+      event_id TEXT NOT NULL,
+      event_type TEXT NOT NULL,
+      task_id TEXT NOT NULL,
+      status_code INTEGER,
+      response_body TEXT,
+      error TEXT,
+      created_at TEXT NOT NULL
+    )`
+  ];
+
+  for (const statement of statements) {
+    await db.query(statement);
+  }
+}
+
+async function initSqlite() {
+  const db = getSqliteDb();
+  db.exec(`
     CREATE TABLE IF NOT EXISTS humans (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -137,7 +357,7 @@ function ensureDb() {
     CREATE TABLE IF NOT EXISTS idempotency_keys (
       route TEXT NOT NULL,
       idem_key TEXT NOT NULL,
-      ai_account_id TEXT,
+      ai_account_id TEXT NOT NULL,
       request_hash TEXT NOT NULL,
       status_code INTEGER,
       response_body TEXT,
@@ -168,62 +388,126 @@ function ensureDb() {
     );
   `);
 
-  ensureColumn(instance, "tasks", "task_en", "TEXT");
-  ensureColumn(instance, "tasks", "origin_country", "TEXT");
-  ensureColumn(instance, "tasks", "task_label", "TEXT");
-  ensureColumn(instance, "tasks", "acceptance_criteria", "TEXT");
-  ensureColumn(instance, "tasks", "not_allowed", "TEXT");
-  ensureColumn(instance, "tasks", "ai_account_id", "TEXT");
-  ensureColumn(instance, "tasks", "payer_paypal_email", "TEXT");
-  ensureColumn(instance, "tasks", "payee_paypal_email", "TEXT");
-  ensureColumn(instance, "tasks", "deadline_at", "TEXT");
-  ensureColumn(instance, "tasks", "failure_reason", "TEXT");
-  ensureColumn(instance, "tasks", "submission_id", "TEXT");
-  ensureColumn(instance, "tasks", "fee_rate", "REAL");
-  ensureColumn(instance, "tasks", "fee_amount", "REAL");
-  ensureColumn(instance, "tasks", "payout_amount", "REAL");
-  ensureColumn(instance, "tasks", "paypal_fee_amount", "REAL");
-  ensureColumn(instance, "tasks", "paid_status", "TEXT");
-  ensureColumn(instance, "tasks", "paid_at", "TEXT");
-  ensureColumn(instance, "tasks", "paid_method", "TEXT");
-  ensureColumn(instance, "humans", "email", "TEXT");
-  ensureColumn(instance, "humans", "paypal_email", "TEXT");
-  ensureColumn(instance, "humans", "country", "TEXT");
-  ensureColumn(instance, "idempotency_keys", "status_code", "INTEGER");
-  ensureColumn(instance, "idempotency_keys", "response_body", "TEXT");
-  ensureColumn(instance, "webhook_endpoints", "events", "TEXT");
-  ensureColumn(instance, "webhook_deliveries", "status_code", "INTEGER");
-  ensureColumn(instance, "webhook_deliveries", "response_body", "TEXT");
-  ensureColumn(instance, "webhook_deliveries", "error", "TEXT");
-  ensureColumn(instance, "human_photos", "is_public", "INTEGER");
-  ensureColumn(instance, "human_inquiries", "is_read", "INTEGER");
-  ensureColumn(instance, "message_templates", "updated_at", "TEXT");
-  ensureColumn(instance, "task_contacts", "opened_at", "TEXT");
-  ensureColumn(instance, "task_contacts", "closed_at", "TEXT");
-  ensureColumn(instance, "contact_messages", "read_by_ai", "INTEGER");
-  ensureColumn(instance, "contact_messages", "read_by_human", "INTEGER");
-
-  startTimeoutSweeper(instance);
-
-  db = instance;
-  return db;
+  ensureSqliteColumn(db, "tasks", "task_en", "TEXT");
+  ensureSqliteColumn(db, "tasks", "origin_country", "TEXT");
+  ensureSqliteColumn(db, "tasks", "task_label", "TEXT");
+  ensureSqliteColumn(db, "tasks", "acceptance_criteria", "TEXT");
+  ensureSqliteColumn(db, "tasks", "not_allowed", "TEXT");
+  ensureSqliteColumn(db, "tasks", "ai_account_id", "TEXT");
+  ensureSqliteColumn(db, "tasks", "payer_paypal_email", "TEXT");
+  ensureSqliteColumn(db, "tasks", "payee_paypal_email", "TEXT");
+  ensureSqliteColumn(db, "tasks", "deadline_at", "TEXT");
+  ensureSqliteColumn(db, "tasks", "failure_reason", "TEXT");
+  ensureSqliteColumn(db, "tasks", "submission_id", "TEXT");
+  ensureSqliteColumn(db, "tasks", "fee_rate", "REAL");
+  ensureSqliteColumn(db, "tasks", "fee_amount", "REAL");
+  ensureSqliteColumn(db, "tasks", "payout_amount", "REAL");
+  ensureSqliteColumn(db, "tasks", "paypal_fee_amount", "REAL");
+  ensureSqliteColumn(db, "tasks", "paid_status", "TEXT");
+  ensureSqliteColumn(db, "tasks", "paid_at", "TEXT");
+  ensureSqliteColumn(db, "tasks", "paid_method", "TEXT");
+  ensureSqliteColumn(db, "humans", "email", "TEXT");
+  ensureSqliteColumn(db, "humans", "paypal_email", "TEXT");
+  ensureSqliteColumn(db, "humans", "country", "TEXT");
+  ensureSqliteColumn(db, "idempotency_keys", "status_code", "INTEGER");
+  ensureSqliteColumn(db, "idempotency_keys", "response_body", "TEXT");
+  ensureSqliteColumn(db, "webhook_endpoints", "events", "TEXT");
+  ensureSqliteColumn(db, "webhook_deliveries", "status_code", "INTEGER");
+  ensureSqliteColumn(db, "webhook_deliveries", "response_body", "TEXT");
+  ensureSqliteColumn(db, "webhook_deliveries", "error", "TEXT");
+  ensureSqliteColumn(db, "human_photos", "is_public", "INTEGER");
+  ensureSqliteColumn(db, "human_inquiries", "is_read", "INTEGER");
+  ensureSqliteColumn(db, "message_templates", "updated_at", "TEXT");
+  ensureSqliteColumn(db, "task_contacts", "opened_at", "TEXT");
+  ensureSqliteColumn(db, "task_contacts", "closed_at", "TEXT");
+  ensureSqliteColumn(db, "contact_messages", "read_by_ai", "INTEGER");
+  ensureSqliteColumn(db, "contact_messages", "read_by_human", "INTEGER");
 }
 
-function ensureColumn(
-  instance: Database.Database,
-  table: string,
-  column: string,
-  type: string
-) {
-  const rows = instance
-    .prepare(`PRAGMA table_info(${table})`)
-    .all() as Array<{ name: string }>;
-  if (rows.some((row) => row.name === column)) return;
-  instance.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+async function ensureInit() {
+  if (!mode) {
+    mode = resolveMode();
+  }
+  if (!initPromise) {
+    initPromise = mode === "postgres" ? initPostgres() : initSqlite();
+  }
+  await initPromise;
+  if (!sweeperStarted && client) {
+    sweeperStarted = true;
+    startTimeoutSweeper(client);
+  }
 }
 
-export function getDb() {
-  return ensureDb();
+function buildPostgresClient(): DbClient {
+  return {
+    prepare: (sql: string) => {
+      const pgSql = toPgSql(sql);
+      return {
+        get: async <T = any>(...params: Array<string | number | null>) => {
+          await ensureInit();
+          const result = await getPool().query<T>(pgSql, params);
+          return result.rows[0];
+        },
+        all: async <T = any>(...params: Array<string | number | null>) => {
+          await ensureInit();
+          const result = await getPool().query<T>(pgSql, params);
+          return result.rows;
+        },
+        run: async (...params: Array<string | number | null>) => {
+          await ensureInit();
+          const result = await getPool().query(pgSql, params);
+          return result.rowCount ?? 0;
+        }
+      };
+    },
+    query: async <T = any>(sql: string, params?: Array<string | number | null>) => {
+      await ensureInit();
+      const result = await getPool().query<T>(toPgSql(sql), params);
+      return { rows: result.rows, rowCount: result.rowCount ?? 0 };
+    }
+  };
+}
+
+function buildSqliteClient(): DbClient {
+  return {
+    prepare: (sql: string) => {
+      return {
+        get: async <T = any>(...params: Array<string | number | null>) => {
+          await ensureInit();
+          const stmt = getSqliteDb().prepare(sql);
+          return stmt.get(...params) as T | undefined;
+        },
+        all: async <T = any>(...params: Array<string | number | null>) => {
+          await ensureInit();
+          const stmt = getSqliteDb().prepare(sql);
+          return stmt.all(...params) as T[];
+        },
+        run: async (...params: Array<string | number | null>) => {
+          await ensureInit();
+          const stmt = getSqliteDb().prepare(sql);
+          const result = stmt.run(...params);
+          return result.changes;
+        }
+      };
+    },
+    query: async <T = any>(sql: string, params?: Array<string | number | null>) => {
+      await ensureInit();
+      const stmt = getSqliteDb().prepare(sql);
+      if (stmt.reader) {
+        const rows = stmt.all(...(params ?? [])) as T[];
+        return { rows, rowCount: rows.length };
+      }
+      const info = stmt.run(...(params ?? []));
+      return { rows: [], rowCount: info.changes };
+    }
+  };
+}
+
+export function getDb(): DbClient {
+  if (client) return client;
+  mode = resolveMode();
+  client = mode === "postgres" ? buildPostgresClient() : buildSqliteClient();
+  return client;
 }
 
 export type Human = {

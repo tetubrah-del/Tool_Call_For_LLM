@@ -50,7 +50,7 @@ export async function POST(request: Request) {
       : null;
 
   const db = getDb();
-  const idemStart = startIdempotency(db, {
+  const idemStart = await startIdempotency(db, {
     route: "/api/call_human",
     idemKey,
     aiAccountId: aiAccountId || null,
@@ -67,8 +67,8 @@ export async function POST(request: Request) {
     return NextResponse.json(idemStart.body, { status: idemStart.statusCode });
   }
 
-  function respond(body: any, status = 200) {
-    finishIdempotency(db, {
+  async function respond(body: any, status = 200) {
+    await finishIdempotency(db, {
       route: "/api/call_human",
       idemKey,
       aiAccountId: aiAccountId || null,
@@ -94,7 +94,7 @@ export async function POST(request: Request) {
     return respond({ status: "rejected", reason: "below_min_budget" }, 400);
   }
 
-  const aiAccount = db
+  const aiAccount = await db
     .prepare(`SELECT * FROM ai_accounts WHERE id = ?`)
     .get(aiAccountId) as
     | { id: string; paypal_email: string; api_key: string; status: string }
@@ -104,7 +104,7 @@ export async function POST(request: Request) {
   }
 
   const taskId = crypto.randomUUID();
-  db.prepare(
+  await db.prepare(
     `INSERT INTO tasks (id, task, task_en, location, budget_usd, origin_country, task_label, acceptance_criteria, not_allowed, ai_account_id, payer_paypal_email, payee_paypal_email, deliverable, deadline_minutes, deadline_at, status, failure_reason, human_id, submission_id, paid_status, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, 'open', NULL, NULL, NULL, 'unpaid', ?)`
   ).run(
@@ -136,26 +136,26 @@ export async function POST(request: Request) {
      LIMIT 1`
   );
   const params = location ? [budgetUsd, location] : [budgetUsd];
-  const human = stmt.get(...params);
+  const human = await stmt.get(...params);
 
   if (!human) {
-    db.prepare(
+    await db.prepare(
       `UPDATE tasks SET status = 'failed', failure_reason = 'no_human_available' WHERE id = ?`
     ).run(taskId);
     void dispatchTaskEvent(db, { eventType: "task.failed", taskId }).catch(() => {});
     return respond({ status: "rejected", reason: "no_human_available" });
   }
 
-  db.prepare(`UPDATE tasks SET status = 'accepted', human_id = ? WHERE id = ?`).run(
+  await db.prepare(`UPDATE tasks SET status = 'accepted', human_id = ? WHERE id = ?`).run(
     human.id,
     taskId
   );
-  db.prepare(`UPDATE tasks SET payee_paypal_email = ? WHERE id = ?`).run(
+  await db.prepare(`UPDATE tasks SET payee_paypal_email = ? WHERE id = ?`).run(
     human.paypal_email,
     taskId
   );
-  db.prepare(`UPDATE humans SET status = 'busy' WHERE id = ?`).run(human.id);
-  ensurePendingContactChannel(db, taskId);
+  await db.prepare(`UPDATE humans SET status = 'busy' WHERE id = ?`).run(human.id);
+  await ensurePendingContactChannel(db, taskId);
   // Payment is mocked for MVP; integrate Stripe here later if needed.
   void dispatchTaskEvent(db, { eventType: "task.accepted", taskId }).catch(() => {});
 

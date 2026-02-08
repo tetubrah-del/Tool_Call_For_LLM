@@ -11,20 +11,25 @@ export async function GET(request: Request) {
   const db = getDb();
   const url = new URL(request.url);
   const lang = url.searchParams.get("lang");
-  const tasks = db.prepare(`SELECT * FROM tasks ORDER BY created_at DESC`).all();
-  const normalized = tasks.map((task: any) => {
-    const display = getTaskDisplay(db, task, lang);
+  const tasks = await db
+    .prepare(`SELECT * FROM tasks ORDER BY created_at DESC`)
+    .all();
+  const normalized = [];
+  for (const task of tasks) {
+    const display = await getTaskDisplay(db, task, lang);
     if (!task.deliverable) {
-      db.prepare(`UPDATE tasks SET deliverable = 'text' WHERE id = ?`).run(task.id);
+      await db
+        .prepare(`UPDATE tasks SET deliverable = 'text' WHERE id = ?`)
+        .run(task.id);
     }
-    return {
+    normalized.push({
       ...task,
       task_label: normalizeTaskLabel(task.task_label),
       deliverable: task.deliverable || "text",
       task_display: display.display,
       lang: display.lang,
       paid_status: task.paid_status ?? "unpaid"
-    };
-  });
+    });
+  }
   return NextResponse.json({ tasks: normalized });
 }

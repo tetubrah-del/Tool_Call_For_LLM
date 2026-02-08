@@ -16,7 +16,7 @@ export async function GET(request: Request) {
   if (authError) return authError;
 
   const db = getDb();
-  const rows = db
+  const rows = await db
     .prepare(
       `SELECT
         id,

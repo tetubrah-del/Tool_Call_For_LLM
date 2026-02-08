@@ -22,7 +22,7 @@ export async function POST(request: Request) {
   }
 
   const db = getDb();
-  const existing = db
+  const existing = await db
     .prepare(`SELECT * FROM ai_accounts WHERE paypal_email = ? ORDER BY created_at DESC LIMIT 1`)
     .get(paypalEmail) as
     | { id: string; api_key: string; status: "active" | "disabled" }
@@ -36,7 +36,7 @@ export async function POST(request: Request) {
       );
     }
 
-    db.prepare(`UPDATE ai_accounts SET name = ? WHERE id = ?`).run(name, existing.id);
+    await db.prepare(`UPDATE ai_accounts SET name = ? WHERE id = ?`).run(name, existing.id);
     return NextResponse.json({
       status: "connected",
       account_id: existing.id,
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
   const apiKey = crypto.randomBytes(24).toString("hex");
   const createdAt = new Date().toISOString();
 
-  db.prepare(
+  await db.prepare(
     `INSERT INTO ai_accounts (id, name, paypal_email, api_key, status, created_at)
      VALUES (?, ?, ?, ?, 'active', ?)`
   ).run(id, name, paypalEmail, apiKey, createdAt);
@@ -73,7 +73,7 @@ export async function GET(request: Request) {
     );
   }
 
-  const account = db
+  const account = await db
     .prepare(`SELECT * FROM ai_accounts WHERE id = ?`)
     .get(accountId) as
     | { id: string; name: string; paypal_email: string; api_key: string; status: string }

@@ -23,7 +23,9 @@ export async function POST(
   }
 
   const db = getDb();
-  const task = db.prepare(`SELECT * FROM tasks WHERE id = ?`).get(params.taskId);
+  const task = await db
+    .prepare(`SELECT * FROM tasks WHERE id = ?`)
+    .get(params.taskId);
 
   if (!task) {
     return NextResponse.json({ status: "not_found" }, { status: 404 });
@@ -37,11 +39,11 @@ export async function POST(
     return NextResponse.json({ status: "error", reason: "not_assigned" }, { status: 403 });
   }
 
-  db.prepare(`UPDATE tasks SET status = 'open', human_id = NULL, payee_paypal_email = NULL WHERE id = ?`).run(
+  await db.prepare(`UPDATE tasks SET status = 'open', human_id = NULL, payee_paypal_email = NULL WHERE id = ?`).run(
     params.taskId
   );
-  db.prepare(`UPDATE humans SET status = 'available' WHERE id = ?`).run(humanId);
-  closeContactChannel(db, params.taskId);
+  await db.prepare(`UPDATE humans SET status = 'available' WHERE id = ?`).run(humanId);
+  await closeContactChannel(db, params.taskId);
 
   return NextResponse.json({ status: "skipped", task_id: params.taskId });
 }

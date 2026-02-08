@@ -23,7 +23,7 @@ export async function GET() {
   }
 
   const db = getDb();
-  const profile = db
+  const profile = await db
     .prepare(`SELECT * FROM humans WHERE email = ? ORDER BY created_at DESC LIMIT 1`)
     .get(email);
 
@@ -54,12 +54,12 @@ export async function POST(request: Request) {
   }
 
   const db = getDb();
-  const existing = db
+  const existing = await db
     .prepare(`SELECT * FROM humans WHERE email = ? ORDER BY created_at DESC LIMIT 1`)
-    .get(email) as { id: string } | undefined;
+    .get<{ id: string }>(email);
 
   if (existing?.id) {
-    db.prepare(
+    await db.prepare(
       `UPDATE humans SET name = ?, location = ?, country = ?, min_budget_usd = ?, paypal_email = ? WHERE id = ?`
     ).run(name, location, country, minBudgetUsd, paypalEmail, existing.id);
 
@@ -68,7 +68,7 @@ export async function POST(request: Request) {
 
   const id = crypto.randomUUID();
   const createdAt = new Date().toISOString();
-  db.prepare(
+  await db.prepare(
     `INSERT INTO humans (id, name, email, paypal_email, location, country, min_budget_usd, status, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, 'available', ?)`
   ).run(id, name, email, paypalEmail, location, country, minBudgetUsd, createdAt);

@@ -26,7 +26,9 @@ export async function POST(
 
   const db = getDb();
   const task = await getNormalizedTask(db, params.taskId, "en");
-  const human = db.prepare(`SELECT * FROM humans WHERE id = ?`).get(humanId);
+  const human = await db
+    .prepare(`SELECT * FROM humans WHERE id = ?`)
+    .get(humanId);
 
   if (!task || !human) {
     return NextResponse.json({ status: "not_found" }, { status: 404 });
@@ -48,15 +50,15 @@ export async function POST(
     return NextResponse.json({ status: "error", reason: "invalid_request" }, { status: 400 });
   }
 
-  db.prepare(
+  await db.prepare(
     `UPDATE tasks SET status = 'accepted', human_id = ?, payee_paypal_email = ? WHERE id = ?`
   ).run(
     humanId,
     human.paypal_email,
     params.taskId
   );
-  db.prepare(`UPDATE humans SET status = 'busy' WHERE id = ?`).run(humanId);
-  ensurePendingContactChannel(db, params.taskId);
+  await db.prepare(`UPDATE humans SET status = 'busy' WHERE id = ?`).run(humanId);
+  await ensurePendingContactChannel(db, params.taskId);
   void dispatchTaskEvent(db, { eventType: "task.accepted", taskId: params.taskId }).catch(
     () => {}
   );

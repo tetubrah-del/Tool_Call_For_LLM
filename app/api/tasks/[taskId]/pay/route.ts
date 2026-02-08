@@ -21,7 +21,9 @@ export async function POST(
   }
 
   const db = getDb();
-  const task = db.prepare(`SELECT * FROM tasks WHERE id = ?`).get(params.taskId);
+  const task = await db
+    .prepare(`SELECT * FROM tasks WHERE id = ?`)
+    .get(params.taskId);
   if (!task) {
     return NextResponse.json({ status: "not_found" }, { status: 404 });
   }
@@ -41,7 +43,7 @@ export async function POST(
   const breakdown = calculatePayout(Number(task.budget_usd), paypalFeeUsd);
   const paidAt = new Date().toISOString();
 
-  db.prepare(
+  await db.prepare(
     `UPDATE tasks
      SET paid_status = 'paid',
          paid_at = ?,

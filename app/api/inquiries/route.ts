@@ -25,7 +25,7 @@ export async function POST(request: Request) {
   }
 
   const db = getDb();
-  const human = db
+  const human = await db
     .prepare(`SELECT id FROM humans WHERE id = ? LIMIT 1`)
     .get(humanId) as { id: string } | undefined;
   if (!human?.id) {
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
 
   const id = crypto.randomUUID();
   const createdAt = new Date().toISOString();
-  db.prepare(
+  await db.prepare(
     `INSERT INTO human_inquiries (id, human_id, from_name, from_email, subject, body, is_read, created_at)
      VALUES (?, ?, ?, ?, ?, ?, 0, ?)`
   ).run(

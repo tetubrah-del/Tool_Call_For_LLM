@@ -4,6 +4,14 @@ Minimal API where an AI agent tool_call can hire a registered human for a real-w
 
 ---
 
+## Database
+
+- Local development defaults to SQLite at `data/app.db`.
+- Set `DATABASE_URL` to use Postgres (recommended for production persistence).
+- Render Postgres typically requires SSL; include `sslmode=require` in the URL or set `PGSSLMODE=require`.
+
+---
+
 ## Tool Schema (AI)
 
 ```json

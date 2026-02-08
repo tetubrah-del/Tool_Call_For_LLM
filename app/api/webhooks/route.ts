@@ -28,8 +28,8 @@ function isValidWebhookUrl(url: string) {
   }
 }
 
-function loadAiAccount(db: ReturnType<typeof getDb>, aiAccountId: string, aiApiKey: string) {
-  const aiAccount = db
+async function loadAiAccount(db: ReturnType<typeof getDb>, aiAccountId: string, aiApiKey: string) {
+  const aiAccount = await db
     .prepare(`SELECT * FROM ai_accounts WHERE id = ?`)
     .get(aiAccountId) as
     | { id: string; api_key: string; status: string }
@@ -54,7 +54,7 @@ export async function POST(request: Request) {
   }
 
   const db = getDb();
-  const account = loadAiAccount(db, aiAccountId, aiApiKey);
+  const account = await loadAiAccount(db, aiAccountId, aiApiKey);
   if (!account) {
     return NextResponse.json({ status: "error", reason: "invalid_credentials" }, { status: 401 });
   }
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
   const secret = generateWebhookSecret();
   const createdAt = new Date().toISOString();
 
-  db.prepare(
+  await db.prepare(
     `INSERT INTO webhook_endpoints (id, ai_account_id, url, secret, status, events, created_at)
      VALUES (?, ?, ?, ?, 'active', ?, ?)`
   ).run(id, aiAccountId, url, secret, events.join(","), createdAt);
@@ -91,12 +91,12 @@ export async function GET(request: Request) {
   }
 
   const db = getDb();
-  const account = loadAiAccount(db, aiAccountId, aiApiKey);
+  const account = await loadAiAccount(db, aiAccountId, aiApiKey);
   if (!account) {
     return NextResponse.json({ status: "error", reason: "invalid_credentials" }, { status: 401 });
   }
 
-  const webhooks = db
+  const webhooks = await db
     .prepare(
       `SELECT id, url, status, events, created_at
        FROM webhook_endpoints

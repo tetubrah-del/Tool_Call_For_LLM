@@ -24,13 +24,13 @@ export async function GET() {
     return NextResponse.json({ status: "unauthorized" }, { status: 401 });
   }
 
-  const humanId = getCurrentHumanIdByEmail(email);
+  const humanId = await getCurrentHumanIdByEmail(email);
   if (!humanId) {
     return NextResponse.json({ human_id: null, photos: [] });
   }
 
   const db = getDb();
-  const photos = db
+  const photos = await db
     .prepare(
       `SELECT id, human_id, photo_url, is_public, created_at
        FROM human_photos
@@ -49,7 +49,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ status: "unauthorized" }, { status: 401 });
   }
 
-  const humanId = getCurrentHumanIdByEmail(email);
+  const humanId = await getCurrentHumanIdByEmail(email);
   if (!humanId) {
     return NextResponse.json({ status: "error", reason: "profile_not_found" }, { status: 404 });
   }
@@ -68,7 +68,7 @@ export async function POST(request: Request) {
   const photoId = crypto.randomUUID();
   const createdAt = new Date().toISOString();
   const db = getDb();
-  db.prepare(
+  await db.prepare(
     `INSERT INTO human_photos (id, human_id, photo_url, is_public, created_at)
      VALUES (?, ?, ?, ?, ?)`
   ).run(photoId, humanId, photoUrl, isPublic ? 1 : 0, createdAt);

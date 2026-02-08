@@ -25,7 +25,7 @@ export async function PATCH(
     return NextResponse.json({ status: "unauthorized" }, { status: 401 });
   }
 
-  const humanId = getCurrentHumanIdByEmail(email);
+  const humanId = await getCurrentHumanIdByEmail(email);
   if (!humanId) {
     return NextResponse.json({ status: "error", reason: "profile_not_found" }, { status: 404 });
   }
@@ -37,14 +37,14 @@ export async function PATCH(
   }
 
   const db = getDb();
-  const current = db
+  const current = await db
     .prepare(`SELECT id FROM human_inquiries WHERE id = ? AND human_id = ?`)
     .get(params.inquiryId, humanId) as { id: string } | undefined;
   if (!current?.id) {
     return NextResponse.json({ status: "not_found" }, { status: 404 });
   }
 
-  db.prepare(`UPDATE human_inquiries SET is_read = ? WHERE id = ?`).run(
+  await db.prepare(`UPDATE human_inquiries SET is_read = ? WHERE id = ?`).run(
     isRead ? 1 : 0,
     params.inquiryId
   );
