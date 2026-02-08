@@ -1,0 +1,12 @@
+HTTP/2 400 
+date: Sun, 08 Feb 2026 14:24:19 GMT
+content-type: application/json
+cf-ray: 9cabca398b6c7eef-KIX
+rndr-id: 2a7e390b-1672-4b0f
+vary: RSC, Next-Router-State-Tree, Next-Router-Prefetch
+vary: Accept-Encoding
+x-render-origin-server: Render
+cf-cache-status: DYNAMIC
+server: cloudflare
+alt-svc: h3=":443"; ma=86400
+

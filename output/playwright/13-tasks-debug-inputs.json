@@ -1,0 +1,134 @@
+{
+  "update": {
+    "disabled": true,
+    "html": "<button disabled=\"\">更新</button>"
+  },
+  "inputs": [
+    {
+      "tag": "select",
+      "type": "",
+      "id": "nav-lang",
+      "name": "",
+      "disabled": false,
+      "required": false,
+      "value": "ja",
+      "placeholder": "",
+      "min": "",
+      "max": "",
+      "step": "",
+      "ariaLabel": "",
+      "text": "EN\nJA"
+    },
+    {
+      "tag": "input",
+      "type": "",
+      "id": "",
+      "name": "",
+      "disabled": false,
+      "required": false,
+      "value": "",
+      "placeholder": "案件を検索...",
+      "min": "",
+      "max": "",
+      "step": "",
+      "ariaLabel": "",
+      "text": ""
+    },
+    {
+      "tag": "select",
+      "type": "",
+      "id": "",
+      "name": "",
+      "disabled": false,
+      "required": false,
+      "value": "all",
+      "placeholder": "",
+      "min": "",
+      "max": "",
+      "step": "",
+      "ariaLabel": "",
+      "text": "すべてのラベル\n現地確認\n日本語ローカル調査\nAI出力QA\nbot不可領域補助\nリード前処理"
+    },
+    {
+      "tag": "select",
+      "type": "",
+      "id": "",
+      "name": "",
+      "disabled": false,
+      "required": false,
+      "value": "all",
+      "placeholder": "",
+      "min": "",
+      "max": "",
+      "step": "",
+      "ariaLabel": "",
+      "text": "すべての成果物\ntext\nphoto\nvideo"
+    },
+    {
+      "tag": "select",
+      "type": "",
+      "id": "",
+      "name": "",
+      "disabled": false,
+      "required": false,
+      "value": "all",
+      "placeholder": "",
+      "min": "",
+      "max": "",
+      "step": "",
+      "ariaLabel": "",
+      "text": "すべてのステータス\n受付中\n受諾済み\n完了\n失敗"
+    },
+    {
+      "tag": "input",
+      "type": "number",
+      "id": "",
+      "name": "",
+      "disabled": false,
+      "required": false,
+      "value": "",
+      "placeholder": "",
+      "min": "0",
+      "max": "",
+      "step": "0.01",
+      "ariaLabel": "",
+      "text": ""
+    },
+    {
+      "tag": "input",
+      "type": "number",
+      "id": "",
+      "name": "",
+      "disabled": false,
+      "required": false,
+      "value": "",
+      "placeholder": "",
+      "min": "0",
+      "max": "",
+      "step": "0.01",
+      "ariaLabel": "",
+      "text": ""
+    },
+    {
+      "tag": "button",
+      "type": "",
+      "id": "",
+      "name": "",
+      "disabled": true,
+      "required": false,
+      "value": "",
+      "placeholder": "",
+      "min": "",
+      "max": "",
+      "step": "",
+      "ariaLabel": "",
+      "text": "更新"
+    }
+  ],
+  "consoleLogs": [
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 401 ()"
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+[
+  {
+    "step": "open-ai-connect",
+    "url": "https://toolcall-llm.onrender.com/ai/connect?lang=ja",
+    "title": "ネクストワークス"
+  },
+  {
+    "step": "forms",
+    "formInfo": [
+      {
+        "idx": 0,
+        "action": "",
+        "method": "get",
+        "inputs": [
+          {
+            "tag": "input",
+            "type": "",
+            "name": "",
+            "id": "",
+            "text": "",
+            "placeholder": ""
+          },
+          {
+            "tag": "input",
+            "type": "email",
+            "name": "",
+            "id": "",
+            "text": "",
+            "placeholder": "ops@example.com"
+          },
+          {
+            "tag": "button",
+            "type": "submit",
+            "name": "",
+            "id": "",
+            "text": "PayPalを接続",
+            "placeholder": ""
+          }
+        ]
+      }
+    ]
+  }
+]

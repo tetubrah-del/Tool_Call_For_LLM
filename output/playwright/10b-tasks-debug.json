@@ -1,0 +1,99 @@
+{
+  "disabled": "",
+  "selCount": 4,
+  "selectOptions": [
+    {
+      "name": "",
+      "id": "nav-lang",
+      "options": [
+        {
+          "text": "EN",
+          "value": "en"
+        },
+        {
+          "text": "JA",
+          "value": "ja"
+        }
+      ]
+    },
+    {
+      "name": "",
+      "id": "",
+      "options": [
+        {
+          "text": "すべてのラベル",
+          "value": "all"
+        },
+        {
+          "text": "現地確認",
+          "value": "real_world_verification"
+        },
+        {
+          "text": "日本語ローカル調査",
+          "value": "jp_local_research"
+        },
+        {
+          "text": "AI出力QA",
+          "value": "ai_output_qa"
+        },
+        {
+          "text": "bot不可領域補助",
+          "value": "bot_blocker_ops"
+        },
+        {
+          "text": "リード前処理",
+          "value": "lead_prep"
+        }
+      ]
+    },
+    {
+      "name": "",
+      "id": "",
+      "options": [
+        {
+          "text": "すべての成果物",
+          "value": "all"
+        },
+        {
+          "text": "text",
+          "value": "text"
+        },
+        {
+          "text": "photo",
+          "value": "photo"
+        },
+        {
+          "text": "video",
+          "value": "video"
+        }
+      ]
+    },
+    {
+      "name": "",
+      "id": "",
+      "options": [
+        {
+          "text": "すべてのステータス",
+          "value": "all"
+        },
+        {
+          "text": "受付中",
+          "value": "open"
+        },
+        {
+          "text": "受諾済み",
+          "value": "accepted"
+        },
+        {
+          "text": "完了",
+          "value": "completed"
+        },
+        {
+          "text": "失敗",
+          "value": "failed"
+        }
+      ]
+    }
+  ],
+  "reqs": []
+}

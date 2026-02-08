@@ -1,0 +1,623 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Call Human API",
+    "version": "0.1.1",
+    "description": "MVP API for AI agents to create and track human-executed tasks."
+  },
+  "servers": [{ "url": "https://toolcall-llm.onrender.com" }],
+  "paths": {
+    "/api/ai/accounts": {
+      "post": {
+        "summary": "Create or reuse AI account",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateAiAccountPayload" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Connected",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ConnectResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tasks": {
+      "post": {
+        "summary": "Create open task",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "Unique key to safely retry the same request."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateTaskPayload" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Open task created",
+            "headers": {
+              "Idempotency-Replayed": {
+                "schema": { "type": "string", "enum": ["true"] },
+                "description": "Present when response is replayed by idempotency key."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CreateTaskResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "409": {
+            "description": "Idempotency conflict or request in progress",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "List tasks or fetch by task_id",
+        "parameters": [
+          { "name": "task_id", "in": "query", "schema": { "type": "string" } },
+          { "name": "task_label", "in": "query", "schema": { "$ref": "#/components/schemas/TaskLabel" } },
+          { "name": "q", "in": "query", "schema": { "type": "string" } },
+          { "name": "lang", "in": "query", "schema": { "type": "string", "enum": ["en", "ja"] } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Task status or task list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    { "$ref": "#/components/schemas/GetTaskResponse" },
+                    { "$ref": "#/components/schemas/ListTasksResponse" }
+                  ]
+                },
+                "examples": {
+                  "task_status": {
+                    "value": {
+                      "task": {
+                        "id": "task_123",
+                        "task": "Take one entrance photo",
+                        "task_display": "Take one entrance photo",
+                        "lang": "en",
+                        "location": "Shibuya",
+                        "budget_usd": 20,
+                        "origin_country": "JP",
+                        "task_label": "real_world_verification",
+                        "acceptance_criteria": "One clear entrance photo",
+                        "not_allowed": "No private property entry",
+                        "ai_account_id": "acct_123",
+                        "payer_paypal_email": "ai-ops@example.com",
+                        "payee_paypal_email": "worker@example.com",
+                        "deliverable": "photo",
+                        "deadline_at": "2026-02-08T10:45:00.000Z",
+                        "status": "completed",
+                        "failure_reason": null,
+                        "human_id": "human_123",
+                        "created_at": "2026-02-08T10:15:00.000Z",
+                        "submission": {
+                          "id": "sub_123",
+                          "task_id": "task_123",
+                          "type": "photo",
+                          "content_url": "https://...",
+                          "text": null,
+                          "created_at": "2026-02-08T10:31:00.000Z"
+                        },
+                        "paid_status": "unpaid",
+                        "paid_at": null,
+                        "paid_method": null,
+                        "fee_rate": null,
+                        "fee_amount": null,
+                        "payout_amount": null,
+                        "paypal_fee_amount": null
+                      }
+                    }
+                  },
+                  "task_list": {
+                    "value": {
+                      "tasks": [
+                        {
+                          "id": "task_123",
+                          "task": "Take one entrance photo",
+                          "task_display": "Take one entrance photo",
+                          "lang": "en",
+                          "status": "open",
+                          "budget_usd": 20,
+                          "task_label": "real_world_verification",
+                          "deliverable": "photo",
+                          "created_at": "2026-02-08T10:15:00.000Z"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/call_human": {
+      "post": {
+        "summary": "Create task and auto-assign",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "Unique key to safely retry the same request."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateTaskPayload" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Accepted or rejected",
+            "headers": {
+              "Idempotency-Replayed": {
+                "schema": { "type": "string", "enum": ["true"] },
+                "description": "Present when response is replayed by idempotency key."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    { "$ref": "#/components/schemas/CallHumanAcceptedResponse" },
+                    { "$ref": "#/components/schemas/CallHumanRejectedResponse" }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "409": {
+            "description": "Idempotency conflict or request in progress",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/webhooks": {
+      "post": {
+        "summary": "Register webhook endpoint",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateWebhookPayload" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CreateWebhookResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "List webhook endpoints",
+        "parameters": [
+          { "name": "ai_account_id", "in": "query", "required": true, "schema": { "type": "string" } },
+          { "name": "ai_api_key", "in": "query", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Webhooks",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ListWebhooksResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ReasonCode": {
+        "type": "string",
+        "enum": [
+          "no_human_available",
+          "timeout",
+          "invalid_request",
+          "below_min_budget",
+          "missing_origin_country",
+          "wrong_deliverable",
+          "already_assigned",
+          "not_assigned",
+          "missing_human",
+          "not_found",
+          "unknown",
+          "idempotency_key_conflict",
+          "request_in_progress",
+          "invalid_credentials"
+        ]
+      },
+      "FailureReason": {
+        "type": "string",
+        "enum": [
+          "no_human_available",
+          "timeout",
+          "invalid_request",
+          "below_min_budget",
+          "missing_origin_country",
+          "wrong_deliverable",
+          "already_assigned",
+          "not_assigned",
+          "missing_human",
+          "not_found",
+          "unknown"
+        ]
+      },
+      "TaskStatus": {
+        "type": "string",
+        "enum": ["open", "accepted", "completed", "failed"]
+      },
+      "TaskLabel": {
+        "type": "string",
+        "enum": [
+          "real_world_verification",
+          "jp_local_research",
+          "ai_output_qa",
+          "bot_blocker_ops",
+          "lead_prep"
+        ]
+      },
+      "Deliverable": {
+        "type": "string",
+        "enum": ["photo", "video", "text"]
+      },
+      "PaidStatus": {
+        "type": "string",
+        "enum": ["unpaid", "paid"]
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "required": ["status"],
+        "properties": {
+          "status": { "type": "string", "enum": ["error", "rejected", "not_found"] },
+          "reason": { "$ref": "#/components/schemas/ReasonCode" }
+        }
+      },
+      "CreateAiAccountPayload": {
+        "type": "object",
+        "required": ["name", "paypal_email"],
+        "properties": {
+          "name": { "type": "string" },
+          "paypal_email": { "type": "string", "format": "email" }
+        }
+      },
+      "ConnectResponse": {
+        "type": "object",
+        "required": ["status", "account_id", "api_key"],
+        "properties": {
+          "status": { "type": "string", "enum": ["connected"] },
+          "account_id": { "type": "string" },
+          "api_key": { "type": "string" }
+        }
+      },
+      "CreateTaskPayload": {
+        "type": "object",
+        "required": [
+          "task",
+          "origin_country",
+          "task_label",
+          "acceptance_criteria",
+          "not_allowed",
+          "budget_usd",
+          "ai_account_id",
+          "ai_api_key"
+        ],
+        "properties": {
+          "task": { "type": "string" },
+          "origin_country": { "type": "string" },
+          "task_label": { "$ref": "#/components/schemas/TaskLabel" },
+          "acceptance_criteria": { "type": "string" },
+          "not_allowed": { "type": "string" },
+          "budget_usd": { "type": "number" },
+          "location": { "type": "string" },
+          "deliverable": { "$ref": "#/components/schemas/Deliverable" },
+          "deadline_minutes": { "type": "number" },
+          "ai_account_id": { "type": "string" },
+          "ai_api_key": { "type": "string" }
+        }
+      },
+      "CreateTaskResponse": {
+        "type": "object",
+        "required": ["id", "status"],
+        "properties": {
+          "id": { "type": "string" },
+          "status": { "type": "string", "enum": ["open"] }
+        }
+      },
+      "Submission": {
+        "type": "object",
+        "required": ["id", "task_id", "type", "content_url", "text", "created_at"],
+        "properties": {
+          "id": { "type": "string" },
+          "task_id": { "type": "string" },
+          "type": { "$ref": "#/components/schemas/Deliverable" },
+          "content_url": { "type": ["string", "null"] },
+          "text": { "type": ["string", "null"] },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Task": {
+        "type": "object",
+        "required": [
+          "id",
+          "task",
+          "task_display",
+          "lang",
+          "location",
+          "budget_usd",
+          "origin_country",
+          "task_label",
+          "acceptance_criteria",
+          "not_allowed",
+          "ai_account_id",
+          "payer_paypal_email",
+          "payee_paypal_email",
+          "deliverable",
+          "deadline_at",
+          "status",
+          "failure_reason",
+          "human_id",
+          "created_at",
+          "submission",
+          "paid_status",
+          "paid_at",
+          "paid_method",
+          "fee_rate",
+          "fee_amount",
+          "payout_amount",
+          "paypal_fee_amount"
+        ],
+        "properties": {
+          "id": { "type": "string" },
+          "task": { "type": "string" },
+          "task_display": { "type": "string" },
+          "lang": { "type": "string", "enum": ["en", "ja"] },
+          "location": { "type": ["string", "null"] },
+          "budget_usd": { "type": "number" },
+          "origin_country": { "type": ["string", "null"] },
+          "task_label": { "anyOf": [{ "$ref": "#/components/schemas/TaskLabel" }, { "type": "null" }] },
+          "acceptance_criteria": { "type": ["string", "null"] },
+          "not_allowed": { "type": ["string", "null"] },
+          "ai_account_id": { "type": ["string", "null"] },
+          "payer_paypal_email": { "type": ["string", "null"] },
+          "payee_paypal_email": { "type": ["string", "null"] },
+          "deliverable": { "$ref": "#/components/schemas/Deliverable" },
+          "deadline_at": { "type": ["string", "null"], "format": "date-time" },
+          "status": { "$ref": "#/components/schemas/TaskStatus" },
+          "failure_reason": {
+            "anyOf": [
+              { "$ref": "#/components/schemas/FailureReason" },
+              { "type": "null" }
+            ]
+          },
+          "human_id": { "type": ["string", "null"] },
+          "created_at": { "type": "string", "format": "date-time" },
+          "submission": {
+            "anyOf": [
+              { "$ref": "#/components/schemas/Submission" },
+              { "type": "null" }
+            ]
+          },
+          "paid_status": { "anyOf": [{ "$ref": "#/components/schemas/PaidStatus" }, { "type": "null" }] },
+          "paid_at": { "type": ["string", "null"], "format": "date-time" },
+          "paid_method": { "type": ["string", "null"], "enum": ["paypal", null] },
+          "fee_rate": { "type": ["number", "null"] },
+          "fee_amount": { "type": ["number", "null"] },
+          "payout_amount": { "type": ["number", "null"] },
+          "paypal_fee_amount": { "type": ["number", "null"] }
+        }
+      },
+      "TaskListItem": {
+        "type": "object",
+        "required": ["id", "task", "status", "budget_usd", "created_at"],
+        "properties": {
+          "id": { "type": "string" },
+          "task": { "type": "string" },
+          "task_display": { "type": "string" },
+          "lang": { "type": "string", "enum": ["en", "ja"] },
+          "status": { "$ref": "#/components/schemas/TaskStatus" },
+          "budget_usd": { "type": "number" },
+          "task_label": { "anyOf": [{ "$ref": "#/components/schemas/TaskLabel" }, { "type": "null" }] },
+          "deliverable": { "anyOf": [{ "$ref": "#/components/schemas/Deliverable" }, { "type": "null" }] },
+          "location": { "type": ["string", "null"] },
+          "created_at": { "type": "string", "format": "date-time" }
+        },
+        "additionalProperties": true
+      },
+      "GetTaskResponse": {
+        "type": "object",
+        "required": ["task"],
+        "properties": {
+          "task": { "$ref": "#/components/schemas/Task" }
+        }
+      },
+      "ListTasksResponse": {
+        "type": "object",
+        "required": ["tasks"],
+        "properties": {
+          "tasks": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/TaskListItem" }
+          }
+        }
+      },
+      "CallHumanAcceptedResponse": {
+        "type": "object",
+        "required": ["task_id", "status"],
+        "properties": {
+          "task_id": { "type": "string" },
+          "status": { "type": "string", "enum": ["accepted"] }
+        }
+      },
+      "CallHumanRejectedResponse": {
+        "type": "object",
+        "required": ["status", "reason"],
+        "properties": {
+          "status": { "type": "string", "enum": ["rejected"] },
+          "reason": { "$ref": "#/components/schemas/ReasonCode" }
+        }
+      },
+      "WebhookEvent": {
+        "type": "string",
+        "enum": ["task.accepted", "task.completed", "task.failed"]
+      },
+      "CreateWebhookPayload": {
+        "type": "object",
+        "required": ["ai_account_id", "ai_api_key", "url"],
+        "properties": {
+          "ai_account_id": { "type": "string" },
+          "ai_api_key": { "type": "string" },
+          "url": { "type": "string", "format": "uri" },
+          "events": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/WebhookEvent" }
+          }
+        }
+      },
+      "Webhook": {
+        "type": "object",
+        "required": ["id", "url", "status", "events", "created_at"],
+        "properties": {
+          "id": { "type": "string" },
+          "url": { "type": "string", "format": "uri" },
+          "status": { "type": "string", "enum": ["active"] },
+          "events": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/WebhookEvent" }
+          },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CreateWebhookResponse": {
+        "type": "object",
+        "required": ["status", "webhook"],
+        "properties": {
+          "status": { "type": "string", "enum": ["created"] },
+          "webhook": {
+            "allOf": [
+              { "$ref": "#/components/schemas/Webhook" },
+              {
+                "type": "object",
+                "required": ["secret"],
+                "properties": {
+                  "secret": { "type": "string" }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "ListWebhooksResponse": {
+        "type": "object",
+        "required": ["webhooks"],
+        "properties": {
+          "webhooks": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Webhook" }
+          }
+        }
+      }
+    }
+  }
+}
