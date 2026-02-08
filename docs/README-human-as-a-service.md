@@ -72,7 +72,7 @@ Minimal API where an AI agent tool_call can hire a registered human for a real-w
 - `GET /api/task/:taskId` (task status, alias)
 - `POST /api/tasks/:taskId/accept` (human accepts)
 - `POST /api/tasks/:taskId/skip` (human skips)
-- `POST /api/tasks/:taskId/pay` (admin marks paid)
+- `POST /api/tasks/:taskId/pay` (admin payment ops: approve / mark_failed / mark_paid)
 - `POST /api/submissions` (human delivers)
 - `GET /api/me/photos` (my-page photo list)
 - `POST /api/me/photos` (my-page photo upload)
@@ -80,6 +80,7 @@ Minimal API where an AI agent tool_call can hire a registered human for a real-w
 - `DELETE /api/me/photos/:photoId` (my-page photo delete)
 - `POST /api/inquiries` (public inquiry post)
 - `GET /api/me/messages` (my-page inquiry history + templates)
+- `GET /api/me/payments` (my-page payout summary + history)
 - `PATCH /api/me/messages/:inquiryId` (my-page inquiry read/unread update)
 - `POST /api/me/message-templates` (my-page template create)
 - `PATCH /api/me/message-templates/:templateId` (my-page template update)
@@ -213,6 +214,18 @@ Deliverables are returned in `submission` via `GET /api/tasks/:taskId`.
 
 - Tasks are fulfilled on a `best effort` basis.
 - No delivery-time/SLA guarantee is provided in MVP.
+
+## Payment lifecycle (MVP)
+
+- Default payout status is `pending`.
+- Admin reviews completed task and calls `POST /api/tasks/:taskId/pay` with:
+  - `{ "action": "approve" }`
+  - `{ "action": "mark_failed", "error_message": "..." }`
+  - `{ "action": "mark_paid", "paypal_fee_usd": 0.5, "payout_batch_id": "..." }`
+- `mark_paid` is accepted only from `approved`.
+- Human dashboard `GET /api/me/payments` shows:
+  - summary totals (`pending_total`, `approved_total`, `paid_total`)
+  - per-task payout breakdown (`gross_amount`, `platform_fee`, `paypal_fee`, `net_amount`, `status`)
 
 ## Idempotency
 

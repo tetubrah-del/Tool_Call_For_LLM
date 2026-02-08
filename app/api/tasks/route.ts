@@ -2,7 +2,7 @@ import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { getNormalizedTask, getTaskDisplay } from "@/lib/task-api";
-import { MIN_BUDGET_USD, OPERATOR_COUNTRY } from "@/lib/payments";
+import { MIN_BUDGET_USD, OPERATOR_COUNTRY, normalizePaymentStatus } from "@/lib/payments";
 import { normalizeCountry } from "@/lib/country";
 import { normalizeTaskLabel } from "@/lib/task-labels";
 import { finishIdempotency, startIdempotency } from "@/lib/idempotency";
@@ -101,6 +101,7 @@ export async function GET(request: Request) {
         deliverable: task.deliverable || "text",
         task_display: display.display,
         lang: display.lang,
+        paid_status: normalizePaymentStatus(task.paid_status),
         is_international_payout: human.country !== OPERATOR_COUNTRY
       });
     }
@@ -136,14 +137,14 @@ export async function GET(request: Request) {
         .run(task.id);
     }
     const normalizedTaskLabel = normalizeTaskLabel(task.task_label);
-    normalized.push({
-      ...task,
-      task_label: normalizedTaskLabel,
-      deliverable: task.deliverable || "text",
-      task_display: display.display,
-      lang: display.lang,
-      paid_status: task.paid_status ?? "unpaid"
-    });
+      normalized.push({
+        ...task,
+        task_label: normalizedTaskLabel,
+        deliverable: task.deliverable || "text",
+        task_display: display.display,
+        lang: display.lang,
+        paid_status: normalizePaymentStatus(task.paid_status)
+      });
   }
   const filteredByKeyword =
     keyword.length === 0
@@ -248,7 +249,7 @@ export async function POST(request: Request) {
 
   await db.prepare(
     `INSERT INTO tasks (id, task, task_en, location, budget_usd, origin_country, task_label, acceptance_criteria, not_allowed, ai_account_id, payer_paypal_email, payee_paypal_email, deliverable, deadline_minutes, deadline_at, status, failure_reason, human_id, submission_id, paid_status, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, 'open', NULL, NULL, NULL, 'unpaid', ?)`
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, 'open', NULL, NULL, NULL, 'pending', ?)`
   ).run(
     id,
     task,

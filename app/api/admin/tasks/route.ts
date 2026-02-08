@@ -3,6 +3,7 @@ import { getDb } from "@/lib/db";
 import { getTaskDisplay } from "@/lib/task-api";
 import { requireAdminToken } from "@/lib/admin-auth";
 import { normalizeTaskLabel } from "@/lib/task-labels";
+import { normalizePaymentStatus } from "@/lib/payments";
 
 export async function GET(request: Request) {
   const authError = requireAdminToken(request);
@@ -28,7 +29,7 @@ export async function GET(request: Request) {
       deliverable: task.deliverable || "text",
       task_display: display.display,
       lang: display.lang,
-      paid_status: task.paid_status ?? "unpaid"
+      paid_status: normalizePaymentStatus(task.paid_status)
     });
   }
   return NextResponse.json({ tasks: normalized });

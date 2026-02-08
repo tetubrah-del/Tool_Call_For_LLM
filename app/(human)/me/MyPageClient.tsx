@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { normalizeLang, UI_STRINGS } from "@/lib/i18n";
 import RegisterClient from "../register/RegisterClient";
 import MessagesPanel from "./MessagesPanel";
+import PaymentsPanel from "./PaymentsPanel";
 
 type TabKey = "profile" | "payments" | "messages" | "api";
 
@@ -70,8 +71,9 @@ export default function MyPageClient() {
             />
           </div>
         )}
+        {activeTab === "payments" && <PaymentsPanel lang={lang} />}
         {activeTab === "messages" && <MessagesPanel lang={lang} />}
-        {activeTab !== "profile" && activeTab !== "messages" && (
+        {activeTab === "api" && (
           <div className="card empty-state">{strings.comingSoon}</div>
         )}
       </section>

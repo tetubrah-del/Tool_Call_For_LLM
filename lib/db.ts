@@ -174,8 +174,11 @@ async function initPostgres() {
       payout_amount DOUBLE PRECISION,
       paypal_fee_amount DOUBLE PRECISION,
       paid_status TEXT,
+      approved_at TEXT,
       paid_at TEXT,
       paid_method TEXT,
+      payout_batch_id TEXT,
+      payment_error_message TEXT,
       created_at TEXT NOT NULL
     )`,
     `CREATE TABLE IF NOT EXISTS task_translations (
@@ -295,8 +298,11 @@ async function initPostgres() {
     `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS payout_amount DOUBLE PRECISION`,
     `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS paypal_fee_amount DOUBLE PRECISION`,
     `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS paid_status TEXT`,
+    `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS approved_at TEXT`,
     `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS paid_at TEXT`,
     `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS paid_method TEXT`,
+    `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS payout_batch_id TEXT`,
+    `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS payment_error_message TEXT`,
     `ALTER TABLE human_photos ADD COLUMN IF NOT EXISTS is_public INTEGER`,
     `ALTER TABLE human_inquiries ADD COLUMN IF NOT EXISTS is_read INTEGER`,
     `ALTER TABLE message_templates ADD COLUMN IF NOT EXISTS updated_at TEXT`,
@@ -367,8 +373,11 @@ async function initSqlite() {
       payout_amount REAL,
       paypal_fee_amount REAL,
       paid_status TEXT,
+      approved_at TEXT,
       paid_at TEXT,
       paid_method TEXT,
+      payout_batch_id TEXT,
+      payment_error_message TEXT,
       created_at TEXT NOT NULL
     );
 
@@ -490,8 +499,11 @@ async function initSqlite() {
   ensureSqliteColumn(db, "tasks", "payout_amount", "REAL");
   ensureSqliteColumn(db, "tasks", "paypal_fee_amount", "REAL");
   ensureSqliteColumn(db, "tasks", "paid_status", "TEXT");
+  ensureSqliteColumn(db, "tasks", "approved_at", "TEXT");
   ensureSqliteColumn(db, "tasks", "paid_at", "TEXT");
   ensureSqliteColumn(db, "tasks", "paid_method", "TEXT");
+  ensureSqliteColumn(db, "tasks", "payout_batch_id", "TEXT");
+  ensureSqliteColumn(db, "tasks", "payment_error_message", "TEXT");
   ensureSqliteColumn(db, "humans", "email", "TEXT");
   ensureSqliteColumn(db, "humans", "paypal_email", "TEXT");
   ensureSqliteColumn(db, "humans", "country", "TEXT");
@@ -650,9 +662,12 @@ export type Task = {
   fee_amount: number | null;
   payout_amount: number | null;
   paypal_fee_amount: number | null;
-  paid_status: "unpaid" | "paid" | null;
+  paid_status: "unpaid" | "pending" | "approved" | "paid" | "failed" | null;
+  approved_at: string | null;
   paid_at: string | null;
   paid_method: "paypal" | null;
+  payout_batch_id: string | null;
+  payment_error_message: string | null;
   created_at: string;
 };
 

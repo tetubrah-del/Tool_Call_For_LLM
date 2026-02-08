@@ -2,6 +2,7 @@ import type { DbClient, FailureReason, Task, Submission } from "@/lib/db";
 import { normalizeLang, type UiLang } from "@/lib/i18n";
 import { normalizeTaskLabel, type TaskLabel } from "@/lib/task-labels";
 import { closeContactChannel } from "@/lib/contact-channel";
+import { normalizePaymentStatus, type PaymentStatus } from "@/lib/payments";
 
 type NormalizedSubmission =
   | (Submission & { id: string })
@@ -28,13 +29,16 @@ export type NormalizedTask = {
   human_id: string | null;
   created_at: string;
   submission: NormalizedSubmission;
-  paid_status: "unpaid" | "paid" | null;
+  paid_status: PaymentStatus;
+  approved_at: string | null;
   paid_at: string | null;
   paid_method: "paypal" | null;
   fee_rate: number | null;
   fee_amount: number | null;
   payout_amount: number | null;
   paypal_fee_amount: number | null;
+  payout_batch_id: string | null;
+  payment_error_message: string | null;
 };
 
 // Task lifecycle:
@@ -219,12 +223,15 @@ export async function getNormalizedTask(
     human_id: finalTask.human_id,
     created_at: finalTask.created_at,
     submission,
-    paid_status: finalTask.paid_status ?? "unpaid",
+    paid_status: normalizePaymentStatus(finalTask.paid_status),
+    approved_at: finalTask.approved_at ?? null,
     paid_at: finalTask.paid_at ?? null,
     paid_method: finalTask.paid_method ?? null,
     fee_rate: finalTask.fee_rate ?? null,
     fee_amount: finalTask.fee_amount ?? null,
     payout_amount: finalTask.payout_amount ?? null,
-    paypal_fee_amount: finalTask.paypal_fee_amount ?? null
+    paypal_fee_amount: finalTask.paypal_fee_amount ?? null,
+    payout_batch_id: finalTask.payout_batch_id ?? null,
+    payment_error_message: finalTask.payment_error_message ?? null
   };
 }

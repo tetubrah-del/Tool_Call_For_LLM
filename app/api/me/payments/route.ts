@@ -1,0 +1,105 @@
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { getDb } from "@/lib/db";
+import { calculatePayout, normalizePaymentStatus } from "@/lib/payments";
+import { getCurrentHumanIdByEmail } from "@/lib/human-session";
+
+type PaymentRow = {
+  id: string;
+  task: string;
+  budget_usd: number;
+  fee_amount: number | null;
+  payout_amount: number | null;
+  paypal_fee_amount: number | null;
+  paid_status: string | null;
+  approved_at: string | null;
+  paid_at: string | null;
+  payment_error_message: string | null;
+  payout_batch_id: string | null;
+  created_at: string;
+};
+
+export async function GET() {
+  const session = await getServerSession(authOptions);
+  const email = session?.user?.email;
+  if (!email) {
+    return NextResponse.json({ status: "unauthorized" }, { status: 401 });
+  }
+
+  const humanId = await getCurrentHumanIdByEmail(email);
+  if (!humanId) {
+    return NextResponse.json({
+      human_id: null,
+      summary: { pending_total: 0, approved_total: 0, paid_total: 0 },
+      payments: []
+    });
+  }
+
+  const db = getDb();
+  const rows = await db
+    .prepare(
+      `SELECT
+         id,
+         task,
+         budget_usd,
+         fee_amount,
+         payout_amount,
+         paypal_fee_amount,
+         paid_status,
+         approved_at,
+         paid_at,
+         payment_error_message,
+         payout_batch_id,
+         created_at
+       FROM tasks
+       WHERE human_id = ?
+         AND status = 'completed'
+       ORDER BY created_at DESC`
+    )
+    .all<PaymentRow>(humanId);
+
+  let pendingTotal = 0;
+  let approvedTotal = 0;
+  let paidTotal = 0;
+
+  const payments = rows.map((row) => {
+    const status = normalizePaymentStatus(row.paid_status);
+    const computed = calculatePayout(
+      Number(row.budget_usd),
+      Number(row.paypal_fee_amount ?? 0)
+    );
+    const feeAmount = row.fee_amount ?? computed.fee_amount;
+    const payoutAmount = row.payout_amount ?? computed.payout_amount;
+    const paypalFeeAmount = row.paypal_fee_amount ?? computed.paypal_fee_amount;
+
+    if (status === "pending") pendingTotal += payoutAmount;
+    if (status === "approved") approvedTotal += payoutAmount;
+    if (status === "paid") paidTotal += payoutAmount;
+
+    return {
+      task_id: row.id,
+      task: row.task,
+      gross_amount: Number(row.budget_usd),
+      platform_fee: feeAmount,
+      paypal_fee: paypalFeeAmount,
+      net_amount: payoutAmount,
+      status,
+      approved_at: row.approved_at ?? null,
+      paid_at: row.paid_at ?? null,
+      payout_batch_id: row.payout_batch_id ?? null,
+      error_message: row.payment_error_message ?? null,
+      updated_at: row.paid_at ?? row.approved_at ?? row.created_at
+    };
+  });
+
+  return NextResponse.json({
+    human_id: humanId,
+    summary: {
+      pending_total: Number(pendingTotal.toFixed(2)),
+      approved_total: Number(approvedTotal.toFixed(2)),
+      paid_total: Number(paidTotal.toFixed(2))
+    },
+    payments
+  });
+}

@@ -520,6 +520,100 @@ button[disabled] {
   gap: 18px;
 }
 
+.payments-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.payments-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.payments-list-card {
+  overflow: hidden;
+}
+
+.payments-table-wrap {
+  overflow-x: auto;
+}
+
+.payments-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 860px;
+}
+
+.payments-table th,
+.payments-table td {
+  padding: 10px 8px;
+  border-bottom: 1px solid rgba(34, 48, 74, 0.75);
+  text-align: left;
+  font-size: 13px;
+}
+
+.payments-table th {
+  color: var(--muted);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.payments-net {
+  font-weight: 700;
+}
+
+.payments-detail-button,
+.payments-detail-close {
+  width: auto;
+  margin: 0;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.payments-detail-card h3 {
+  margin: 0;
+}
+
+.payments-detail-head {
+  justify-content: space-between;
+}
+
+.payment-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.payment-chip-pending {
+  color: #fedf8b;
+  border: 1px solid #7b5b12;
+  background: #2f240f;
+}
+
+.payment-chip-approved {
+  color: #b8d5ff;
+  border: 1px solid #3d5e8d;
+  background: #12213b;
+}
+
+.payment-chip-paid {
+  color: #a9f4c5;
+  border: 1px solid #2f7a55;
+  background: #102719;
+}
+
+.payment-chip-failed {
+  color: #ffbcc3;
+  border: 1px solid #8b3943;
+  background: #311118;
+}
+
 .channel-grid {
   display: grid;
   grid-template-columns: 320px 1fr;
