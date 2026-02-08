@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { normalizeLang, UI_STRINGS, type UiLang } from "@/lib/i18n";
 
 type RegisterClientProps = {
@@ -23,6 +24,7 @@ export default function RegisterClient({ title }: RegisterClientProps) {
   const [humanId, setHumanId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
+  const { status: sessionStatus } = useSession();
   const strings = UI_STRINGS[lang];
 
   useEffect(() => {
@@ -41,6 +43,12 @@ export default function RegisterClient({ title }: RegisterClientProps) {
   useEffect(() => {
     let cancelled = false;
     async function loadProfile() {
+      if (sessionStatus === "loading") return;
+      if (sessionStatus !== "authenticated") {
+        setLoadingProfile(false);
+        return;
+      }
+
       setLoadingProfile(true);
       setError(null);
       try {
@@ -78,7 +86,7 @@ export default function RegisterClient({ title }: RegisterClientProps) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [sessionStatus]);
 
   function onLangChange(next: UiLang) {
     setLang(next);
