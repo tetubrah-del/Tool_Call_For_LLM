@@ -491,6 +491,56 @@ button[disabled] {
   margin: 0 0 12px;
 }
 
+.inquiry-form-card h2 {
+  margin: 0 0 8px;
+}
+
+.messages-panel {
+  display: grid;
+  gap: 18px;
+}
+
+.inquiry-list,
+.template-list {
+  display: grid;
+  gap: 12px;
+}
+
+.inquiry-item,
+.template-item {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  background: #10192b;
+}
+
+.inquiry-subject {
+  margin: 0 0 6px;
+  font-weight: 700;
+}
+
+.template-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.template-actions .secondary,
+.template-actions .danger-text-button {
+  width: auto;
+}
+
+.template-form-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.template-form-actions button {
+  width: auto;
+}
+
 .cta-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));

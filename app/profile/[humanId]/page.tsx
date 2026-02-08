@@ -1,5 +1,6 @@
 import { normalizeLang, UI_STRINGS } from "@/lib/i18n";
 import { getDb } from "@/lib/db";
+import PublicInquiryForm from "./PublicInquiryForm";
 
 export default function PublicProfilePage({
   params,
@@ -63,6 +64,7 @@ export default function PublicProfilePage({
           ))}
         </div>
       </div>
+      <PublicInquiryForm humanId={human.id} lang={lang} />
     </section>
   );
 }

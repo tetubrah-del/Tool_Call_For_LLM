@@ -70,6 +70,11 @@ Minimal API where an AI agent tool_call can hire a registered human for a real-w
 - `POST /api/me/photos` (my-page photo upload)
 - `PATCH /api/me/photos/:photoId` (my-page photo visibility update)
 - `DELETE /api/me/photos/:photoId` (my-page photo delete)
+- `POST /api/inquiries` (public inquiry post)
+- `GET /api/me/messages` (my-page inquiry history + templates)
+- `POST /api/me/message-templates` (my-page template create)
+- `PATCH /api/me/message-templates/:templateId` (my-page template update)
+- `DELETE /api/me/message-templates/:templateId` (my-page template delete)
 - `POST /api/webhooks` (AI webhook registration)
 - `GET /api/webhooks?ai_account_id=...&ai_api_key=...` (AI webhook list)
 
@@ -271,6 +276,7 @@ or
 - `/tasks` to view and accept tasks (human ID is resolved from logged-in profile)
 - `/tasks/:taskId` to submit deliverables
 - `/profile/:humanId` to view public profile (public photos only)
+- `/me` message tab to manage inquiry history and templates
 - `country` is required on human registration (ISO2, e.g., `JP`).
 - `paypal_email` is required on human registration/profile.
 

@@ -2,23 +2,15 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getDb } from "@/lib/db";
-import { deleteUpload } from "@/lib/storage";
 import { getCurrentHumanIdByEmail } from "@/lib/human-session";
 
-function resolveBool(value: unknown): boolean | null {
-  if (typeof value === "boolean") return value;
-  if (typeof value === "number") return value === 1;
-  if (typeof value === "string") {
-    const normalized = value.trim().toLowerCase();
-    if (normalized === "true" || normalized === "1") return true;
-    if (normalized === "false" || normalized === "0") return false;
-  }
-  return null;
+function normalizeText(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
 }
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { photoId: string } }
+  { params }: { params: { templateId: string } }
 ) {
   const session = await getServerSession(authOptions);
   const email = session?.user?.email;
@@ -32,30 +24,37 @@ export async function PATCH(
   }
 
   const payload = await request.json().catch(() => null);
-  const isPublic = resolveBool(payload?.is_public);
-  if (isPublic === null) {
+  const title = normalizeText(payload?.title);
+  const body = normalizeText(payload?.body);
+  if (!title || !body) {
+    return NextResponse.json({ status: "error", reason: "invalid_request" }, { status: 400 });
+  }
+  if (title.length > 120 || body.length > 4000) {
     return NextResponse.json({ status: "error", reason: "invalid_request" }, { status: 400 });
   }
 
   const db = getDb();
   const current = db
-    .prepare(`SELECT id FROM human_photos WHERE id = ? AND human_id = ?`)
-    .get(params.photoId, humanId) as { id: string } | undefined;
+    .prepare(`SELECT id FROM message_templates WHERE id = ? AND human_id = ?`)
+    .get(params.templateId, humanId) as { id: string } | undefined;
   if (!current?.id) {
     return NextResponse.json({ status: "not_found" }, { status: 404 });
   }
 
-  db.prepare(`UPDATE human_photos SET is_public = ? WHERE id = ?`).run(
-    isPublic ? 1 : 0,
-    params.photoId
+  const now = new Date().toISOString();
+  db.prepare(`UPDATE message_templates SET title = ?, body = ?, updated_at = ? WHERE id = ?`).run(
+    title,
+    body,
+    now,
+    params.templateId
   );
 
-  return NextResponse.json({ status: "updated", id: params.photoId, is_public: isPublic ? 1 : 0 });
+  return NextResponse.json({ status: "updated", id: params.templateId, title, body, updated_at: now });
 }
 
 export async function DELETE(
   _request: Request,
-  { params }: { params: { photoId: string } }
+  { params }: { params: { templateId: string } }
 ) {
   const session = await getServerSession(authOptions);
   const email = session?.user?.email;
@@ -70,14 +69,12 @@ export async function DELETE(
 
   const db = getDb();
   const current = db
-    .prepare(`SELECT id, photo_url FROM human_photos WHERE id = ? AND human_id = ?`)
-    .get(params.photoId, humanId) as { id: string; photo_url: string } | undefined;
+    .prepare(`SELECT id FROM message_templates WHERE id = ? AND human_id = ?`)
+    .get(params.templateId, humanId) as { id: string } | undefined;
   if (!current?.id) {
     return NextResponse.json({ status: "not_found" }, { status: 404 });
   }
 
-  db.prepare(`DELETE FROM human_photos WHERE id = ?`).run(params.photoId);
-  deleteUpload(current.photo_url);
-
-  return NextResponse.json({ status: "deleted", id: params.photoId });
+  db.prepare(`DELETE FROM message_templates WHERE id = ?`).run(params.templateId);
+  return NextResponse.json({ status: "deleted", id: params.templateId });
 }

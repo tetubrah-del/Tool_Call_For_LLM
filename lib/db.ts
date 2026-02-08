@@ -93,6 +93,25 @@ function ensureDb() {
       created_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS human_inquiries (
+      id TEXT PRIMARY KEY,
+      human_id TEXT NOT NULL,
+      from_name TEXT,
+      from_email TEXT,
+      subject TEXT NOT NULL,
+      body TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS message_templates (
+      id TEXT PRIMARY KEY,
+      human_id TEXT NOT NULL,
+      title TEXT NOT NULL,
+      body TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS idempotency_keys (
       route TEXT NOT NULL,
       idem_key TEXT NOT NULL,
@@ -155,6 +174,7 @@ function ensureDb() {
   ensureColumn(instance, "webhook_deliveries", "response_body", "TEXT");
   ensureColumn(instance, "webhook_deliveries", "error", "TEXT");
   ensureColumn(instance, "human_photos", "is_public", "INTEGER");
+  ensureColumn(instance, "message_templates", "updated_at", "TEXT");
 
   startTimeoutSweeper(instance);
 
@@ -262,4 +282,23 @@ export type HumanPhoto = {
   photo_url: string;
   is_public: 0 | 1;
   created_at: string;
+};
+
+export type HumanInquiry = {
+  id: string;
+  human_id: string;
+  from_name: string | null;
+  from_email: string | null;
+  subject: string;
+  body: string;
+  created_at: string;
+};
+
+export type MessageTemplate = {
+  id: string;
+  human_id: string;
+  title: string;
+  body: string;
+  created_at: string;
+  updated_at: string;
 };

@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { saveUpload } from "@/lib/storage";
+import { getCurrentHumanIdByEmail } from "@/lib/human-session";
 
 function resolveBool(value: unknown): boolean | null {
   if (typeof value === "boolean") return value;
@@ -16,14 +17,6 @@ function resolveBool(value: unknown): boolean | null {
   return null;
 }
 
-function getCurrentHumanId(email: string): string | null {
-  const db = getDb();
-  const row = db
-    .prepare(`SELECT id FROM humans WHERE email = ? ORDER BY created_at DESC LIMIT 1`)
-    .get(email) as { id: string } | undefined;
-  return row?.id ?? null;
-}
-
 export async function GET() {
   const session = await getServerSession(authOptions);
   const email = session?.user?.email;
@@ -31,7 +24,7 @@ export async function GET() {
     return NextResponse.json({ status: "unauthorized" }, { status: 401 });
   }
 
-  const humanId = getCurrentHumanId(email);
+  const humanId = getCurrentHumanIdByEmail(email);
   if (!humanId) {
     return NextResponse.json({ human_id: null, photos: [] });
   }
@@ -56,7 +49,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ status: "unauthorized" }, { status: 401 });
   }
 
-  const humanId = getCurrentHumanId(email);
+  const humanId = getCurrentHumanIdByEmail(email);
   if (!humanId) {
     return NextResponse.json({ status: "error", reason: "profile_not_found" }, { status: 404 });
   }
