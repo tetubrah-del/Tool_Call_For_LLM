@@ -8,6 +8,8 @@ Minimal MVP where an AI agent tool_call can hire a registered human for a real�
 - `docs/README-property-verification.md` (不動産: Property Verification)
 - `docs/README-ugc-capture.md` (広告/UGC: Human-authenticated Content)
 - `docs/README-physical-evidence.md` (法務/コンプライアンス: Physical Evidence Collection)
+- `docs/SPEC-mcp-for-agents.md` (エージェント向けMCP仕様 v0/v1)
+- `docs/WIREFRAME-for-agents-ja.md` (for Agents日本版ワイヤー: コピー/CTA/導線)
 
 ## Tool Schema (AI)
 
