@@ -212,6 +212,25 @@ button.secondary {
   color: var(--muted);
 }
 
+.agent-start-banner {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid #35517c;
+  background: linear-gradient(135deg, #0f1a2d 0%, #132a4a 100%);
+}
+
+.agent-start-banner strong {
+  display: block;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  color: #f5f8ff;
+}
+
+.agent-start-banner .note {
+  margin-top: 6px;
+}
+
 .lang {
   min-width: 180px;
   align-self: flex-start;

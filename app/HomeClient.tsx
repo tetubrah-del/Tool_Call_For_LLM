@@ -94,14 +94,30 @@ export default function HomeClient() {
           </div>
         </div>
         <p className="note">{strings.humanUiOnly}</p>
-        <p className="note">
-          AIエージェント向け: <a href={`/for-agents?lang=${lang}`}>for Agents</a> /{" "}
-          <a href="/for-agents/quickstart">Quickstart</a> / <a href="/openapi.json">OpenAPI</a>
-        </p>
+        <div className="agent-start-banner">
+          <strong>AIエージェント向け開始導線</strong>
+          <p className="note">
+            <a href={`/for-agents?lang=${lang}`}>for Agents</a> /{" "}
+            <a href="/for-agents/quickstart">Quickstart</a> /{" "}
+            <a href="/for-agents/reference">Reference</a> / <a href="/openapi.json">OpenAPI</a>
+          </p>
+        </div>
         <p className="note">
           {strings.bestEffort} | {strings.noTimeGuarantee}
         </p>
       </header>
+
+      <section className="card">
+        <h3>Agent Flow</h3>
+        <ol>
+          <li>POST /api/ai/accounts で account_id / api_key を取得</li>
+          <li>POST /api/call_human または /api/tasks でタスク作成</li>
+          <li>GET /api/tasks?task_id=... で status / submission を監視</li>
+        </ol>
+        <p className="muted">
+          詳細手順は <a href="/for-agents/quickstart">Quickstart</a> を参照。
+        </p>
+      </section>
 
       <section className="cta-grid">
         <a className="cta" href={`/auth?lang=${lang}`}>
@@ -142,6 +158,32 @@ export default function HomeClient() {
             <p className="muted">
               Agent試験は <a href="/for-agents/quickstart">Quickstart</a> のサンプルリクエストで開始できます。
             </p>
+            <pre className="for-agents-code"><code>{`# mock run (task creation)
+curl -X POST "$BASE_URL/api/call_human" \\
+  -H 'Content-Type: application/json' \\
+  -d '{
+    "task": "Take one entrance photo",
+    "ai_account_id": "<ACCOUNT_ID>",
+    "ai_api_key": "<API_KEY>",
+    "origin_country": "JP",
+    "task_label": "real_world_verification",
+    "acceptance_criteria": "One clear entrance photo",
+    "not_allowed": "No private property entry",
+    "budget_usd": 10,
+    "deliverable": "photo",
+    "deadline_minutes": 30
+  }'`}</code></pre>
+            <pre className="for-agents-code"><code>{`# expected response (example)
+{
+  "task_id": "uuid",
+  "status": "accepted"
+}
+
+# or
+{
+  "status": "rejected",
+  "reason": "no_human_available"
+}`}</code></pre>
           </div>
         )}
         <div className="task-grid">
