@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { normalizeLang, UI_STRINGS, type UiLang } from "@/lib/i18n";
 import { TASK_LABEL_TEXT, type TaskLabel } from "@/lib/task-labels";
 
@@ -19,6 +20,7 @@ type TaskPreview = {
 
 export default function HomeClient() {
   const [lang, setLang] = useState<UiLang>("en");
+  const searchParams = useSearchParams();
   const [tasks, setTasks] = useState<TaskPreview[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,10 +52,13 @@ export default function HomeClient() {
 
   useEffect(() => {
     const saved = localStorage.getItem("lang");
-    if (saved) {
-      setLang(normalizeLang(saved));
-    }
-  }, []);
+    const nextLang = normalizeLang(searchParams.get("lang") || saved);
+    setLang(nextLang);
+  }, [searchParams]);
+
+  useEffect(() => {
+    localStorage.setItem("lang", lang);
+  }, [lang]);
 
   useEffect(() => {
     let cancelled = false;
@@ -86,11 +91,6 @@ export default function HomeClient() {
     };
   }, [lang]);
 
-  function onLangChange(next: UiLang) {
-    setLang(next);
-    localStorage.setItem("lang", next);
-  }
-
   function getTaskLabelText(taskLabel: TaskLabel | null) {
     if (!taskLabel) return strings.any;
     return TASK_LABEL_TEXT[taskLabel][lang];
@@ -111,17 +111,6 @@ export default function HomeClient() {
             <p className="eyebrow">{strings.heroEyebrow}</p>
             <h1>{strings.appTitle}</h1>
             <p className="subtitle">{strings.heroSubtitle}</p>
-          </div>
-          <div className="lang">
-            <label htmlFor="lang">{strings.langLabel}</label>
-            <select
-              id="lang"
-              value={lang}
-              onChange={(e) => onLangChange(normalizeLang(e.target.value))}
-            >
-              <option value="en">EN</option>
-              <option value="ja">JA</option>
-            </select>
           </div>
         </div>
         <p className="note">{strings.humanUiOnly}</p>

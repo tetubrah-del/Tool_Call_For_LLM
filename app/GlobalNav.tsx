@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { normalizeLang, UI_STRINGS, type UiLang } from "@/lib/i18n";
 
 export default function GlobalNav() {
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const [lang, setLang] = useState<UiLang>("en");
   const { data: session } = useSession();
 
@@ -22,6 +24,14 @@ export default function GlobalNav() {
     params.set("lang", lang);
     return params.toString();
   }, [lang]);
+
+  function onLangChange(next: UiLang) {
+    setLang(next);
+    localStorage.setItem("lang", next);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("lang", next);
+    router.replace(`${pathname}?${params.toString()}`);
+  }
 
   return (
     <nav className="global-nav">
@@ -40,16 +50,28 @@ export default function GlobalNav() {
             <a href={`/auth?lang=${lang}`}>{strings.register}</a>
           )}
         </div>
-        {session?.user && (
-          <div className="nav-user">
-            <span className="user-pill">
-              {strings.signedInAs}: {session.user.name || session.user.email || "User"}
-            </span>
-            <button className="secondary" type="button" onClick={() => signOut()}>
+        <div className="nav-actions">
+          <div className="nav-lang">
+            <label htmlFor="nav-lang">{strings.langLabel}</label>
+            <select
+              id="nav-lang"
+              value={lang}
+              onChange={(e) => onLangChange(normalizeLang(e.target.value))}
+            >
+              <option value="en">EN</option>
+              <option value="ja">JA</option>
+            </select>
+          </div>
+          {session?.user && (
+            <button
+              className="secondary nav-signout"
+              type="button"
+              onClick={() => signOut()}
+            >
               {strings.signOut}
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </nav>
   );
