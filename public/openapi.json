@@ -555,7 +555,20 @@
         "required": ["status", "reason"],
         "properties": {
           "status": { "type": "string", "enum": ["rejected"] },
-          "reason": { "$ref": "#/components/schemas/ReasonCode" }
+          "reason": { "$ref": "#/components/schemas/ReasonCode" },
+          "task_id": { "type": "string" },
+          "field_errors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["field", "code"],
+              "properties": {
+                "field": { "type": "string" },
+                "code": { "type": "string" },
+                "message": { "type": "string" }
+              }
+            }
+          }
         }
       },
       "WebhookEvent": {
