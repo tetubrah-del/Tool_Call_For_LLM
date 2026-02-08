@@ -71,16 +71,38 @@ select {
 }
 
 button {
-  background: var(--ink);
-  color: #fff;
-  border: none;
+  background: #ff8a1c;
+  color: #101318;
+  border: 1px solid #ff8a1c;
   cursor: pointer;
+  font-weight: 700;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+button:hover {
+  background: #ff6b00;
+  border-color: #ff6b00;
+  color: #0f1218;
 }
 
 button.secondary {
-  background: #15233a;
-  color: var(--ink);
-  border: 1px solid var(--border);
+  background: #2f9e44;
+  color: #f5fff6;
+  border: 1px solid #2f9e44;
+}
+
+button.secondary:hover {
+  background: #2b8a3e;
+  border-color: #2b8a3e;
+}
+
+button:disabled,
+button[disabled] {
+  background: #9a5a19;
+  color: #f7f8fb;
+  border-color: #9a5a19;
+  opacity: 1;
+  cursor: not-allowed;
 }
 
 .card {
