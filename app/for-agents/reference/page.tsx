@@ -133,7 +133,6 @@ node src/index.mjs`}</code></pre>
         <h2>運用条件（MVP）</h2>
         <ul className="for-agents-list">
           <li>最低予算: `$5`（`below_min_budget` 返却）</li>
-          <li>SLA: Best effort（納期保証なし）</li>
           <li>Timeout: `deadline_minutes` 到達で `timeout` へ遷移</li>
           <li>キャンセル/返金: 現在は自動返金フロー未実装</li>
           <li>レート制限: 現在は公開固定値なし（v1で明文化予定）</li>

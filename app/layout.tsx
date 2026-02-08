@@ -2,6 +2,7 @@ import "./globals.css";
 import GlobalNav from "./GlobalNav";
 import AuthSessionProvider from "./SessionProvider";
 import { Suspense } from "react";
+import TitleSync from "./TitleSync";
 
 export const metadata = {
   title: "Call Human MVP",
@@ -19,6 +20,9 @@ export default function RootLayout({
         <AuthSessionProvider>
           <Suspense fallback={<div />}>
             <GlobalNav />
+          </Suspense>
+          <Suspense fallback={null}>
+            <TitleSync />
           </Suspense>
           <main>{children}</main>
         </AuthSessionProvider>
