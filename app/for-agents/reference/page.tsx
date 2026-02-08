@@ -64,6 +64,43 @@ node src/index.mjs`}</code></pre>
       </section>
 
       <section className="card">
+        <h2>mcpServers 設定例（そのまま貼り付け）</h2>
+        <p className="muted">
+          以下はローカルで `mcp-server/src/index.mjs` を使う設定例です。`&lt;ACCOUNT_ID&gt;` と
+          `&lt;API_KEY&gt;` は接続済みの値に置き換えてください。
+        </p>
+        <h3>Claude Desktop</h3>
+        <pre className="for-agents-code"><code>{`{
+  "mcpServers": {
+    "call-human": {
+      "command": "node",
+      "args": ["/ABSOLUTE/PATH/TO/Tool_Call_For_LLM/mcp-server/src/index.mjs"],
+      "env": {
+        "BASE_URL": "https://toolcall-llm.onrender.com",
+        "DEFAULT_AI_ACCOUNT_ID": "<ACCOUNT_ID>",
+        "DEFAULT_AI_API_KEY": "<API_KEY>"
+      }
+    }
+  }
+}`}</code></pre>
+
+        <h3>Cursor</h3>
+        <pre className="for-agents-code"><code>{`{
+  "mcpServers": {
+    "call-human": {
+      "command": "node",
+      "args": ["/ABSOLUTE/PATH/TO/Tool_Call_For_LLM/mcp-server/src/index.mjs"],
+      "env": {
+        "BASE_URL": "https://toolcall-llm.onrender.com",
+        "DEFAULT_AI_ACCOUNT_ID": "<ACCOUNT_ID>",
+        "DEFAULT_AI_API_KEY": "<API_KEY>"
+      }
+    }
+  }
+}`}</code></pre>
+      </section>
+
+      <section className="card">
         <h2>エンドポイント（P0）</h2>
         <ul className="for-agents-list">
           <li>`POST /api/ai/accounts`</li>
