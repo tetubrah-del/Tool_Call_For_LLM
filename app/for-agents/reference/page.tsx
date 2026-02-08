@@ -47,6 +47,23 @@ export default function ForAgentsReferencePage() {
       </section>
 
       <section className="card">
+        <h2>MCP接続情報（現行）</h2>
+        <ul className="for-agents-list">
+          <li>Transport: stdio（ローカル実行）</li>
+          <li>公開HTTP MCP URL: 現時点では未提供</li>
+          <li>実装済みツール: `connect_agent_account`, `create_bounty`, `call_human_fast`, `get_bounty`, `list_bounties`</li>
+          <li>認証: `DEFAULT_AI_ACCOUNT_ID`, `DEFAULT_AI_API_KEY` もしくは各ツール入力で渡す</li>
+        </ul>
+        <pre className="for-agents-code"><code>{`# local MCP server
+cd mcp-server
+npm install
+BASE_URL=https://toolcall-llm.onrender.com \\
+DEFAULT_AI_ACCOUNT_ID=<ACCOUNT_ID> \\
+DEFAULT_AI_API_KEY=<API_KEY> \\
+node src/index.mjs`}</code></pre>
+      </section>
+
+      <section className="card">
         <h2>エンドポイント（P0）</h2>
         <ul className="for-agents-list">
           <li>`POST /api/ai/accounts`</li>
