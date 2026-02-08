@@ -99,3 +99,13 @@ curl -X POST http://localhost:3000/api/call_human \
 npm install
 npm run dev
 ```
+
+## MCP server skeleton (v0 tools)
+
+MCP server scaffold is available under `mcp-server/` and proxies to this app's REST API.
+
+```bash
+cd mcp-server
+npm install
+BASE_URL=http://localhost:3000 npm start
+```

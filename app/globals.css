@@ -259,6 +259,136 @@ button.secondary {
   font-size: 20px;
 }
 
+.for-agents-page {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.for-agents-hero {
+  background: var(--surface-strong);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  padding: 32px;
+}
+
+.for-agents-hero h1 {
+  font-size: clamp(28px, 4.8vw, 50px);
+  line-height: 1.08;
+  margin: 12px 0;
+  letter-spacing: -0.02em;
+}
+
+.for-agents-cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 18px 0 6px;
+}
+
+.for-agents-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  padding: 12px 18px;
+  border: 1px solid transparent;
+  font-weight: 700;
+}
+
+.for-agents-btn.primary {
+  background: var(--ink);
+  color: #fff;
+}
+
+.for-agents-btn.secondary {
+  background: #f2ece4;
+  color: var(--ink);
+  border-color: var(--border);
+}
+
+.for-agents-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.for-agents-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.for-agents-tool-table {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  margin: 12px 0;
+}
+
+.for-agents-tool-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 280px) 1fr;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  background: #fffdf9;
+}
+
+.for-agents-tool-row:last-child {
+  border-bottom: none;
+}
+
+.for-agents-steps {
+  margin: 8px 0 16px;
+  padding-left: 22px;
+}
+
+.for-agents-steps li {
+  margin-bottom: 12px;
+}
+
+.for-agents-steps p {
+  margin: 6px 0 0;
+  color: var(--muted);
+}
+
+.for-agents-list {
+  margin: 8px 0 0;
+  padding-left: 20px;
+}
+
+.for-agents-list li {
+  margin-bottom: 8px;
+}
+
+.for-agents-faq {
+  display: grid;
+  gap: 14px;
+}
+
+.for-agents-faq h3 {
+  margin: 0 0 6px;
+}
+
+.for-agents-faq p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.for-agents-final {
+  background: linear-gradient(135deg, #fff9ef 0%, #ffe7d3 100%);
+}
+
+@media (max-width: 680px) {
+  .for-agents-tool-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 .cta p {
   margin: 0;
   color: var(--muted);
