@@ -42,6 +42,7 @@ function getPool() {
     }
     const pgSslMode = process.env.PGSSLMODE?.trim().toLowerCase();
     let useSsl = false;
+    let connectionString = DATABASE_URL;
     try {
       const parsed = new URL(DATABASE_URL);
       const sslModeFromUrl = parsed.searchParams.get("sslmode")?.trim().toLowerCase();
@@ -54,6 +55,15 @@ function getPool() {
         sslModeFromUrl === "no-verify" ||
         sslFromUrl === "true" ||
         sslFromUrl === "1";
+      if (useSsl) {
+        // Keep SSL on the client options only to avoid URL sslmode overriding.
+        parsed.searchParams.delete("sslmode");
+        parsed.searchParams.delete("ssl");
+        parsed.searchParams.delete("sslcert");
+        parsed.searchParams.delete("sslkey");
+        parsed.searchParams.delete("sslrootcert");
+        connectionString = parsed.toString();
+      }
     } catch {
       // Keep compatibility with non-standard connection strings.
       const lowerUrl = DATABASE_URL.toLowerCase();
@@ -61,12 +71,21 @@ function getPool() {
         lowerUrl.includes("sslmode=require") ||
         lowerUrl.includes("sslmode=prefer") ||
         lowerUrl.includes("ssl=true");
+      connectionString = DATABASE_URL
+        .replace(/sslmode=verify-full/gi, "")
+        .replace(/sslmode=verify-ca/gi, "")
+        .replace(/sslmode=require/gi, "")
+        .replace(/sslmode=prefer/gi, "")
+        .replace(/ssl=true/gi, "")
+        .replace(/\?&/g, "?")
+        .replace(/&&/g, "&")
+        .replace(/[?&]$/, "");
     }
     if (pgSslMode === "require") {
       useSsl = true;
     }
     pool = new Pool({
-      connectionString: DATABASE_URL,
+      connectionString,
       ssl: useSsl ? { rejectUnauthorized: false } : undefined
     });
   }
