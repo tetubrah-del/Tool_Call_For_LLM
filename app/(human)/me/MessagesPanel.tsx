@@ -9,6 +9,7 @@ type Inquiry = {
   from_email: string | null;
   subject: string;
   body: string;
+  is_read: 0 | 1;
   created_at: string;
 };
 
@@ -32,6 +33,7 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [copiedTemplateId, setCopiedTemplateId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function loadMessages() {
@@ -104,6 +106,37 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
     }
   }
 
+  async function toggleInquiryRead(inquiryId: string, nextRead: boolean) {
+    setError(null);
+    const current = inquiries;
+    setInquiries((prev) =>
+      prev.map((inquiry) =>
+        inquiry.id === inquiryId ? { ...inquiry, is_read: nextRead ? 1 : 0 } : inquiry
+      )
+    );
+    const res = await fetch(`/api/me/messages/${inquiryId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ is_read: nextRead })
+    });
+    if (!res.ok) {
+      setError(strings.failed);
+      setInquiries(current);
+    }
+  }
+
+  async function copyTemplateBody(templateId: string, body: string) {
+    try {
+      await navigator.clipboard.writeText(body);
+      setCopiedTemplateId(templateId);
+      setTimeout(() => {
+        setCopiedTemplateId((current) => (current === templateId ? null : current));
+      }, 1200);
+    } catch {
+      setError(strings.failed);
+    }
+  }
+
   return (
     <div className="messages-panel">
       <div className="card messages-history-card">
@@ -122,12 +155,26 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
         <div className="inquiry-list">
           {inquiries.map((inquiry) => (
             <article key={inquiry.id} className="inquiry-item">
-              <p className="inquiry-subject">{inquiry.subject}</p>
+              <div className="inquiry-head">
+                <p className="inquiry-subject">{inquiry.subject}</p>
+                <span className={inquiry.is_read === 1 ? "read-chip" : "unread-chip"}>
+                  {inquiry.is_read === 1 ? strings.read : strings.unread}
+                </span>
+              </div>
               <p className="muted">
                 {inquiry.from_name || "-"} / {inquiry.from_email || "-"}
               </p>
               <p>{inquiry.body}</p>
               <p className="muted">{new Date(inquiry.created_at).toLocaleString(lang)}</p>
+              <div className="template-actions">
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => toggleInquiryRead(inquiry.id, inquiry.is_read !== 1)}
+                >
+                  {inquiry.is_read === 1 ? strings.markUnread : strings.markRead}
+                </button>
+              </div>
             </article>
           ))}
         </div>
@@ -177,6 +224,13 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
               <p>{template.body}</p>
               <p className="muted">{new Date(template.updated_at).toLocaleString(lang)}</p>
               <div className="template-actions">
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => copyTemplateBody(template.id, template.body)}
+                >
+                  {copiedTemplateId === template.id ? strings.copied : strings.templateCopy}
+                </button>
                 <button type="button" className="secondary" onClick={() => startEdit(template)}>
                   {strings.templateEdit}
                 </button>

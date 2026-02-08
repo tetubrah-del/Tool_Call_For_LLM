@@ -35,8 +35,8 @@ export async function POST(request: Request) {
   const id = crypto.randomUUID();
   const createdAt = new Date().toISOString();
   db.prepare(
-    `INSERT INTO human_inquiries (id, human_id, from_name, from_email, subject, body, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO human_inquiries (id, human_id, from_name, from_email, subject, body, is_read, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, 0, ?)`
   ).run(
     id,
     humanId,

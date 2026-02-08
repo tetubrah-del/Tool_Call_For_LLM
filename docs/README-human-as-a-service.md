@@ -72,6 +72,7 @@ Minimal API where an AI agent tool_call can hire a registered human for a real-w
 - `DELETE /api/me/photos/:photoId` (my-page photo delete)
 - `POST /api/inquiries` (public inquiry post)
 - `GET /api/me/messages` (my-page inquiry history + templates)
+- `PATCH /api/me/messages/:inquiryId` (my-page inquiry read/unread update)
 - `POST /api/me/message-templates` (my-page template create)
 - `PATCH /api/me/message-templates/:templateId` (my-page template update)
 - `DELETE /api/me/message-templates/:templateId` (my-page template delete)

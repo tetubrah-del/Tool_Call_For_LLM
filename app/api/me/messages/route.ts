@@ -19,7 +19,7 @@ export async function GET() {
   const db = getDb();
   const inquiries = db
     .prepare(
-      `SELECT id, human_id, from_name, from_email, subject, body, created_at
+      `SELECT id, human_id, from_name, from_email, subject, body, COALESCE(is_read, 0) AS is_read, created_at
        FROM human_inquiries
        WHERE human_id = ?
        ORDER BY created_at DESC`

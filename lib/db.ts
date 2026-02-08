@@ -100,6 +100,7 @@ function ensureDb() {
       from_email TEXT,
       subject TEXT NOT NULL,
       body TEXT NOT NULL,
+      is_read INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL
     );
 
@@ -174,6 +175,7 @@ function ensureDb() {
   ensureColumn(instance, "webhook_deliveries", "response_body", "TEXT");
   ensureColumn(instance, "webhook_deliveries", "error", "TEXT");
   ensureColumn(instance, "human_photos", "is_public", "INTEGER");
+  ensureColumn(instance, "human_inquiries", "is_read", "INTEGER");
   ensureColumn(instance, "message_templates", "updated_at", "TEXT");
 
   startTimeoutSweeper(instance);
@@ -291,6 +293,7 @@ export type HumanInquiry = {
   from_email: string | null;
   subject: string;
   body: string;
+  is_read: 0 | 1;
   created_at: string;
 };
 

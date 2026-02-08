@@ -519,6 +519,36 @@ button[disabled] {
   font-weight: 700;
 }
 
+.inquiry-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.read-chip,
+.unread-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.read-chip {
+  color: #a2b1c9;
+  border: 1px solid #3b4b67;
+  background: #1a2438;
+}
+
+.unread-chip {
+  color: #fedf8b;
+  border: 1px solid #7b5b12;
+  background: #2f240f;
+}
+
 .template-actions {
   display: flex;
   align-items: center;
