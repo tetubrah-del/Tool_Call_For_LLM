@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { normalizeLang, UI_STRINGS, type UiLang } from "@/lib/i18n";
 
@@ -20,11 +20,8 @@ export default function RegisterClient({
   submitLabel,
   submitClassName
 }: RegisterClientProps) {
-  const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
-  const initialLang = useMemo(() => normalizeLang(searchParams.get("lang")), [searchParams]);
-  const [lang, setLang] = useState<UiLang>(initialLang);
+  const lang = useMemo<UiLang>(() => normalizeLang(searchParams.get("lang")), [searchParams]);
   const [name, setName] = useState("");
   const [location, setLocation] = useState("");
   const [country, setCountry] = useState("JP");
@@ -36,19 +33,6 @@ export default function RegisterClient({
   const [loadingProfile, setLoadingProfile] = useState(true);
   const { status: sessionStatus } = useSession();
   const strings = UI_STRINGS[lang];
-
-  useEffect(() => {
-    const savedLang = localStorage.getItem("lang");
-    if (!searchParams.get("lang") && savedLang) {
-      const next = normalizeLang(savedLang);
-      setLang(next);
-      const params = new URLSearchParams(searchParams.toString());
-      params.set("lang", next);
-      router.replace(`/register?${params.toString()}`);
-      return;
-    }
-    localStorage.setItem("lang", lang);
-  }, [lang, router, searchParams]);
 
   useEffect(() => {
     let cancelled = false;
@@ -98,13 +82,6 @@ export default function RegisterClient({
     };
   }, [sessionStatus]);
 
-  function onLangChange(next: UiLang) {
-    setLang(next);
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("lang", next);
-    router.replace(`${pathname}?${params.toString()}`);
-  }
-
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
     setStatus("saving");
@@ -142,10 +119,6 @@ export default function RegisterClient({
     <div>
       <div className="row">
         <h1>{title || strings.registerTitle}</h1>
-        <select value={lang} onChange={(e) => onLangChange(normalizeLang(e.target.value))}>
-          <option value="en">EN</option>
-          <option value="ja">JA</option>
-        </select>
       </div>
       {loadingProfile && <p className="muted">{strings.loading}</p>}
       <form id={formId} className="card" onSubmit={onSubmit}>

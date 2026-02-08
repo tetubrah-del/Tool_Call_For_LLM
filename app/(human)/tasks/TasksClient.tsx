@@ -184,28 +184,12 @@ export default function TasksClient() {
     loadTasks(humanId);
   }
 
-  function onLangChange(next: UiLang) {
-    setLang(next);
-    router.replace(`/tasks?lang=${next}`);
-  }
-
   return (
     <div className="tasks">
       <div className="page-head">
         <div>
           <p className="eyebrow">{strings.latestTasks}</p>
           <h1>{strings.tasks}</h1>
-        </div>
-        <div className="lang">
-          <label htmlFor="lang">{strings.langLabel}</label>
-          <select
-            id="lang"
-            value={lang}
-            onChange={(e) => onLangChange(normalizeLang(e.target.value))}
-          >
-            <option value="en">EN</option>
-            <option value="ja">JA</option>
-          </select>
         </div>
       </div>
 
