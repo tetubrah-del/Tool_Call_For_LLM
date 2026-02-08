@@ -113,6 +113,27 @@ function ensureDb() {
       updated_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS task_contacts (
+      task_id TEXT PRIMARY KEY,
+      ai_account_id TEXT NOT NULL,
+      human_id TEXT NOT NULL,
+      status TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      opened_at TEXT,
+      closed_at TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS contact_messages (
+      id TEXT PRIMARY KEY,
+      task_id TEXT NOT NULL,
+      sender_type TEXT NOT NULL,
+      sender_id TEXT NOT NULL,
+      body TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      read_by_ai INTEGER NOT NULL DEFAULT 0,
+      read_by_human INTEGER NOT NULL DEFAULT 0
+    );
+
     CREATE TABLE IF NOT EXISTS idempotency_keys (
       route TEXT NOT NULL,
       idem_key TEXT NOT NULL,
@@ -177,6 +198,10 @@ function ensureDb() {
   ensureColumn(instance, "human_photos", "is_public", "INTEGER");
   ensureColumn(instance, "human_inquiries", "is_read", "INTEGER");
   ensureColumn(instance, "message_templates", "updated_at", "TEXT");
+  ensureColumn(instance, "task_contacts", "opened_at", "TEXT");
+  ensureColumn(instance, "task_contacts", "closed_at", "TEXT");
+  ensureColumn(instance, "contact_messages", "read_by_ai", "INTEGER");
+  ensureColumn(instance, "contact_messages", "read_by_human", "INTEGER");
 
   startTimeoutSweeper(instance);
 
@@ -304,4 +329,25 @@ export type MessageTemplate = {
   body: string;
   created_at: string;
   updated_at: string;
+};
+
+export type TaskContact = {
+  task_id: string;
+  ai_account_id: string;
+  human_id: string;
+  status: "pending" | "open" | "closed";
+  created_at: string;
+  opened_at: string | null;
+  closed_at: string | null;
+};
+
+export type ContactMessage = {
+  id: string;
+  task_id: string;
+  sender_type: "ai" | "human";
+  sender_id: string;
+  body: string;
+  created_at: string;
+  read_by_ai: 0 | 1;
+  read_by_human: 0 | 1;
 };

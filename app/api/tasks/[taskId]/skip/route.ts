@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
+import { closeContactChannel } from "@/lib/contact-channel";
 
 async function parseRequest(request: Request) {
   const contentType = request.headers.get("content-type") || "";
@@ -40,6 +41,7 @@ export async function POST(
     params.taskId
   );
   db.prepare(`UPDATE humans SET status = 'available' WHERE id = ?`).run(humanId);
+  closeContactChannel(db, params.taskId);
 
   return NextResponse.json({ status: "skipped", task_id: params.taskId });
 }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { getNormalizedTask } from "@/lib/task-api";
 import { dispatchTaskEvent } from "@/lib/webhooks";
+import { ensurePendingContactChannel } from "@/lib/contact-channel";
 
 async function parseRequest(request: Request) {
   const contentType = request.headers.get("content-type") || "";
@@ -55,6 +56,7 @@ export async function POST(
     params.taskId
   );
   db.prepare(`UPDATE humans SET status = 'busy' WHERE id = ?`).run(humanId);
+  ensurePendingContactChannel(db, params.taskId);
   void dispatchTaskEvent(db, { eventType: "task.accepted", taskId: params.taskId }).catch(
     () => {}
   );

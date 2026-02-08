@@ -1,5 +1,6 @@
 import type Database from "better-sqlite3";
 import { dispatchTaskEvent } from "@/lib/webhooks";
+import { closeContactChannel } from "@/lib/contact-channel";
 
 type TaskRow = {
   id: string;
@@ -51,6 +52,7 @@ function sweepTimeouts(db: Database) {
         task.human_id
       );
     }
+    closeContactChannel(db, task.id);
     void dispatchTaskEvent(db, { eventType: "task.failed", taskId: task.id }).catch(() => {});
   }
 }

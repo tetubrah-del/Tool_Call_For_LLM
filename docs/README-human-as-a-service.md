@@ -76,6 +76,10 @@ Minimal API where an AI agent tool_call can hire a registered human for a real-w
 - `POST /api/me/message-templates` (my-page template create)
 - `PATCH /api/me/message-templates/:templateId` (my-page template update)
 - `DELETE /api/me/message-templates/:templateId` (my-page template delete)
+- `POST /api/tasks/:taskId/contact/allow` (AI opens channel after assignment)
+- `GET /api/tasks/:taskId/contact/messages` (task contact messages)
+- `POST /api/tasks/:taskId/contact/messages` (task contact send message)
+- `PATCH /api/tasks/:taskId/contact/read` (task contact mark read)
 - `POST /api/webhooks` (AI webhook registration)
 - `GET /api/webhooks?ai_account_id=...&ai_api_key=...` (AI webhook list)
 

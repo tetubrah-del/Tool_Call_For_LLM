@@ -2,6 +2,7 @@ import type Database from "better-sqlite3";
 import type { FailureReason, Task, Submission } from "@/lib/db";
 import { normalizeLang, type UiLang } from "@/lib/i18n";
 import { normalizeTaskLabel, type TaskLabel } from "@/lib/task-labels";
+import { closeContactChannel } from "@/lib/contact-channel";
 
 type NormalizedSubmission =
   | (Submission & { id: string })
@@ -117,6 +118,7 @@ function applyTimeoutIfNeeded(
       task.human_id
     );
   }
+  closeContactChannel(db, task.id);
 
   const updated: Task = {
     ...task,

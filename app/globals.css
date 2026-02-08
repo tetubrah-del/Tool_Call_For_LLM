@@ -500,6 +500,65 @@ button[disabled] {
   gap: 18px;
 }
 
+.channel-grid {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 14px;
+}
+
+.channel-list {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+
+.channel-item {
+  text-align: left;
+  background: #10192b;
+  border: 1px solid var(--border);
+}
+
+.active-channel {
+  border-color: #5077a8;
+  box-shadow: 0 0 0 1px rgba(80, 119, 168, 0.35) inset;
+}
+
+.thread-panel {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #10192b;
+  padding: 12px;
+  min-height: 260px;
+  display: grid;
+  gap: 12px;
+}
+
+.thread-messages {
+  display: grid;
+  gap: 8px;
+  max-height: 380px;
+  overflow: auto;
+}
+
+.thread-message {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.human-message {
+  background: #14243d;
+}
+
+.ai-message {
+  background: #1d1f2b;
+}
+
+.thread-compose {
+  display: grid;
+  gap: 8px;
+}
+
 .inquiry-list,
 .template-list {
   display: grid;
@@ -569,6 +628,12 @@ button[disabled] {
 
 .template-form-actions button {
   width: auto;
+}
+
+@media (max-width: 900px) {
+  .channel-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .cta-grid {

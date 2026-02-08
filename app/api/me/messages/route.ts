@@ -33,10 +33,38 @@ export async function GET() {
        ORDER BY updated_at DESC`
     )
     .all(humanId);
+  const channels = db
+    .prepare(
+      `SELECT
+         tc.task_id,
+         tc.status,
+         tc.opened_at,
+         tc.closed_at,
+         t.task,
+         t.task_en,
+         t.status AS task_status,
+         t.created_at,
+         (
+           SELECT COUNT(*)
+           FROM contact_messages cm
+           WHERE cm.task_id = tc.task_id AND cm.read_by_human = 0
+         ) AS unread_count,
+         (
+           SELECT COUNT(*)
+           FROM contact_messages cm
+           WHERE cm.task_id = tc.task_id
+         ) AS message_count
+       FROM task_contacts tc
+       JOIN tasks t ON t.id = tc.task_id
+       WHERE tc.human_id = ?
+       ORDER BY t.created_at DESC`
+    )
+    .all(humanId);
 
   return NextResponse.json({
     human_id: humanId,
     inquiries,
-    templates
+    templates,
+    channels
   });
 }

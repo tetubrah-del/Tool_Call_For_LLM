@@ -20,12 +20,41 @@ type Template = {
   updated_at: string;
 };
 
+type Channel = {
+  task_id: string;
+  status: "pending" | "open" | "closed";
+  opened_at: string | null;
+  closed_at: string | null;
+  task: string;
+  task_en: string | null;
+  task_status: string;
+  created_at: string;
+  unread_count: number;
+  message_count: number;
+};
+
+type ContactMessage = {
+  id: string;
+  task_id: string;
+  sender_type: "ai" | "human";
+  sender_id: string;
+  body: string;
+  created_at: string;
+  read_by_ai: 0 | 1;
+  read_by_human: 0 | 1;
+};
+
 type MessagesPanelProps = {
   lang: UiLang;
 };
 
 export default function MessagesPanel({ lang }: MessagesPanelProps) {
   const strings = UI_STRINGS[lang];
+  const [channels, setChannels] = useState<Channel[]>([]);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [threadMessages, setThreadMessages] = useState<ContactMessage[]>([]);
+  const [threadLoading, setThreadLoading] = useState(false);
+  const [composeBody, setComposeBody] = useState("");
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [templateTitle, setTemplateTitle] = useState("");
@@ -45,6 +74,14 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
       const data = await res.json();
       setInquiries(data.inquiries || []);
       setTemplates(data.templates || []);
+      const nextChannels = data.channels || [];
+      setChannels(nextChannels);
+      setSelectedTaskId((current) => {
+        if (current && nextChannels.some((ch: Channel) => ch.task_id === current)) {
+          return current;
+        }
+        return nextChannels[0]?.task_id || null;
+      });
     } catch (err: any) {
       setError(err.message || "failed");
     } finally {
@@ -55,6 +92,37 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
   useEffect(() => {
     loadMessages();
   }, []);
+
+  useEffect(() => {
+    async function loadThread() {
+      if (!selectedTaskId) {
+        setThreadMessages([]);
+        return;
+      }
+      setThreadLoading(true);
+      try {
+        const res = await fetch(`/api/tasks/${selectedTaskId}/contact/messages`);
+        if (!res.ok) throw new Error("failed");
+        const data = await res.json();
+        setThreadMessages(data.messages || []);
+        await fetch(`/api/tasks/${selectedTaskId}/contact/read`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({})
+        });
+        setChannels((prev) =>
+          prev.map((channel) =>
+            channel.task_id === selectedTaskId ? { ...channel, unread_count: 0 } : channel
+          )
+        );
+      } catch (err: any) {
+        setError(err.message || "failed");
+      } finally {
+        setThreadLoading(false);
+      }
+    }
+    loadThread();
+  }, [selectedTaskId]);
 
   function startEdit(template: Template) {
     setEditingTemplateId(template.id);
@@ -137,8 +205,109 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
     }
   }
 
+  async function sendThreadMessage(event: React.FormEvent) {
+    event.preventDefault();
+    if (!selectedTaskId || !composeBody.trim()) return;
+    setError(null);
+    try {
+      const res = await fetch(`/api/tasks/${selectedTaskId}/contact/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body: composeBody })
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.reason || "failed");
+      }
+      setComposeBody("");
+      const data = await res.json();
+      setThreadMessages((prev) => [...prev, data.message]);
+      setChannels((prev) =>
+        prev.map((channel) =>
+          channel.task_id === selectedTaskId
+            ? { ...channel, message_count: channel.message_count + 1 }
+            : channel
+        )
+      );
+    } catch (err: any) {
+      setError(err.message || "failed");
+    }
+  }
+
+  function applyTemplateToCompose(body: string) {
+    setComposeBody(body);
+  }
+
   return (
     <div className="messages-panel">
+      <div className="card contact-channel-card">
+        <h3>{strings.contactChannelsTitle}</h3>
+        {channels.length === 0 && !loading && <p className="muted">{strings.noChannels}</p>}
+        <div className="channel-grid">
+          <div className="channel-list">
+            {channels.map((channel) => (
+              <button
+                key={channel.task_id}
+                type="button"
+                className={
+                  channel.task_id === selectedTaskId ? "channel-item active-channel" : "channel-item"
+                }
+                onClick={() => setSelectedTaskId(channel.task_id)}
+              >
+                <p className="inquiry-subject">{channel.task}</p>
+                <p className="muted">
+                  {strings.channelStatus}: {channel.status} / {strings.status}: {channel.task_status}
+                </p>
+                <p className="muted">
+                  {strings.unread}: {channel.unread_count} / {strings.messagesCount}: {channel.message_count}
+                </p>
+              </button>
+            ))}
+          </div>
+          <div className="thread-panel">
+            {!selectedTaskId && <p className="muted">{strings.selectChannel}</p>}
+            {selectedTaskId && (
+              <>
+                <div className="thread-messages">
+                  {threadLoading && <p className="muted">{strings.loading}</p>}
+                  {!threadLoading && threadMessages.length === 0 && (
+                    <p className="muted">{strings.noMessages}</p>
+                  )}
+                  {threadMessages.map((message) => (
+                    <article
+                      key={message.id}
+                      className={
+                        message.sender_type === "human" ? "thread-message human-message" : "thread-message ai-message"
+                      }
+                    >
+                      <p className="muted">
+                        {message.sender_type === "human" ? strings.me : strings.ai}
+                      </p>
+                      <p>{message.body}</p>
+                      <p className="muted">
+                        {new Date(message.created_at).toLocaleString(lang)}
+                      </p>
+                    </article>
+                  ))}
+                </div>
+                <form className="thread-compose" onSubmit={sendThreadMessage}>
+                  <label>
+                    {strings.inquiryBody}
+                    <textarea
+                      value={composeBody}
+                      onChange={(e) => setComposeBody(e.target.value)}
+                      rows={3}
+                      required
+                    />
+                  </label>
+                  <button type="submit">{strings.sendMessage}</button>
+                </form>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
       <div className="card messages-history-card">
         <div className="photo-list-head">
           <h3>{strings.inquiriesTitle}</h3>
@@ -233,6 +402,14 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
                 </button>
                 <button type="button" className="secondary" onClick={() => startEdit(template)}>
                   {strings.templateEdit}
+                </button>
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => applyTemplateToCompose(template.body)}
+                  disabled={!selectedTaskId}
+                >
+                  {strings.templateUse}
                 </button>
                 <button
                   type="button"

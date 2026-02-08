@@ -6,6 +6,7 @@ import { normalizeCountry } from "@/lib/country";
 import { normalizeTaskLabel } from "@/lib/task-labels";
 import { finishIdempotency, startIdempotency } from "@/lib/idempotency";
 import { dispatchTaskEvent } from "@/lib/webhooks";
+import { ensurePendingContactChannel } from "@/lib/contact-channel";
 
 export async function POST(request: Request) {
   const idemKey = request.headers.get("Idempotency-Key")?.trim() || null;
@@ -154,6 +155,7 @@ export async function POST(request: Request) {
     taskId
   );
   db.prepare(`UPDATE humans SET status = 'busy' WHERE id = ?`).run(human.id);
+  ensurePendingContactChannel(db, taskId);
   // Payment is mocked for MVP; integrate Stripe here later if needed.
   void dispatchTaskEvent(db, { eventType: "task.accepted", taskId }).catch(() => {});
 
