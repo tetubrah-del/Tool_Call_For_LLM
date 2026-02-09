@@ -82,6 +82,11 @@ export async function POST(
     if (!order) return NextResponse.json({ status: "not_found" }, { status: 404 });
     if (order.payment_flow !== "checkout") return conflict("invalid_payment_flow");
 
+    // Strict state machine: allow checkout creation only from 'created'.
+    if (order.status !== "created") {
+      return conflict("invalid_order_status", { status: order.status });
+    }
+
     if (order.checkout_session_id) {
       return conflict("checkout_already_created", { checkout_session_id: order.checkout_session_id });
     }
@@ -146,6 +151,7 @@ export async function POST(
           ],
           success_url: successUrl,
           cancel_url: cancelUrl,
+          // Required linkage: client_reference_id and metadata must both exist and match.
           client_reference_id: `${orderId}:v${v}`,
           // Metadata is supplemental; DB is source-of-truth.
           metadata: {
