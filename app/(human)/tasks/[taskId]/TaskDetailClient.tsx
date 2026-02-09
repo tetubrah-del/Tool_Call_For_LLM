@@ -278,7 +278,10 @@ export default function TaskDetailClient() {
       const res = await fetch(`/api/tasks/${task.id}/accept`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ human_id: humanId })
+        body: JSON.stringify({
+          human_id: humanId,
+          ...(humanTestToken ? { human_test_token: humanTestToken } : {})
+        })
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.reason || "failed");
@@ -365,6 +368,7 @@ export default function TaskDetailClient() {
   const canSubmit =
     deliverable === "text" ? text.trim().length > 0 : Boolean(file);
   const isAssignedToMe = Boolean(task.human_id && humanId && task.human_id === humanId);
+  const canActAsHuman = isLoggedIn || Boolean(humanId && humanTestToken);
 
   return (
     <div className="task-detail-grid">
@@ -482,7 +486,7 @@ export default function TaskDetailClient() {
           </div>
         </div>
 
-        {isAssignedToMe && (task.status === "accepted" || task.status === "completed") && (
+        {canActAsHuman && isAssignedToMe && (task.status === "accepted" || task.status === "completed") && (
           <div className="card task-detail-section">
             <h3>{strings.contactChannelsTitle}</h3>
             {contactLoading && <p className="muted">{strings.loading}</p>}
@@ -586,7 +590,7 @@ export default function TaskDetailClient() {
           )}
         </div>
 
-        {isAssignedToMe && task.status === "accepted" && (
+        {canActAsHuman && isAssignedToMe && task.status === "accepted" && (
           <form className="card task-side-card" onSubmit={onSubmit}>
             <h3>{strings.deliverTask}</h3>
             {deliverable === "text" && (
