@@ -1081,11 +1081,86 @@ button[disabled] {
 .filter-card {
   display: grid;
   gap: 10px;
+  padding: 16px;
+}
+
+.filter-card label {
+  margin-bottom: 0;
+}
+
+.filter-card input,
+.filter-card textarea,
+.filter-card select,
+.filter-card button {
+  padding: 10px 12px;
+  margin-top: 4px;
+}
+
+.filter-card label {
+  font-size: 12px;
+}
+
+.filter-card .filter-actions {
+  margin-top: 2px;
+}
+
+@media (min-width: 860px) {
+  .filter-card {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    column-gap: 14px;
+    row-gap: 12px;
+    align-items: end;
+  }
+
+  .filter-card .filter-keyword {
+    grid-column: span 2;
+  }
+
+  .filter-card .filter-country {
+    grid-column: span 1;
+  }
+
+  .filter-card .filter-actions {
+    grid-column: 1 / -1;
+  }
+
+  .filter-card .filter-actions a {
+    flex: 0 0 auto;
+  }
 }
 
 .task-list {
   display: grid;
   gap: 16px;
+}
+
+.task-sort {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.sort-pill {
+  width: auto;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--muted);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.sort-pill.active {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.14);
+  color: var(--ink);
+}
+
+.sort-pill:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: var(--ink);
 }
 
 .task-item {
