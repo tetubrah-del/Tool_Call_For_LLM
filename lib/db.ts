@@ -202,6 +202,7 @@ async function initPostgres() {
       payment_intent_id TEXT,
       charge_id TEXT,
       mismatch_reason TEXT,
+      provider_error TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
       PRIMARY KEY (id, version)
@@ -277,6 +278,15 @@ async function initPostgres() {
       created_at TEXT NOT NULL,
       read_by_ai INTEGER NOT NULL DEFAULT 0,
       read_by_human INTEGER NOT NULL DEFAULT 0
+    )`,
+    `CREATE TABLE IF NOT EXISTS task_applications (
+      id TEXT PRIMARY KEY,
+      task_id TEXT NOT NULL,
+      human_id TEXT NOT NULL,
+      cover_letter TEXT NOT NULL,
+      availability TEXT NOT NULL,
+      counter_budget_usd DOUBLE PRECISION,
+      created_at TEXT NOT NULL
     )`,
     `CREATE TABLE IF NOT EXISTS task_comments (
       id TEXT PRIMARY KEY,
@@ -360,7 +370,8 @@ async function initPostgres() {
     `ALTER TABLE webhook_endpoints ADD COLUMN IF NOT EXISTS events TEXT`,
     `ALTER TABLE webhook_deliveries ADD COLUMN IF NOT EXISTS status_code INTEGER`,
     `ALTER TABLE webhook_deliveries ADD COLUMN IF NOT EXISTS response_body TEXT`,
-    `ALTER TABLE webhook_deliveries ADD COLUMN IF NOT EXISTS error TEXT`
+    `ALTER TABLE webhook_deliveries ADD COLUMN IF NOT EXISTS error TEXT`,
+    `ALTER TABLE orders ADD COLUMN IF NOT EXISTS provider_error TEXT`
   ];
 
   for (const statement of migrationStatements) {
@@ -494,6 +505,16 @@ async function initSqlite() {
       read_by_human INTEGER NOT NULL DEFAULT 0
     );
 
+    CREATE TABLE IF NOT EXISTS task_applications (
+      id TEXT PRIMARY KEY,
+      task_id TEXT NOT NULL,
+      human_id TEXT NOT NULL,
+      cover_letter TEXT NOT NULL,
+      availability TEXT NOT NULL,
+      counter_budget_usd REAL,
+      created_at TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS task_comments (
       id TEXT PRIMARY KEY,
       task_id TEXT NOT NULL,
@@ -555,6 +576,7 @@ async function initSqlite() {
       payment_intent_id TEXT,
       charge_id TEXT,
       mismatch_reason TEXT,
+      provider_error TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
       PRIMARY KEY (id, version)
@@ -612,6 +634,7 @@ async function initSqlite() {
   ensureSqliteColumn(db, "contact_messages", "attachment_url", "TEXT");
   ensureSqliteColumn(db, "contact_messages", "read_by_ai", "INTEGER");
   ensureSqliteColumn(db, "contact_messages", "read_by_human", "INTEGER");
+  ensureSqliteColumn(db, "orders", "provider_error", "TEXT");
 }
 
 async function ensureInit() {
@@ -739,6 +762,7 @@ export type Order = {
   payment_intent_id: string | null;
   charge_id: string | null;
   mismatch_reason: string | null;
+  provider_error: string | null;
   created_at: string;
   updated_at: string;
 };

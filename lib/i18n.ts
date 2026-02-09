@@ -196,6 +196,11 @@ export const UI_STRINGS: Record<UiLang, Record<string, string>> = {
     text: "Text",
     upload: "Upload",
     submit: "Submit",
+    applyTitle: "Apply",
+    coverLetter: "Cover letter",
+    availability: "Availability",
+    counterOffer: "Counter offer (optional)",
+    apply: "Apply",
     backToTasks: "Back to Tasks",
     submitted: "Submitted.",
     taskNotFound: "Task not found."
@@ -392,6 +397,11 @@ export const UI_STRINGS: Record<UiLang, Record<string, string>> = {
     text: "テキスト",
     upload: "アップロード",
     submit: "送信",
+    applyTitle: "応募する",
+    coverLetter: "カバーレター",
+    availability: "可用性",
+    counterOffer: "反対提案（オプション）",
+    apply: "応募する",
     backToTasks: "タスク一覧へ",
     submitted: "送信しました。",
     taskNotFound: "タスクが見つかりません。"
