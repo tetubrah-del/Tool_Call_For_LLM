@@ -17,6 +17,7 @@ type Task = {
   lang?: UiLang;
   location: string | null;
   budget_usd: number;
+  origin_country: string | null;
   task_label: TaskLabel | null;
   acceptance_criteria: string | null;
   not_allowed: string | null;
@@ -39,8 +40,10 @@ export default function TasksClient() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [keyword, setKeyword] = useState("");
   const [selectedLabel, setSelectedLabel] = useState<"all" | TaskLabel>("all");
+  const [selectedOriginCountry, setSelectedOriginCountry] = useState<"all" | string>("all");
   const [selectedDeliverable, setSelectedDeliverable] = useState<"all" | "photo" | "video" | "text">("all");
   const [selectedStatus, setSelectedStatus] = useState<"all" | Task["status"]>("all");
+  const [sortKey, setSortKey] = useState<"new" | "popular">("new");
   const [minBudget, setMinBudget] = useState("");
   const [maxBudget, setMaxBudget] = useState("");
   const [loading, setLoading] = useState(false);
@@ -56,6 +59,14 @@ export default function TasksClient() {
     failed: strings.statusFailed
   };
 
+  const originCountryOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const t of tasks) {
+      if (t.origin_country) set.add(t.origin_country);
+    }
+    return Array.from(set).sort();
+  }, [tasks]);
+
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
       const matchesLabel =
@@ -64,6 +75,10 @@ export default function TasksClient() {
         keyword.trim().length === 0
           ? true
           : `${task.task_display || task.task}`.toLowerCase().includes(keyword.toLowerCase());
+      const matchesOrigin =
+        selectedOriginCountry === "all"
+          ? true
+          : task.origin_country === selectedOriginCountry;
       const normalizedDeliverable = task.deliverable || "text";
       const matchesDeliverable =
         selectedDeliverable === "all" ? true : normalizedDeliverable === selectedDeliverable;
@@ -77,13 +92,28 @@ export default function TasksClient() {
       return (
         matchesLabel &&
         matchesKeyword &&
+        matchesOrigin &&
         matchesDeliverable &&
         matchesStatus &&
         matchesMin &&
         matchesMax
       );
     });
-  }, [tasks, selectedLabel, keyword, selectedDeliverable, selectedStatus, minBudget, maxBudget]);
+  }, [tasks, selectedLabel, keyword, selectedOriginCountry, selectedDeliverable, selectedStatus, minBudget, maxBudget]);
+
+  const sortedTasks = useMemo(() => {
+    const next = [...filteredTasks];
+    if (sortKey === "popular") {
+      // Popularity signal is not available in v0; use budget as a proxy.
+      next.sort((a, b) => {
+        if (b.budget_usd !== a.budget_usd) return b.budget_usd - a.budget_usd;
+        return Date.parse(b.created_at) - Date.parse(a.created_at);
+      });
+      return next;
+    }
+    next.sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
+    return next;
+  }, [filteredTasks, sortKey]);
 
   const loadTasks = useCallback(
     async (id?: string) => {
@@ -199,7 +229,7 @@ export default function TasksClient() {
             {strings.bestEffort} | {strings.noTimeGuarantee}
           </p>
         )}
-        <label>
+        <label className="filter-keyword">
           {strings.searchKeyword}
           <input
             value={keyword}
@@ -207,7 +237,7 @@ export default function TasksClient() {
             placeholder={strings.searchKeywordPlaceholder}
           />
         </label>
-        <label>
+        <label className="filter-label">
           {strings.taskLabel}
           <select
             value={selectedLabel}
@@ -221,7 +251,21 @@ export default function TasksClient() {
             ))}
           </select>
         </label>
-        <label>
+        <label className="filter-country">
+          {strings.originCountry}
+          <select
+            value={selectedOriginCountry}
+            onChange={(e) => setSelectedOriginCountry(e.target.value as "all" | string)}
+          >
+            <option value="all">{strings.allCountries}</option>
+            {originCountryOptions.map((code) => (
+              <option key={code} value={code}>
+                {code}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="filter-deliverable">
           {strings.deliverable}
           <select
             value={selectedDeliverable}
@@ -235,7 +279,7 @@ export default function TasksClient() {
             <option value="video">video</option>
           </select>
         </label>
-        <label>
+        <label className="filter-status">
           {strings.status}
           <select
             value={selectedStatus}
@@ -248,7 +292,7 @@ export default function TasksClient() {
             <option value="failed">{strings.statusFailed}</option>
           </select>
         </label>
-        <label>
+        <label className="filter-minbudget">
           {strings.minBudget}
           <input
             type="number"
@@ -258,7 +302,7 @@ export default function TasksClient() {
             onChange={(e) => setMinBudget(e.target.value)}
           />
         </label>
-        <label>
+        <label className="filter-maxbudget">
           {strings.maxBudget}
           <input
             type="number"
@@ -268,7 +312,7 @@ export default function TasksClient() {
             onChange={(e) => setMaxBudget(e.target.value)}
           />
         </label>
-        <div className="row">
+        <div className="row filter-actions">
           <button onClick={() => loadTasks(humanId || undefined)} disabled={loading || profileLoading}>
             {loading || profileLoading ? strings.loading : strings.refresh}
           </button>
@@ -279,12 +323,29 @@ export default function TasksClient() {
         {error && <p className="muted">{error}</p>}
       </div>
 
+      <div className="task-sort">
+        <button
+          type="button"
+          className={sortKey === "new" ? "sort-pill active" : "sort-pill"}
+          onClick={() => setSortKey("new")}
+        >
+          {strings.sortNew}
+        </button>
+        <button
+          type="button"
+          className={sortKey === "popular" ? "sort-pill active" : "sort-pill"}
+          onClick={() => setSortKey("popular")}
+        >
+          {strings.sortPopular}
+        </button>
+      </div>
+
       {filteredTasks.length === 0 && !loading && !profileLoading && (
         <p className="muted">{strings.noTasks}</p>
       )}
 
       <div className="task-list">
-        {filteredTasks.map((task) => {
+        {sortedTasks.map((task) => {
           const isAssigned = task.human_id === humanId;
           const statusLabel = statusLabels[task.status];
           const showTranslationPending =
