@@ -628,77 +628,79 @@ export default function TaskDetailClient() {
           <p className="muted">{task.status}</p>
         </div>
 
-        {task.status === "open" && (
-          <div className="card task-side-card">
-            <h3>{strings.applyTitle}</h3>
-            {!canApply && (
-              <div className="comment-login-callout">
-                <p className="muted">{strings.needAccount}</p>
-                <a className="text-link" href={`/auth?lang=${lang}`}>
-                  {strings.signIn}
-                </a>
+        <div className="card task-side-card">
+          <h3>{strings.applyTitle}</h3>
+
+          {task.status !== "open" && <p className="muted">{strings.applyClosed}</p>}
+
+          {task.status === "open" && !canApply && (
+            <div className="comment-login-callout">
+              <p className="muted">{strings.needAccount}</p>
+              <a className="text-link" href={`/auth?lang=${lang}`}>
+                {strings.signIn}
+              </a>
+            </div>
+          )}
+
+          {task.status === "open" && canApply && (
+            <form className="task-apply-form" onSubmit={applyToTask}>
+              <label>
+                {strings.coverLetter} *
+                <textarea
+                  value={applyCoverLetter}
+                  onChange={(e) => setApplyCoverLetter(e.target.value)}
+                  rows={5}
+                  placeholder={strings.commentPlaceholder}
+                />
+              </label>
+              <label>
+                {strings.availability} *
+                <input
+                  value={applyAvailability}
+                  onChange={(e) => setApplyAvailability(e.target.value)}
+                  placeholder={lang === "ja" ? "例: 平日19-22時 / 週末" : "e.g. Weekdays 7-10pm"}
+                />
+              </label>
+              <label>
+                {strings.counterOffer}
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={applyCounterBudget}
+                  onChange={(e) => setApplyCounterBudget(e.target.value)}
+                  placeholder={`$${task.budget_usd}`}
+                />
+              </label>
+              <div className="row">
+                <button
+                  type="button"
+                  className="button-neutral"
+                  onClick={() => {
+                    setApplyCoverLetter("");
+                    setApplyAvailability("");
+                    setApplyCounterBudget("");
+                    setApplyError(null);
+                  }}
+                  disabled={applying}
+                >
+                  {strings.cancel}
+                </button>
+                <button
+                  type="submit"
+                  disabled={applying || !applyCoverLetter.trim() || !applyAvailability.trim()}
+                >
+                  {applying ? strings.saving : strings.apply}
+                </button>
               </div>
-            )}
-            {canApply && (
-              <form className="task-apply-form" onSubmit={applyToTask}>
-                <label>
-                  {strings.coverLetter} *
-                  <textarea
-                    value={applyCoverLetter}
-                    onChange={(e) => setApplyCoverLetter(e.target.value)}
-                    rows={5}
-                    placeholder={strings.commentPlaceholder}
-                  />
-                </label>
-                <label>
-                  {strings.availability} *
-                  <input
-                    value={applyAvailability}
-                    onChange={(e) => setApplyAvailability(e.target.value)}
-                    placeholder={lang === "ja" ? "例: 平日19-22時 / 週末" : "e.g. Weekdays 7-10pm"}
-                  />
-                </label>
-                <label>
-                  {strings.counterOffer}
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={applyCounterBudget}
-                    onChange={(e) => setApplyCounterBudget(e.target.value)}
-                    placeholder={`$${task.budget_usd}`}
-                  />
-                </label>
-                <div className="row">
-                  <button
-                    type="button"
-                    className="button-neutral"
-                    onClick={() => {
-                      setApplyCoverLetter("");
-                      setApplyAvailability("");
-                      setApplyCounterBudget("");
-                      setApplyError(null);
-                    }}
-                    disabled={applying}
-                  >
-                    {strings.cancel}
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={applying || !applyCoverLetter.trim() || !applyAvailability.trim()}
-                  >
-                    {applying ? strings.saving : strings.apply}
-                  </button>
-                </div>
-                {applyError && (
-                  <p className="muted">
-                    {strings.failed}: {applyError}
-                  </p>
-                )}
-              </form>
-            )}
-          </div>
-        )}
+              {applyError && (
+                <p className="muted">
+                  {strings.failed}: {applyError}
+                </p>
+              )}
+            </form>
+          )}
+        </div>
 
         {canActAsHuman && isAssignedToMe && task.status === "accepted" && (
           <form className="card task-side-card" onSubmit={onSubmit}>
