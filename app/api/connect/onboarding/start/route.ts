@@ -11,6 +11,12 @@ import {
 } from "@/lib/stripe";
 import type Stripe from "stripe";
 
+function getStringProp(obj: unknown, key: string): string | null {
+  if (!obj || typeof obj !== "object") return null;
+  const v = (obj as any)[key];
+  return typeof v === "string" && v ? v : null;
+}
+
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions);
@@ -78,7 +84,16 @@ export async function POST(request: Request) {
           capabilities: { transfers: { requested: true } }
         })
       );
-      accountId = created.result.id;
+      // Some build environments can end up treating SDK results as `unknown`.
+      // Pull out the id defensively to keep type-checking and runtime aligned.
+      const createdId = getStringProp(created.result, "id");
+      if (!createdId) {
+        return NextResponse.json(
+          { status: "error", reason: "stripe_error", message: "stripe_account_missing_id" },
+          { status: 502 }
+        );
+      }
+      accountId = createdId;
       await db
         .prepare(`UPDATE humans SET stripe_account_id = ? WHERE id = ?`)
         .run(accountId, humanId);
@@ -92,12 +107,19 @@ export async function POST(request: Request) {
         type: "account_onboarding"
       })
     );
+    const onboardingUrl = getStringProp(link.result, "url");
+    if (!onboardingUrl) {
+      return NextResponse.json(
+        { status: "error", reason: "stripe_error", message: "stripe_account_link_missing_url" },
+        { status: 502 }
+      );
+    }
 
     return NextResponse.json({
       status: "ok",
       human_id: humanId,
       stripe_account_id: accountId,
-      onboarding_url: link.result.url
+      onboarding_url: onboardingUrl
     });
   } catch (err: any) {
     console.error("POST /api/connect/onboarding/start failed", err);
