@@ -1,8 +1,6 @@
 import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import { dispatchTaskEvent } from "@/lib/webhooks";
-import { ensurePendingContactChannel } from "@/lib/contact-channel";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getCurrentHumanIdByEmail } from "@/lib/human-session";
@@ -25,6 +23,57 @@ function verifyTestHumanToken(humanId: string, token: string): boolean {
 
 const MAX_COVER_LETTER = 4000;
 const MAX_AVAILABILITY = 500;
+
+async function resolveAuthedHumanId(
+  db: ReturnType<typeof getDb>,
+  humanId: string,
+  humanTestToken: string
+): Promise<string | null> {
+  // Auth: session (recommended) OR test-only token (dev).
+  if (humanTestToken) {
+    if (verifyTestHumanToken(humanId, humanTestToken)) return humanId;
+    return null;
+  }
+
+  const session = await getServerSession(authOptions);
+  const email = session?.user?.email;
+  if (!email) return null;
+  const sessionHumanId = await getCurrentHumanIdByEmail(email);
+  return sessionHumanId || null;
+}
+
+export async function GET(
+  request: Request,
+  { params }: { params: { taskId: string } }
+) {
+  const url = new URL(request.url);
+  const humanId = normalizeText(url.searchParams.get("human_id"));
+  const humanTestToken = normalizeText(url.searchParams.get("human_test_token"));
+
+  if (!humanId) {
+    return NextResponse.json({ status: "error", reason: "missing_human" }, { status: 400 });
+  }
+
+  const db = getDb();
+  const authedHumanId = await resolveAuthedHumanId(db, humanId, humanTestToken);
+  if (!authedHumanId || authedHumanId !== humanId) {
+    return NextResponse.json({ status: "unauthorized" }, { status: 401 });
+  }
+
+  const existing = await db
+    .prepare(`SELECT id FROM task_applications WHERE task_id = ? AND human_id = ?`)
+    .get<{ id: string }>(params.taskId, humanId);
+
+  if (existing?.id) {
+    return NextResponse.json({
+      status: "applied",
+      task_id: params.taskId,
+      application_id: existing.id
+    });
+  }
+
+  return NextResponse.json({ status: "not_applied", task_id: params.taskId });
+}
 
 export async function POST(
   request: Request,
@@ -55,19 +104,7 @@ export async function POST(
   }
 
   const db = getDb();
-
-  // Auth: session (recommended) OR test-only token (dev).
-  let authedHumanId: string | null = null;
-  if (humanTestToken) {
-    if (verifyTestHumanToken(humanId, humanTestToken)) authedHumanId = humanId;
-  } else {
-    const session = await getServerSession(authOptions);
-    const email = session?.user?.email;
-    if (email) {
-      const sessionHumanId = await getCurrentHumanIdByEmail(email);
-      if (sessionHumanId) authedHumanId = sessionHumanId;
-    }
-  }
+  const authedHumanId = await resolveAuthedHumanId(db, humanId, humanTestToken);
   if (!authedHumanId || authedHumanId !== humanId) {
     return NextResponse.json({ status: "unauthorized" }, { status: 401 });
   }
@@ -79,20 +116,33 @@ export async function POST(
     return NextResponse.json({ status: "not_found" }, { status: 404 });
   }
   if (task.status !== "open") {
-    return NextResponse.json({ status: "error", reason: "not_assigned" }, { status: 409 });
+    return NextResponse.json({ status: "error", reason: "not_open" }, { status: 409 });
   }
   if (task.human_id && task.human_id !== humanId) {
     return NextResponse.json({ status: "error", reason: "already_assigned" }, { status: 409 });
   }
 
   const human = await db
-    .prepare(`SELECT id, paypal_email FROM humans WHERE id = ?`)
-    .get<{ id: string; paypal_email: string | null }>(humanId);
+    .prepare(`SELECT id, paypal_email, status FROM humans WHERE id = ?`)
+    .get<{ id: string; paypal_email: string | null; status: string }>(humanId);
   if (!human?.id) {
     return NextResponse.json({ status: "not_found" }, { status: 404 });
   }
   if (!human.paypal_email) {
     return NextResponse.json({ status: "error", reason: "invalid_request" }, { status: 400 });
+  }
+  if (human.status !== "available") {
+    return NextResponse.json({ status: "error", reason: "human_not_available" }, { status: 409 });
+  }
+
+  const existing = await db
+    .prepare(`SELECT id FROM task_applications WHERE task_id = ? AND human_id = ?`)
+    .get<{ id: string }>(params.taskId, humanId);
+  if (existing?.id) {
+    return NextResponse.json(
+      { status: "error", reason: "already_applied", application_id: existing.id },
+      { status: 409 }
+    );
   }
 
   const applicationId = crypto.randomUUID();
@@ -112,20 +162,9 @@ export async function POST(
       createdAt
     );
 
-  // MVP: applying immediately accepts the task.
-  await db
-    .prepare(`UPDATE tasks SET status = 'accepted', human_id = ?, payee_paypal_email = ? WHERE id = ?`)
-    .run(humanId, human.paypal_email, params.taskId);
-  await db.prepare(`UPDATE humans SET status = 'busy' WHERE id = ?`).run(humanId);
-  await ensurePendingContactChannel(db, params.taskId);
-  void dispatchTaskEvent(db, { eventType: "task.accepted", taskId: params.taskId }).catch(
-    () => {}
-  );
-
   return NextResponse.json({
-    status: "accepted",
+    status: "applied",
     task_id: params.taskId,
     application_id: applicationId
   });
 }
-
