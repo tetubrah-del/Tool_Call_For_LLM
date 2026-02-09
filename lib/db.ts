@@ -242,6 +242,13 @@ async function initPostgres() {
       read_by_ai INTEGER NOT NULL DEFAULT 0,
       read_by_human INTEGER NOT NULL DEFAULT 0
     )`,
+    `CREATE TABLE IF NOT EXISTS task_comments (
+      id TEXT PRIMARY KEY,
+      task_id TEXT NOT NULL,
+      human_id TEXT NOT NULL,
+      body TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )`,
     `CREATE TABLE IF NOT EXISTS idempotency_keys (
       route TEXT NOT NULL,
       idem_key TEXT NOT NULL,
@@ -447,6 +454,14 @@ async function initSqlite() {
       created_at TEXT NOT NULL,
       read_by_ai INTEGER NOT NULL DEFAULT 0,
       read_by_human INTEGER NOT NULL DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS task_comments (
+      id TEXT PRIMARY KEY,
+      task_id TEXT NOT NULL,
+      human_id TEXT NOT NULL,
+      body TEXT NOT NULL,
+      created_at TEXT NOT NULL
     );
 
     CREATE TABLE IF NOT EXISTS idempotency_keys (

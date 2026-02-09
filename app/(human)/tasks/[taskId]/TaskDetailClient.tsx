@@ -21,6 +21,9 @@ type Task = {
   is_international_payout?: boolean;
   location: string | null;
   human_id?: string | null;
+  origin_country?: string | null;
+  deadline_at?: string | null;
+  created_at?: string;
 };
 
 type ContactMessage = {
@@ -33,6 +36,35 @@ type ContactMessage = {
   created_at: string;
 };
 
+type TaskComment = {
+  id: string;
+  task_id: string;
+  human_id: string;
+  human_name: string | null;
+  body: string;
+  created_at: string;
+};
+
+function formatRelativeTime(iso: string, lang: UiLang): string {
+  const ts = Date.parse(iso);
+  if (!Number.isFinite(ts)) return iso;
+  const diff = Date.now() - ts;
+  const sec = Math.floor(diff / 1000);
+  const min = Math.floor(sec / 60);
+  const hr = Math.floor(min / 60);
+  const day = Math.floor(hr / 24);
+  if (lang === "ja") {
+    if (sec < 60) return `${sec}秒前`;
+    if (min < 60) return `${min}分前`;
+    if (hr < 24) return `${hr}時間前`;
+    return `${day}日前`;
+  }
+  if (sec < 60) return `${sec}s ago`;
+  if (min < 60) return `${min}m ago`;
+  if (hr < 24) return `${hr}h ago`;
+  return `${day}d ago`;
+}
+
 export default function TaskDetailClient() {
   const params = useParams<{ taskId: string }>();
   const searchParams = useSearchParams();
@@ -44,6 +76,7 @@ export default function TaskDetailClient() {
     () => (searchParams.get("human_test_token") || "").trim(),
     [searchParams]
   );
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [task, setTask] = useState<Task | null>(null);
   const [text, setText] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -61,21 +94,30 @@ export default function TaskDetailClient() {
   const [composeFile, setComposeFile] = useState<File | null>(null);
   const [sendingMessage, setSendingMessage] = useState(false);
 
+  const [comments, setComments] = useState<TaskComment[]>([]);
+  const [commentBody, setCommentBody] = useState("");
+  const [commentError, setCommentError] = useState<string | null>(null);
+  const [postingComment, setPostingComment] = useState(false);
+
   useEffect(() => {
     let cancelled = false;
     async function resolveHumanId() {
-      if (humanId) return;
       const saved = localStorage.getItem("human_id") || "";
-      if (saved) {
+      if (!humanId && saved) {
         setHumanId(saved);
-        return;
       }
       const res = await fetch("/api/profile");
-      if (!res.ok) return;
+      if (!res.ok) {
+        if (!cancelled) setIsLoggedIn(false);
+        return;
+      }
       const data = await res.json();
       if (!cancelled && data.profile?.id) {
-        setHumanId(data.profile.id);
-        localStorage.setItem("human_id", data.profile.id);
+        setIsLoggedIn(true);
+        if (!humanId) {
+          setHumanId(data.profile.id);
+          localStorage.setItem("human_id", data.profile.id);
+        }
       }
     }
     resolveHumanId();
@@ -104,6 +146,23 @@ export default function TaskDetailClient() {
     }
     load();
   }, [params.taskId, lang, humanId]);
+
+  async function loadComments() {
+    setCommentError(null);
+    try {
+      const res = await fetch(`/api/tasks/${params.taskId}/comments`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.status || "failed");
+      setComments(Array.isArray(data.comments) ? data.comments : []);
+    } catch (err: any) {
+      setCommentError(err.message || "failed");
+    }
+  }
+
+  useEffect(() => {
+    void loadComments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.taskId]);
 
   async function loadContact() {
     if (!task) return;
@@ -138,6 +197,37 @@ export default function TaskDetailClient() {
     void loadContact();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [task?.id, task?.status, humanId, humanTestToken]);
+
+  async function postComment(event: React.FormEvent) {
+    event.preventDefault();
+    if (!commentBody.trim()) return;
+    setPostingComment(true);
+    setCommentError(null);
+    try {
+      const res = await fetch(`/api/tasks/${params.taskId}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body: commentBody.trim() })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (res.status === 401) {
+          throw new Error("unauthorized");
+        }
+        throw new Error(data?.reason || data?.status || "failed");
+      }
+      setCommentBody("");
+      if (data?.comment) {
+        setComments((prev) => [...prev, data.comment]);
+      } else {
+        await loadComments();
+      }
+    } catch (err: any) {
+      setCommentError(err.message || "failed");
+    } finally {
+      setPostingComment(false);
+    }
+  }
 
   async function sendContactMessage(event: React.FormEvent) {
     event.preventDefault();
@@ -274,183 +364,270 @@ export default function TaskDetailClient() {
   const showBestEffort = Boolean(strings.bestEffort && strings.noTimeGuarantee);
   const canSubmit =
     deliverable === "text" ? text.trim().length > 0 : Boolean(file);
+  const isAssignedToMe = Boolean(task.human_id && humanId && task.human_id === humanId);
 
   return (
-    <div>
-      <h1>{strings.deliverTask}</h1>
-      <div className="card">
-        <h3>{task.task_display || task.task}</h3>
-        {showTranslationPending && (
-          <p className="muted">{strings.translationPending}</p>
-        )}
-        {showBestEffort && (
-          <p className="muted">
-            {strings.bestEffort} | {strings.noTimeGuarantee}
-          </p>
-        )}
-        {showIntlFeeNote && <p className="muted">{strings.intlFeeNote}</p>}
-        <p className="muted">
-          {strings.deliverable}: {deliverable} | {strings.payout}: ${netPayout} |{" "}
-          {strings.location}: {task.location || strings.any} | {strings.taskLabel}:{" "}
-          {task.task_label ? TASK_LABEL_TEXT[task.task_label][lang] : strings.any}
-        </p>
-        {task.acceptance_criteria && (
-          <p className="muted">
-            {strings.acceptanceCriteria}: {task.acceptance_criteria}
-          </p>
-        )}
-        {task.not_allowed && (
-          <p className="muted">
-            {strings.notAllowed}: {task.not_allowed}
-          </p>
-        )}
-        {task.status === "failed" && task.failure_reason && (
-          <p className="muted">
-            {strings.failureReason}: {task.failure_reason}
-          </p>
-        )}
+    <div className="task-detail-grid">
+      <div className="task-detail-main">
+        <div className="card task-detail-hero">
+          <div className="task-detail-topline">
+            <div className="task-chips">
+              <span className="task-chip">
+                {task.task_label ? TASK_LABEL_TEXT[task.task_label][lang] : strings.any}
+              </span>
+              {task.origin_country && <span className="task-chip">{task.origin_country}</span>}
+              <span className="task-chip">{deliverable}</span>
+              {task.deadline_at && (
+                <span className="task-chip">
+                  {strings.deadline}{" "}
+                  {new Date(task.deadline_at).toLocaleDateString(lang, {
+                    year: "numeric",
+                    month: "2-digit",
+                    day: "2-digit"
+                  })}
+                </span>
+              )}
+            </div>
+            <span className="status-pill">{task.status}</span>
+          </div>
 
-        {task.status === "open" && (
-          <div className="row">
-            <button type="button" onClick={acceptTask} disabled={!humanId || status === "saving"}>
-              {strings.accept}
-            </button>
-            {!humanId && <p className="muted">{strings.needAccount}</p>}
+          <h1 className="task-detail-title">{task.task_display || task.task}</h1>
+          <p className="muted task-detail-submeta">
+            {strings.posted}{" "}
+            {task.created_at ? formatRelativeTime(task.created_at, lang) : ""}
+          </p>
+        </div>
+
+        <div className="card task-detail-section">
+          <h3>{strings.taskDescription}</h3>
+          <p className="muted">
+            {showTranslationPending ? strings.translationPending : strings.bestEffort}
+          </p>
+          {task.acceptance_criteria && (
+            <p className="task-detail-body">{task.acceptance_criteria}</p>
+          )}
+        </div>
+
+        <div className="card task-detail-section">
+          <h3>{strings.taskRequirements}</h3>
+          <ul className="task-detail-list">
+            <li>
+              {strings.deliverable}: {deliverable}
+            </li>
+            <li>
+              {strings.location}: {task.location || strings.any}
+            </li>
+            {task.not_allowed && <li>{strings.notAllowed}: {task.not_allowed}</li>}
+          </ul>
+          {task.status === "failed" && task.failure_reason && (
+            <p className="muted">
+              {strings.failureReason}: {task.failure_reason}
+            </p>
+          )}
+        </div>
+
+        <div className="card task-detail-section">
+          <h3>{strings.taskComments}</h3>
+
+          {!isLoggedIn && (
+            <div className="comment-login-callout">
+              <p className="muted">{strings.commentLoginOnly}</p>
+              <a className="text-link" href={`/auth?lang=${lang}`}>
+                {strings.signIn}
+              </a>
+            </div>
+          )}
+
+          {isLoggedIn && (
+            <form className="comment-form" onSubmit={postComment}>
+              <textarea
+                value={commentBody}
+                onChange={(e) => setCommentBody(e.target.value)}
+                placeholder={strings.commentPlaceholder}
+                rows={3}
+              />
+              <div className="row">
+                <button type="submit" disabled={postingComment || !commentBody.trim()}>
+                  {postingComment ? strings.saving : strings.commentPost}
+                </button>
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => loadComments()}
+                  disabled={postingComment}
+                >
+                  {strings.refresh}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {commentError && (
+            <p className="muted">
+              {strings.failed}: {commentError}
+            </p>
+          )}
+
+          {comments.length === 0 && !commentError && <p className="muted">{strings.noMessages}</p>}
+          <div className="comment-list">
+            {comments.map((c) => (
+              <article key={c.id} className="comment-item">
+                <div className="comment-head">
+                  <p className="comment-author">{c.human_name || c.human_id}</p>
+                  <p className="muted">{new Date(c.created_at).toLocaleString(lang)}</p>
+                </div>
+                <p className="comment-body">{c.body}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+
+        {isAssignedToMe && (task.status === "accepted" || task.status === "completed") && (
+          <div className="card task-detail-section">
+            <h3>{strings.contactChannelsTitle}</h3>
+            {contactLoading && <p className="muted">{strings.loading}</p>}
+            {contactError && (
+              <p className="muted">
+                {strings.failed}: {contactError}
+              </p>
+            )}
+            <div className="thread-messages">
+              {messages.map((message) => (
+                <article
+                  key={message.id}
+                  className={
+                    message.sender_type === "human"
+                      ? "thread-message human-message"
+                      : "thread-message ai-message"
+                  }
+                >
+                  <p className="muted">
+                    {message.sender_type === "human" ? strings.me : strings.ai}
+                  </p>
+                  <p>{message.body}</p>
+                  {message.attachment_url && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={message.attachment_url}
+                      alt="message attachment"
+                      className="thread-image"
+                    />
+                  )}
+                  <p className="muted">{new Date(message.created_at).toLocaleString(lang)}</p>
+                </article>
+              ))}
+              {messages.length === 0 && !contactLoading && (
+                <p className="muted">{strings.noMessages}</p>
+              )}
+            </div>
+            {task.status === "accepted" && (
+              <form className="thread-compose" onSubmit={sendContactMessage}>
+                <label>
+                  {strings.inquiryBody}
+                  <textarea
+                    value={composeBody}
+                    onChange={(e) => setComposeBody(e.target.value)}
+                    rows={3}
+                  />
+                </label>
+                <label>
+                  {strings.attachmentImage}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setComposeFile(e.target.files?.[0] || null)}
+                  />
+                </label>
+                {composeFile && <p className="muted">{composeFile.name}</p>}
+                {channelStatus !== "open" && <p className="muted">{strings.channelNotOpenHint}</p>}
+                <button
+                  type="submit"
+                  disabled={
+                    sendingMessage ||
+                    channelStatus !== "open" ||
+                    (!composeBody.trim() && !composeFile)
+                  }
+                >
+                  {sendingMessage ? strings.saving : strings.sendMessage}
+                </button>
+              </form>
+            )}
           </div>
         )}
       </div>
 
-      {(task.status === "accepted" || task.status === "completed") && (
-        <div className="card thread-panel">
-          <h3>{strings.contactChannelsTitle}</h3>
-          {contactLoading && <p className="muted">{strings.loading}</p>}
-          {!contactLoading && channelStatus && (
-            <p className="muted">
-              {strings.channelStatus}: {channelStatus}
-            </p>
-          )}
-          {contactError && (
-            <p className="muted">
-              {strings.failed}: {contactError}
-            </p>
-          )}
-          {!contactLoading && !contactError && messages.length === 0 && (
-            <p className="muted">{strings.noMessages}</p>
-          )}
-          <div className="thread-messages">
-            {messages.map((message) => (
-              <article
-                key={message.id}
-                className={
-                  message.sender_type === "human"
-                    ? "thread-message human-message"
-                    : "thread-message ai-message"
-                }
-              >
-                <p className="muted">
-                  {message.sender_type === "human" ? strings.me : strings.ai}
-                </p>
-                <p>{message.body}</p>
-                {message.attachment_url && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={message.attachment_url}
-                    alt="message attachment"
-                    className="thread-image"
-                  />
-                )}
-                <p className="muted">{new Date(message.created_at).toLocaleString(lang)}</p>
-              </article>
-            ))}
-          </div>
+      <aside className="task-detail-side">
+        <div className="card task-side-card">
+          <div className="task-price-amount">${task.budget_usd}</div>
+          <div className="task-price-sub">{strings.payout}</div>
+          <p className="muted">net ${netPayout}</p>
+        </div>
 
-          {task.status === "accepted" && (
-            <form className="thread-compose" onSubmit={sendContactMessage}>
-              <label>
-                {strings.inquiryBody}
-                <textarea
-                  value={composeBody}
-                  onChange={(e) => setComposeBody(e.target.value)}
-                  rows={3}
-                />
-              </label>
-              <label>
-                {strings.attachmentImage}
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => setComposeFile(e.target.files?.[0] || null)}
-                />
-              </label>
-              {composeFile && <p className="muted">{composeFile.name}</p>}
-              {channelStatus !== "open" && (
-                <p className="muted">
-                  {strings.channelNotOpenHint}
-                </p>
-              )}
-              <button
-                type="submit"
-                disabled={
-                  sendingMessage ||
-                  channelStatus !== "open" ||
-                  (!composeBody.trim() && !composeFile)
-                }
-              >
-                {sendingMessage ? strings.saving : strings.sendMessage}
+        <div className="card task-side-card">
+          <h3>{strings.location}</h3>
+          <p className="muted">{task.location || strings.any}</p>
+        </div>
+
+        <div className="card task-side-card">
+          <h3>{strings.status}</h3>
+          <p className="muted">{task.status}</p>
+
+          {task.status === "open" && (
+            <div className="row">
+              <button type="button" onClick={acceptTask} disabled={!humanId || status === "saving"}>
+                {strings.accept}
               </button>
-            </form>
+              {!humanId && (
+                <a className="text-link" href={`/auth?lang=${lang}`}>
+                  {strings.signIn}
+                </a>
+              )}
+            </div>
           )}
         </div>
-      )}
 
-      <form className="card" onSubmit={onSubmit}>
-        {deliverable === "text" && (
-          <label>
-            {strings.text}
-            <textarea value={text} onChange={(e) => setText(e.target.value)} rows={6} />
-          </label>
+        {isAssignedToMe && task.status === "accepted" && (
+          <form className="card task-side-card" onSubmit={onSubmit}>
+            <h3>{strings.deliverTask}</h3>
+            {deliverable === "text" && (
+              <label>
+                {strings.text}
+                <textarea value={text} onChange={(e) => setText(e.target.value)} rows={5} />
+              </label>
+            )}
+            {deliverable !== "text" && (
+              <label>
+                {strings.upload} {deliverable}
+                <input
+                  type="file"
+                  accept={deliverable === "photo" ? "image/*" : "video/*"}
+                  onChange={(e) => setFile(e.target.files?.[0] || null)}
+                />
+              </label>
+            )}
+            <button type="submit" disabled={status === "saving" || !canSubmit}>
+              {status === "saving" ? strings.loading : strings.submit}
+            </button>
+            {validationError && (
+              <p className="muted">
+                {strings.failed}: {validationError}
+              </p>
+            )}
+            {status === "error" && error && (
+              <p className="muted">
+                {strings.failed}: {error}
+              </p>
+            )}
+            {status === "done" && <p className="muted">{strings.submitted}</p>}
+          </form>
         )}
-        {deliverable !== "text" && (
-          <label>
-            {strings.upload} {deliverable}
-            <input
-              type="file"
-              accept={deliverable === "photo" ? "image/*" : "video/*"}
-              onChange={(e) => setFile(e.target.files?.[0] || null)}
-            />
-          </label>
-        )}
-        <div className="row">
-          <button type="submit" disabled={status === "saving" || !canSubmit}>
-            {status === "saving" ? strings.loading : strings.submit}
-          </button>
-          <a href={`/tasks?lang=${lang}`} className="secondary">
+
+        <div className="card task-side-card">
+          <a href={`/tasks?lang=${lang}`} className="text-link">
             {strings.backToTasks}
           </a>
         </div>
-      </form>
-
-      {status === "done" && (
-        <div className="card">
-          <p>{strings.submitted}</p>
-        </div>
-      )}
-
-      {status === "error" && error && (
-        <div className="card">
-          <p>
-            {strings.failed}: {error}
-          </p>
-        </div>
-      )}
-
-      {validationError && (
-        <div className="card">
-          <p>
-            {strings.failed}: {validationError}
-          </p>
-        </div>
-      )}
+      </aside>
     </div>
   );
 }
