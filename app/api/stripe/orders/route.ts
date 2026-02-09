@@ -131,9 +131,9 @@ export async function POST(request: Request) {
         base_amount_jpy, fx_cost_jpy, total_amount_jpy, platform_fee_jpy,
         payer_country, payee_country, is_international, destination_account_id,
         human_id, task_id,
-        checkout_session_id, payment_intent_id, charge_id, mismatch_reason,
+        checkout_session_id, payment_intent_id, charge_id, mismatch_reason, provider_error,
         created_at, updated_at
-      ) VALUES (?, ?, 'checkout', 'created', 'jpy', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, ?, ?)`
+      ) VALUES (?, ?, 'checkout', 'created', 'jpy', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, ?, ?)`
     ).run(
       orderId,
       version,
@@ -165,4 +165,3 @@ export async function POST(request: Request) {
     );
   }
 }
-

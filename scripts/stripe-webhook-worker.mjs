@@ -181,9 +181,35 @@ async function markOrderMismatch(db, orderId, version, reason) {
     `UPDATE orders
      SET status = 'failed_mismatch',
          mismatch_reason = ?,
+         provider_error = NULL,
          updated_at = ?
-     WHERE id = ? AND version = ?`,
+     WHERE id = ? AND version = ?
+       AND status NOT IN ('paid', 'canceled')`,
     [reason, nowIso(), orderId, version]
+  );
+}
+
+async function markOrderProviderFailed(db, orderId, version, providerError) {
+  await db.run(
+    `UPDATE orders
+     SET status = 'failed_provider',
+         provider_error = ?,
+         updated_at = ?
+     WHERE id = ? AND version = ?
+       AND status IN ('created', 'checkout_created')`,
+    [providerError || null, nowIso(), orderId, version]
+  );
+}
+
+async function markOrderCanceled(db, orderId, version, providerError) {
+  await db.run(
+    `UPDATE orders
+     SET status = 'canceled',
+         provider_error = ?,
+         updated_at = ?
+     WHERE id = ? AND version = ?
+       AND status IN ('created', 'checkout_created')`,
+    [providerError || null, nowIso(), orderId, version]
   );
 }
 
@@ -196,6 +222,7 @@ async function markOrderPaid(db, orderId, version, updates) {
   await db.run(
     `UPDATE orders
      SET status = 'paid',
+         provider_error = NULL,
          payment_intent_id = COALESCE(payment_intent_id, ?),
          checkout_session_id = COALESCE(checkout_session_id, ?),
          charge_id = COALESCE(charge_id, ?),
@@ -312,6 +339,48 @@ async function handleCheckoutSessionCompleted(db, event) {
   await updateOrderCheckoutCreated(db, key.orderId, key.version, session.id, session.payment_intent || null);
 }
 
+async function handleCheckoutSessionExpired(db, event) {
+  const session = event.data.object;
+  const payload = {
+    session_id: session.id,
+    mode: session.mode,
+    payment_status: session.payment_status,
+    customer: session.customer || null,
+    payment_intent: session.payment_intent || null,
+    expires_at: session.expires_at || null
+  };
+  console.log("checkout.session.expired", payload);
+
+  const resolved = requireConsistentOrderKey(session.metadata, session.client_reference_id);
+  if (!resolved) throw new Error("missing_order_key_in_session");
+  if (resolved.mismatch) {
+    const reason = computeMismatchReason([
+      { field: "order_key", meta: resolved.fromMeta, ref: resolved.fromRef }
+    ]);
+    await markOrderMismatch(db, resolved.fromMeta.orderId, resolved.fromMeta.version, reason);
+    return;
+  }
+  const key = resolved.key;
+
+  const order = await findOrderByKey(db, key.orderId, key.version);
+  if (!order) throw new Error("order_not_found");
+  if (order.status === "paid" || order.status === "failed_mismatch") return;
+
+  // Link session id if missing, then mark canceled.
+  if (order.checkout_session_id && order.checkout_session_id !== session.id) {
+    await markOrderMismatch(
+      db,
+      key.orderId,
+      key.version,
+      computeMismatchReason([{ field: "checkout_session_id", db: order.checkout_session_id, stripe: session.id }])
+    );
+    return;
+  }
+
+  await updateOrderCheckoutCreated(db, key.orderId, key.version, session.id, session.payment_intent || null);
+  await markOrderCanceled(db, key.orderId, key.version, "checkout_session_expired");
+}
+
 async function handlePaymentIntentSucceeded(db, event) {
   const pi = event.data.object;
   const payload = {
@@ -361,6 +430,68 @@ async function handlePaymentIntentSucceeded(db, event) {
   });
 }
 
+async function handlePaymentIntentPaymentFailed(db, event) {
+  const pi = event.data.object;
+  const payload = {
+    payment_intent_id: pi.id,
+    amount: pi.amount,
+    currency: pi.currency,
+    customer: pi.customer || null
+  };
+  console.log("payment_intent.payment_failed", payload);
+
+  const key = parseOrderKeyFromMetadata(pi.metadata);
+  if (!key) throw new Error("missing_order_key_in_payment_intent");
+  const order = await findOrderByKey(db, key.orderId, key.version);
+  if (!order) throw new Error("order_not_found");
+  if (order.status === "paid" || order.status === "failed_mismatch" || order.status === "canceled") return;
+
+  // SoT check (same as succeeded)
+  const mismatches = [];
+  if (String(pi.currency || "").toLowerCase() !== "jpy") {
+    mismatches.push({ field: "currency", db: "jpy", stripe: pi.currency });
+  }
+  if (Number(pi.amount) !== Number(order.total_amount_jpy)) {
+    mismatches.push({ field: "amount", db: order.total_amount_jpy, stripe: pi.amount });
+  }
+  if (Number(pi.application_fee_amount || 0) !== Number(order.platform_fee_jpy)) {
+    mismatches.push({
+      field: "application_fee_amount",
+      db: order.platform_fee_jpy,
+      stripe: pi.application_fee_amount || 0
+    });
+  }
+  const dest = pi.transfer_data?.destination || null;
+  if (String(dest || "") !== String(order.destination_account_id || "")) {
+    mismatches.push({ field: "transfer_data.destination", db: order.destination_account_id, stripe: dest });
+  }
+  if (mismatches.length) {
+    await markOrderMismatch(db, order.id, Number(order.version), computeMismatchReason(mismatches));
+    return;
+  }
+
+  const providerError =
+    pi.last_payment_error?.message ||
+    pi.last_payment_error?.code ||
+    "payment_intent_payment_failed";
+  await markOrderProviderFailed(db, order.id, Number(order.version), String(providerError));
+}
+
+async function handlePaymentIntentCanceled(db, event) {
+  const pi = event.data.object;
+  console.log("payment_intent.canceled", {
+    payment_intent_id: pi.id,
+    amount: pi.amount,
+    currency: pi.currency
+  });
+  const key = parseOrderKeyFromMetadata(pi.metadata);
+  if (!key) throw new Error("missing_order_key_in_payment_intent");
+  const order = await findOrderByKey(db, key.orderId, key.version);
+  if (!order) throw new Error("order_not_found");
+  if (order.status === "paid" || order.status === "failed_mismatch") return;
+  await markOrderCanceled(db, order.id, Number(order.version), "payment_intent_canceled");
+}
+
 async function handleChargeSucceeded(db, event) {
   const charge = event.data.object;
   const payload = {
@@ -392,17 +523,55 @@ async function handleChargeSucceeded(db, event) {
   await updateOrderCharge(db, order.id, Number(order.version), charge.id, piId);
 }
 
+async function handleChargeFailed(db, event) {
+  const charge = event.data.object;
+  console.log("charge.failed", {
+    charge_id: charge.id,
+    payment_intent: charge.payment_intent || null,
+    failure_code: charge.failure_code || null,
+    failure_message: charge.failure_message || null
+  });
+
+  const piId = typeof charge.payment_intent === "string" ? charge.payment_intent : null;
+  let order = null;
+  if (piId) {
+    order = await findOrderByPaymentIntent(db, piId);
+  }
+  if (!order) {
+    const key = parseOrderKeyFromMetadata(charge.metadata);
+    if (key) order = await findOrderByKey(db, key.orderId, key.version);
+  }
+  if (!order) throw new Error("order_not_found");
+  if (order.status === "paid" || order.status === "failed_mismatch" || order.status === "canceled") return;
+
+  await updateOrderCharge(db, order.id, Number(order.version), charge.id, piId);
+  const providerError = charge.failure_message || charge.failure_code || "charge_failed";
+  await markOrderProviderFailed(db, order.id, Number(order.version), String(providerError));
+}
+
 async function processStripeEvent(db, event) {
   logCommon(event);
   switch (event.type) {
     case "checkout.session.completed":
       await handleCheckoutSessionCompleted(db, event);
       return;
+    case "checkout.session.expired":
+      await handleCheckoutSessionExpired(db, event);
+      return;
     case "payment_intent.succeeded":
       await handlePaymentIntentSucceeded(db, event);
       return;
+    case "payment_intent.payment_failed":
+      await handlePaymentIntentPaymentFailed(db, event);
+      return;
+    case "payment_intent.canceled":
+      await handlePaymentIntentCanceled(db, event);
+      return;
     case "charge.succeeded":
       await handleChargeSucceeded(db, event);
+      return;
+    case "charge.failed":
+      await handleChargeFailed(db, event);
       return;
     default:
       return;

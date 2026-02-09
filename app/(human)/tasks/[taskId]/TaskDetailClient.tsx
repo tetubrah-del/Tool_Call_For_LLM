@@ -99,6 +99,12 @@ export default function TaskDetailClient() {
   const [commentError, setCommentError] = useState<string | null>(null);
   const [postingComment, setPostingComment] = useState(false);
 
+  const [applyCoverLetter, setApplyCoverLetter] = useState("");
+  const [applyAvailability, setApplyAvailability] = useState("");
+  const [applyCounterBudget, setApplyCounterBudget] = useState("");
+  const [applyError, setApplyError] = useState<string | null>(null);
+  const [applying, setApplying] = useState(false);
+
   useEffect(() => {
     let cancelled = false;
     async function resolveHumanId() {
@@ -299,6 +305,50 @@ export default function TaskDetailClient() {
     }
   }
 
+  async function applyToTask(event: React.FormEvent) {
+    event.preventDefault();
+    if (!task) return;
+    if (task.status !== "open") return;
+    if (!humanId) return;
+    if (!applyCoverLetter.trim() || !applyAvailability.trim()) return;
+
+    setApplying(true);
+    setApplyError(null);
+    try {
+      const payload: any = {
+        human_id: humanId,
+        cover_letter: applyCoverLetter.trim(),
+        availability: applyAvailability.trim()
+      };
+      if (humanTestToken) payload.human_test_token = humanTestToken;
+      if (applyCounterBudget.trim()) payload.counter_budget_usd = Number(applyCounterBudget);
+
+      const res = await fetch(`/api/tasks/${task.id}/apply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.reason || data?.status || "failed");
+
+      // Reload task details
+      const qs = new URLSearchParams();
+      qs.set("lang", lang);
+      if (humanId) qs.set("human_id", humanId);
+      const tRes = await fetch(`/api/tasks/${params.taskId}?${qs.toString()}`);
+      const tData = await tRes.json();
+      setTask(tData.task);
+
+      setApplyCoverLetter("");
+      setApplyAvailability("");
+      setApplyCounterBudget("");
+    } catch (err: any) {
+      setApplyError(err.message || "failed");
+    } finally {
+      setApplying(false);
+    }
+  }
+
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
     if (!task) return;
@@ -369,6 +419,7 @@ export default function TaskDetailClient() {
     deliverable === "text" ? text.trim().length > 0 : Boolean(file);
   const isAssignedToMe = Boolean(task.human_id && humanId && task.human_id === humanId);
   const canActAsHuman = isLoggedIn || Boolean(humanId && humanTestToken);
+  const canApply = canActAsHuman && task.status === "open" && Boolean(humanId);
 
   return (
     <div className="task-detail-grid">
@@ -575,20 +626,71 @@ export default function TaskDetailClient() {
         <div className="card task-side-card">
           <h3>{strings.status}</h3>
           <p className="muted">{task.status}</p>
+        </div>
 
-          {task.status === "open" && (
-            <div className="row">
-              <button type="button" onClick={acceptTask} disabled={!humanId || status === "saving"}>
-                {strings.accept}
-              </button>
-              {!humanId && (
+        {task.status === "open" && (
+          <div className="card task-side-card">
+            <h3>{strings.applyTitle}</h3>
+            {!canApply && (
+              <div className="comment-login-callout">
+                <p className="muted">{strings.needAccount}</p>
                 <a className="text-link" href={`/auth?lang=${lang}`}>
                   {strings.signIn}
                 </a>
-              )}
-            </div>
-          )}
-        </div>
+              </div>
+            )}
+            {canApply && (
+              <form className="task-apply-form" onSubmit={applyToTask}>
+                <label>
+                  {strings.coverLetter} *
+                  <textarea
+                    value={applyCoverLetter}
+                    onChange={(e) => setApplyCoverLetter(e.target.value)}
+                    rows={5}
+                    placeholder={strings.commentPlaceholder}
+                  />
+                </label>
+                <label>
+                  {strings.availability} *
+                  <input
+                    value={applyAvailability}
+                    onChange={(e) => setApplyAvailability(e.target.value)}
+                    placeholder={lang === \"ja\" ? \"例: 平日19-22時 / 週末\" : \"e.g. Weekdays 7-10pm\"}
+                  />
+                </label>
+                <label>
+                  {strings.counterOffer}
+                  <input
+                    type=\"number\"
+                    min=\"0\"
+                    step=\"0.01\"
+                    value={applyCounterBudget}
+                    onChange={(e) => setApplyCounterBudget(e.target.value)}
+                    placeholder={`$${task.budget_usd}`}
+                  />
+                </label>
+                <div className="row">
+                  <button
+                    type=\"button\"
+                    className=\"button-neutral\"
+                    onClick={() => {\n                      setApplyCoverLetter(\"\");\n                      setApplyAvailability(\"\");\n                      setApplyCounterBudget(\"\");\n                      setApplyError(null);\n                    }}\n                    disabled={applying}
+                  >
+                    {strings.cancel}
+                  </button>
+                  <button
+                    type=\"submit\"
+                    disabled={applying || !applyCoverLetter.trim() || !applyAvailability.trim()}
+                  >
+                    {applying ? strings.saving : strings.apply}
+                  </button>
+                </div>
+                {applyError && (
+                  <p className=\"muted\">\n                    {strings.failed}: {applyError}\n                  </p>
+                )}
+              </form>
+            )}
+          </div>
+        )}
 
         {canActAsHuman && isAssignedToMe && task.status === "accepted" && (
           <form className="card task-side-card" onSubmit={onSubmit}>
