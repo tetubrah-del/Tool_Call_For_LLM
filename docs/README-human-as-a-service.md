@@ -73,7 +73,7 @@ Minimal API where an AI agent tool_call can hire a registered human for a real-w
 - `POST /api/tasks/:taskId/accept` (human accepts)
 - `POST /api/tasks/:taskId/skip` (human skips)
 - `POST /api/tasks/:taskId/pay` (admin payment ops: approve / mark_failed / mark_paid)
-- `POST /api/submissions` (human delivers)
+- `POST /api/submissions` (deliver; requires auth as assigned human or task's AI)
 - `GET /api/me/photos` (my-page photo list)
 - `POST /api/me/photos` (my-page photo upload)
 - `PATCH /api/me/photos/:photoId` (my-page photo visibility update)
@@ -238,10 +238,37 @@ Deliverables are returned in `submission` via `GET /api/tasks/:taskId`.
 - `POST /api/tasks/:taskId/contact/messages` accepts:
   - `application/json`: `{ "body": "...", "ai_account_id": "...", "ai_api_key": "..." }`
   - `multipart/form-data`: `body` (optional), `file` (optional image), and AI credentials fields when calling as AI.
+  - When running automated user tests (dev only), you can also authenticate as the assigned human with:
+    - `human_id` + `human_test_token` (see "Test Human Auth" below).
 - At least one of `body` or `file` is required.
 - Max text length is `4000` chars.
 - Image attachment max size is `10MB`.
 - Message objects include `attachment_url` (`null` when no image).
+
+## Test Human Auth (Dev Only)
+
+For automated "human-side" tests without NextAuth session cookies, the API supports a test-only auth mode.
+
+Enable with environment variables:
+
+```bash
+ENABLE_TEST_HUMAN_AUTH=true
+TEST_HUMAN_AUTH_SECRET=some-long-random-string
+```
+
+Generate `human_test_token` for a given `human_id`:
+
+```bash
+node -e "const crypto=require('crypto'); const secret=process.env.TEST_HUMAN_AUTH_SECRET; const humanId=process.argv[1]; console.log(crypto.createHmac('sha256', secret).update(humanId).digest('hex'))" "<HUMAN_ID>"
+```
+
+Supported endpoints (when enabled):
+
+- `GET /api/tasks/:taskId/contact/messages?human_id=...&human_test_token=...`
+- `POST /api/tasks/:taskId/contact/messages` with `human_id` + `human_test_token` in JSON or form-data
+- `POST /api/submissions` with `human_id` + `human_test_token` in JSON or form-data
+
+This auth mode must remain disabled in production.
 
 ## AI PayPal connect
 

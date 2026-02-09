@@ -15,6 +15,8 @@ async function parsePayload(request: Request): Promise<{
   body: string;
   ai_account_id?: string;
   ai_api_key?: string;
+  human_id?: string;
+  human_test_token?: string;
   file: File | null;
 }> {
   const contentType = request.headers.get("content-type") || "";
@@ -25,6 +27,9 @@ async function parsePayload(request: Request): Promise<{
       ai_account_id:
         typeof payload?.ai_account_id === "string" ? payload.ai_account_id : undefined,
       ai_api_key: typeof payload?.ai_api_key === "string" ? payload.ai_api_key : undefined,
+      human_id: typeof payload?.human_id === "string" ? payload.human_id : undefined,
+      human_test_token:
+        typeof payload?.human_test_token === "string" ? payload.human_test_token : undefined,
       file: null
     };
   }
@@ -37,6 +42,12 @@ async function parsePayload(request: Request): Promise<{
       typeof form.get("ai_account_id") === "string" ? String(form.get("ai_account_id")) : undefined,
     ai_api_key:
       typeof form.get("ai_api_key") === "string" ? String(form.get("ai_api_key")) : undefined,
+    human_id:
+      typeof form.get("human_id") === "string" ? String(form.get("human_id")) : undefined,
+    human_test_token:
+      typeof form.get("human_test_token") === "string"
+        ? String(form.get("human_test_token"))
+        : undefined,
     file: upload instanceof File ? upload : null
   };
 }
