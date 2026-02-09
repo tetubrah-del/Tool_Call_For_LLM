@@ -630,6 +630,8 @@ button[disabled] {
   text-align: left;
   background: #10192b;
   border: 1px solid var(--border);
+  color: var(--ink);
+  margin-top: 0;
 }
 
 .active-channel {
