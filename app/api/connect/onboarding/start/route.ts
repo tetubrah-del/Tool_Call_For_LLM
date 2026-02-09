@@ -9,6 +9,7 @@ import {
   normalizeCountry2,
   shouldPreferRestrictedKeyForServerOps
 } from "@/lib/stripe";
+import type Stripe from "stripe";
 
 export async function POST(request: Request) {
   try {
@@ -69,7 +70,7 @@ export async function POST(request: Request) {
 
     let accountId = human.stripe_account_id;
     if (!accountId) {
-      const created = await runWithFallback((client) =>
+      const created = await runWithFallback<Stripe.Account>((client) =>
         client.accounts.create({
           type: "express",
           country,
@@ -83,7 +84,7 @@ export async function POST(request: Request) {
         .run(accountId, humanId);
     }
 
-    const link = await runWithFallback((client) =>
+    const link = await runWithFallback<Stripe.AccountLink>((client) =>
       client.accountLinks.create({
         account: accountId,
         refresh_url: refreshUrl,
@@ -112,4 +113,3 @@ export async function POST(request: Request) {
     );
   }
 }
-
