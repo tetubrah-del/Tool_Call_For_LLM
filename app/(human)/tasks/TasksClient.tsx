@@ -205,16 +205,6 @@ export default function TasksClient() {
     loadTasks(humanId);
   }
 
-  async function skipTask(taskId: string) {
-    if (!humanId) return;
-    await fetch(`/api/tasks/${taskId}/skip`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ human_id: humanId })
-    });
-    loadTasks(humanId);
-  }
-
   return (
     <div className="tasks">
       <div className="page-head">
@@ -421,14 +411,6 @@ export default function TasksClient() {
                   <div className="row">
                     {task.status === "open" && (
                       <button onClick={() => acceptTask(task.id)}>{strings.accept}</button>
-                    )}
-                    {(task.status === "accepted" || isAssigned) && (
-                      <a href={`/tasks/${task.id}?lang=${lang}`}>{strings.deliver}</a>
-                    )}
-                    {(task.status === "open" || isAssigned) && (
-                      <button className="secondary" onClick={() => skipTask(task.id)}>
-                        {strings.skip}
-                      </button>
                     )}
                   </div>
                 </div>
