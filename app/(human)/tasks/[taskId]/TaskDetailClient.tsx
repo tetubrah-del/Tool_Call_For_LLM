@@ -102,6 +102,9 @@ export default function TaskDetailClient() {
   const [applyCoverLetter, setApplyCoverLetter] = useState("");
   const [applyAvailability, setApplyAvailability] = useState("");
   const [applyCounterBudget, setApplyCounterBudget] = useState("");
+  const [applyStatus, setApplyStatus] = useState<"unknown" | "not_applied" | "applied">(
+    "unknown"
+  );
   const [applyError, setApplyError] = useState<string | null>(null);
   const [applying, setApplying] = useState(false);
 
@@ -204,6 +207,48 @@ export default function TaskDetailClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [task?.id, task?.status, humanId, humanTestToken]);
 
+  useEffect(() => {
+    let cancelled = false;
+    async function loadApplyStatus() {
+      const taskId = task?.id || "";
+      const taskStatus = task?.status || "";
+      if (!taskId || taskStatus !== "open") {
+        setApplyStatus("unknown");
+        return;
+      }
+
+      const canActAsHuman = isLoggedIn || Boolean(humanId && humanTestToken);
+      const canApply = canActAsHuman && Boolean(humanId);
+      if (!canApply) {
+        setApplyStatus("unknown");
+        return;
+      }
+
+      try {
+        const qs = new URLSearchParams();
+        qs.set("human_id", humanId);
+        if (humanTestToken) qs.set("human_test_token", humanTestToken);
+        const res = await fetch(`/api/tasks/${taskId}/apply?${qs.toString()}`);
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) return;
+        if (cancelled) return;
+        if (data?.status === "applied") {
+          setApplyStatus("applied");
+          return;
+        }
+        if (data?.status === "not_applied") {
+          setApplyStatus("not_applied");
+        }
+      } catch {
+        // Best-effort; POST handles duplicates with 409.
+      }
+    }
+    void loadApplyStatus();
+    return () => {
+      cancelled = true;
+    };
+  }, [task?.id, task?.status, isLoggedIn, humanId, humanTestToken]);
+
   async function postComment(event: React.FormEvent) {
     event.preventDefault();
     if (!commentBody.trim()) return;
@@ -274,42 +319,12 @@ export default function TaskDetailClient() {
     }
   }
 
-  async function acceptTask() {
-    if (!task) return;
-    if (task.status !== "open") return;
-    if (!humanId) return;
-    setStatus("saving");
-    setError(null);
-    try {
-      const res = await fetch(`/api/tasks/${task.id}/accept`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          human_id: humanId,
-          ...(humanTestToken ? { human_test_token: humanTestToken } : {})
-        })
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.reason || "failed");
-      // Reload task details
-      const qs = new URLSearchParams();
-      qs.set("lang", lang);
-      if (humanId) qs.set("human_id", humanId);
-      const tRes = await fetch(`/api/tasks/${params.taskId}?${qs.toString()}`);
-      const tData = await tRes.json();
-      setTask(tData.task);
-      setStatus("idle");
-    } catch (err: any) {
-      setError(err.message || "failed");
-      setStatus("error");
-    }
-  }
-
   async function applyToTask(event: React.FormEvent) {
     event.preventDefault();
     if (!task) return;
     if (task.status !== "open") return;
     if (!humanId) return;
+    if (applyStatus === "applied") return;
     if (!applyCoverLetter.trim() || !applyAvailability.trim()) return;
 
     setApplying(true);
@@ -329,15 +344,14 @@ export default function TaskDetailClient() {
         body: JSON.stringify(payload)
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.reason || data?.status || "failed");
-
-      // Reload task details
-      const qs = new URLSearchParams();
-      qs.set("lang", lang);
-      if (humanId) qs.set("human_id", humanId);
-      const tRes = await fetch(`/api/tasks/${params.taskId}?${qs.toString()}`);
-      const tData = await tRes.json();
-      setTask(tData.task);
+      if (!res.ok) {
+        if (res.status === 409 && data?.reason === "already_applied") {
+          setApplyStatus("applied");
+          return;
+        }
+        throw new Error(data?.reason || data?.status || "failed");
+      }
+      setApplyStatus("applied");
 
       setApplyCoverLetter("");
       setApplyAvailability("");
@@ -642,7 +656,13 @@ export default function TaskDetailClient() {
             </div>
           )}
 
-          {task.status === "open" && canApply && (
+          {task.status === "open" && canApply && applyStatus === "applied" && (
+            <div className="comment-login-callout">
+              <p className="muted">{strings.appliedMessage}</p>
+            </div>
+          )}
+
+          {task.status === "open" && canApply && applyStatus !== "applied" && (
             <form className="task-apply-form" onSubmit={applyToTask}>
               <label>
                 {strings.coverLetter} *

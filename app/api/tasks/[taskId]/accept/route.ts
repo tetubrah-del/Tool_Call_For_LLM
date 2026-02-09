@@ -1,97 +1,93 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import { getNormalizedTask } from "@/lib/task-api";
 import { dispatchTaskEvent } from "@/lib/webhooks";
 import { ensurePendingContactChannel } from "@/lib/contact-channel";
-import crypto from "crypto";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { getCurrentHumanIdByEmail } from "@/lib/human-session";
 
-async function parseRequest(request: Request) {
-  const contentType = request.headers.get("content-type") || "";
-  if (contentType.includes("application/json")) {
-    return request.json();
-  }
-  const form = await request.formData();
-  return Object.fromEntries(form.entries());
+function normalizeText(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
 }
 
 export async function POST(
   request: Request,
   { params }: { params: { taskId: string } }
 ) {
-  const payload: any = await parseRequest(request);
-  const humanId = typeof payload?.human_id === "string" ? payload.human_id.trim() : "";
-  const humanTestToken =
-    typeof payload?.human_test_token === "string" ? payload.human_test_token.trim() : "";
+  // This endpoint is intentionally AI-only.
+  // Humans should apply first; AI selects an applicant to accept.
+  const payload = await request.json().catch(() => null);
+  const aiAccountId = normalizeText(payload?.ai_account_id);
+  const aiApiKey = normalizeText(payload?.ai_api_key);
+  const selectedHumanId = normalizeText(payload?.human_id);
 
-  if (!humanId) {
-    return NextResponse.json({ status: "error", reason: "missing_human" }, { status: 400 });
-  }
-
-  const db = getDb();
-  // Auth: require session user OR test-only token (dev).
-  let authedHumanId: string | null = null;
-  if (humanTestToken && process.env.ENABLE_TEST_HUMAN_AUTH === "true") {
-    const secret = process.env.TEST_HUMAN_AUTH_SECRET || "";
-    if (secret) {
-      const expected = crypto.createHmac("sha256", secret).update(humanId).digest("hex");
-      const a = Buffer.from(expected);
-      const b = Buffer.from(humanTestToken);
-      if (a.length === b.length && crypto.timingSafeEqual(a, b)) {
-        authedHumanId = humanId;
-      }
-    }
-  } else {
-    const session = await getServerSession(authOptions);
-    const email = session?.user?.email;
-    if (email) {
-      const sessionHumanId = await getCurrentHumanIdByEmail(email);
-      if (sessionHumanId) authedHumanId = sessionHumanId;
-    }
-  }
-  if (!authedHumanId || authedHumanId !== humanId) {
-    return NextResponse.json({ status: "unauthorized" }, { status: 401 });
-  }
-
-  const task = await getNormalizedTask(db, params.taskId, "en");
-  const human = await db
-    .prepare(`SELECT * FROM humans WHERE id = ?`)
-    .get(humanId);
-
-  if (!task || !human) {
-    return NextResponse.json({ status: "not_found" }, { status: 404 });
-  }
-
-  if (task.status === "failed" && task.failure_reason === "timeout") {
-    return NextResponse.json({ status: "error", reason: "timeout" }, { status: 409 });
-  }
-
-  if (task.status === "completed") {
-    return NextResponse.json({ status: "error", reason: "already_completed" }, { status: 409 });
-  }
-
-  if (task.human_id && task.human_id !== humanId) {
-    return NextResponse.json({ status: "error", reason: "already_assigned" }, { status: 409 });
-  }
-
-  if (!human.paypal_email) {
+  if (!aiAccountId || !aiApiKey || !selectedHumanId) {
     return NextResponse.json({ status: "error", reason: "invalid_request" }, { status: 400 });
   }
 
-  await db.prepare(
-    `UPDATE tasks SET status = 'accepted', human_id = ?, payee_paypal_email = ? WHERE id = ?`
-  ).run(
-    humanId,
-    human.paypal_email,
-    params.taskId
-  );
-  await db.prepare(`UPDATE humans SET status = 'busy' WHERE id = ?`).run(humanId);
+  const db = getDb();
+
+  const aiAccount = await db
+    .prepare(`SELECT id, api_key, status FROM ai_accounts WHERE id = ?`)
+    .get<{ id: string; api_key: string; status: string }>(aiAccountId);
+  if (!aiAccount?.id || aiAccount.api_key !== aiApiKey || aiAccount.status !== "active") {
+    return NextResponse.json({ status: "unauthorized" }, { status: 401 });
+  }
+
+  const task = await db
+    .prepare(`SELECT id, status, human_id, ai_account_id FROM tasks WHERE id = ?`)
+    .get<{ id: string; status: string; human_id: string | null; ai_account_id: string | null }>(
+      params.taskId
+    );
+  if (!task?.id) {
+    return NextResponse.json({ status: "not_found" }, { status: 404 });
+  }
+  if (!task.ai_account_id || task.ai_account_id !== aiAccountId) {
+    return NextResponse.json({ status: "unauthorized" }, { status: 401 });
+  }
+  if (task.status !== "open") {
+    return NextResponse.json({ status: "error", reason: "not_open" }, { status: 409 });
+  }
+  if (task.human_id) {
+    return NextResponse.json({ status: "error", reason: "already_assigned" }, { status: 409 });
+  }
+
+  const application = await db
+    .prepare(`SELECT id FROM task_applications WHERE task_id = ? AND human_id = ?`)
+    .get<{ id: string }>(params.taskId, selectedHumanId);
+  if (!application?.id) {
+    return NextResponse.json({ status: "error", reason: "not_applied" }, { status: 409 });
+  }
+
+  const human = await db
+    .prepare(`SELECT id, paypal_email, status FROM humans WHERE id = ?`)
+    .get<{ id: string; paypal_email: string | null; status: string }>(selectedHumanId);
+  if (!human?.id) {
+    return NextResponse.json({ status: "not_found" }, { status: 404 });
+  }
+  if (!human.paypal_email) {
+    return NextResponse.json({ status: "error", reason: "invalid_request" }, { status: 400 });
+  }
+  if (human.status !== "available") {
+    return NextResponse.json({ status: "error", reason: "human_not_available" }, { status: 409 });
+  }
+
+  // Accept (assign) the selected applicant.
+  await db
+    .prepare(
+      `UPDATE tasks SET status = 'accepted', human_id = ?, payee_paypal_email = ? WHERE id = ?`
+    )
+    .run(selectedHumanId, human.paypal_email, params.taskId);
+  await db.prepare(`UPDATE humans SET status = 'busy' WHERE id = ?`).run(selectedHumanId);
+
+  // Ensure the channel exists as pending. AI must explicitly "allow" to open.
   await ensurePendingContactChannel(db, params.taskId);
+
+  // For future: store selected application_id on task; v0 does not persist selection metadata.
   void dispatchTaskEvent(db, { eventType: "task.accepted", taskId: params.taskId }).catch(
     () => {}
   );
 
-  return NextResponse.json({ status: "accepted", task_id: params.taskId });
+  return NextResponse.json({
+    status: "accepted",
+    task_id: params.taskId,
+    application_id: application.id
+  });
 }

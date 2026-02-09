@@ -195,16 +195,6 @@ export default function TasksClient() {
     loadTasks(humanId || undefined);
   }, [humanId, lang, loadTasks, profileLoading]);
 
-  async function acceptTask(taskId: string) {
-    if (!humanId) return;
-    await fetch(`/api/tasks/${taskId}/accept`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ human_id: humanId })
-    });
-    loadTasks(humanId);
-  }
-
   return (
     <div className="tasks">
       <div className="page-head">
@@ -408,11 +398,6 @@ export default function TasksClient() {
                   <a className="text-link" href={`/tasks/${task.id}?lang=${lang}`}>
                     {strings.details}
                   </a>
-                  <div className="row">
-                    {task.status === "open" && (
-                      <button onClick={() => acceptTask(task.id)}>{strings.accept}</button>
-                    )}
-                  </div>
                 </div>
               </div>
 
