@@ -655,15 +655,15 @@ export default function TaskDetailClient() {
                   <input
                     value={applyAvailability}
                     onChange={(e) => setApplyAvailability(e.target.value)}
-                    placeholder={lang === \"ja\" ? \"例: 平日19-22時 / 週末\" : \"e.g. Weekdays 7-10pm\"}
+                    placeholder={lang === "ja" ? "例: 平日19-22時 / 週末" : "e.g. Weekdays 7-10pm"}
                   />
                 </label>
                 <label>
                   {strings.counterOffer}
                   <input
-                    type=\"number\"
-                    min=\"0\"
-                    step=\"0.01\"
+                    type="number"
+                    min="0"
+                    step="0.01"
                     value={applyCounterBudget}
                     onChange={(e) => setApplyCounterBudget(e.target.value)}
                     placeholder={`$${task.budget_usd}`}
@@ -671,21 +671,29 @@ export default function TaskDetailClient() {
                 </label>
                 <div className="row">
                   <button
-                    type=\"button\"
-                    className=\"button-neutral\"
-                    onClick={() => {\n                      setApplyCoverLetter(\"\");\n                      setApplyAvailability(\"\");\n                      setApplyCounterBudget(\"\");\n                      setApplyError(null);\n                    }}\n                    disabled={applying}
+                    type="button"
+                    className="button-neutral"
+                    onClick={() => {
+                      setApplyCoverLetter("");
+                      setApplyAvailability("");
+                      setApplyCounterBudget("");
+                      setApplyError(null);
+                    }}
+                    disabled={applying}
                   >
                     {strings.cancel}
                   </button>
                   <button
-                    type=\"submit\"
+                    type="submit"
                     disabled={applying || !applyCoverLetter.trim() || !applyAvailability.trim()}
                   >
                     {applying ? strings.saving : strings.apply}
                   </button>
                 </div>
                 {applyError && (
-                  <p className=\"muted\">\n                    {strings.failed}: {applyError}\n                  </p>
+                  <p className="muted">
+                    {strings.failed}: {applyError}
+                  </p>
                 )}
               </form>
             )}
