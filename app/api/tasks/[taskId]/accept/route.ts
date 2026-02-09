@@ -3,6 +3,10 @@ import { getDb } from "@/lib/db";
 import { getNormalizedTask } from "@/lib/task-api";
 import { dispatchTaskEvent } from "@/lib/webhooks";
 import { ensurePendingContactChannel } from "@/lib/contact-channel";
+import crypto from "crypto";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { getCurrentHumanIdByEmail } from "@/lib/human-session";
 
 async function parseRequest(request: Request) {
   const contentType = request.headers.get("content-type") || "";
@@ -18,13 +22,39 @@ export async function POST(
   { params }: { params: { taskId: string } }
 ) {
   const payload: any = await parseRequest(request);
-  const humanId = typeof payload?.human_id === "string" ? payload.human_id : "";
+  const humanId = typeof payload?.human_id === "string" ? payload.human_id.trim() : "";
+  const humanTestToken =
+    typeof payload?.human_test_token === "string" ? payload.human_test_token.trim() : "";
 
   if (!humanId) {
     return NextResponse.json({ status: "error", reason: "missing_human" }, { status: 400 });
   }
 
   const db = getDb();
+  // Auth: require session user OR test-only token (dev).
+  let authedHumanId: string | null = null;
+  if (humanTestToken && process.env.ENABLE_TEST_HUMAN_AUTH === "true") {
+    const secret = process.env.TEST_HUMAN_AUTH_SECRET || "";
+    if (secret) {
+      const expected = crypto.createHmac("sha256", secret).update(humanId).digest("hex");
+      const a = Buffer.from(expected);
+      const b = Buffer.from(humanTestToken);
+      if (a.length === b.length && crypto.timingSafeEqual(a, b)) {
+        authedHumanId = humanId;
+      }
+    }
+  } else {
+    const session = await getServerSession(authOptions);
+    const email = session?.user?.email;
+    if (email) {
+      const sessionHumanId = await getCurrentHumanIdByEmail(email);
+      if (sessionHumanId) authedHumanId = sessionHumanId;
+    }
+  }
+  if (!authedHumanId || authedHumanId !== humanId) {
+    return NextResponse.json({ status: "unauthorized" }, { status: 401 });
+  }
+
   const task = await getNormalizedTask(db, params.taskId, "en");
   const human = await db
     .prepare(`SELECT * FROM humans WHERE id = ?`)
