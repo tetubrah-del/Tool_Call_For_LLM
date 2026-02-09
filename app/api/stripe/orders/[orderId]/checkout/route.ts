@@ -8,6 +8,7 @@ import {
   retrieveConnectedAccountOrThrow,
   shouldPreferRestrictedKeyForServerOps
 } from "@/lib/stripe";
+import type Stripe from "stripe";
 
 function badRequest(reason: string, detail?: any) {
   return NextResponse.json({ status: "error", reason, detail }, { status: 400 });
@@ -126,7 +127,7 @@ export async function POST(
     const idemKey = buildIdempotencyKey("checkout_session_create", orderId, v);
     const now = new Date().toISOString();
 
-    const session = await runWithFallback((client) =>
+    const session = await runWithFallback<Stripe.Checkout.Session>((client) =>
       client.checkout.sessions.create(
         {
           mode: "payment",
@@ -197,4 +198,3 @@ export async function POST(
     );
   }
 }
-
