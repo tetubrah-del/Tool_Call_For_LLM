@@ -135,6 +135,7 @@ async function initPostgres() {
       name TEXT NOT NULL,
       email TEXT,
       paypal_email TEXT,
+      stripe_account_id TEXT,
       location TEXT,
       country TEXT NOT NULL,
       min_budget_usd DOUBLE PRECISION NOT NULL,
@@ -180,6 +181,41 @@ async function initPostgres() {
       payout_batch_id TEXT,
       payment_error_message TEXT,
       created_at TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS orders (
+      id TEXT NOT NULL,
+      version INTEGER NOT NULL,
+      payment_flow TEXT NOT NULL,
+      status TEXT NOT NULL,
+      currency TEXT NOT NULL,
+      base_amount_jpy INTEGER NOT NULL,
+      fx_cost_jpy INTEGER NOT NULL,
+      total_amount_jpy INTEGER NOT NULL,
+      platform_fee_jpy INTEGER NOT NULL,
+      payer_country TEXT NOT NULL,
+      payee_country TEXT NOT NULL,
+      is_international INTEGER NOT NULL,
+      destination_account_id TEXT NOT NULL,
+      human_id TEXT,
+      task_id TEXT,
+      checkout_session_id TEXT,
+      payment_intent_id TEXT,
+      charge_id TEXT,
+      mismatch_reason TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (id, version)
+    )`,
+    `CREATE TABLE IF NOT EXISTS stripe_webhook_events (
+      event_id TEXT PRIMARY KEY,
+      event_type TEXT NOT NULL,
+      event_created INTEGER NOT NULL,
+      payload_json TEXT NOT NULL,
+      received_at TEXT NOT NULL,
+      status TEXT NOT NULL,
+      processing_started_at TEXT,
+      processed_at TEXT,
+      processing_error TEXT
     )`,
     `CREATE TABLE IF NOT EXISTS task_translations (
       task_id TEXT NOT NULL,
@@ -288,6 +324,7 @@ async function initPostgres() {
   const migrationStatements = [
     `ALTER TABLE humans ADD COLUMN IF NOT EXISTS email TEXT`,
     `ALTER TABLE humans ADD COLUMN IF NOT EXISTS paypal_email TEXT`,
+    `ALTER TABLE humans ADD COLUMN IF NOT EXISTS stripe_account_id TEXT`,
     `ALTER TABLE humans ADD COLUMN IF NOT EXISTS country TEXT`,
     `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS task_en TEXT`,
     `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS origin_country TEXT`,
@@ -339,6 +376,7 @@ async function initSqlite() {
       name TEXT NOT NULL,
       email TEXT,
       paypal_email TEXT,
+      stripe_account_id TEXT,
       location TEXT,
       country TEXT NOT NULL,
       min_budget_usd REAL NOT NULL,
@@ -496,6 +534,43 @@ async function initSqlite() {
       error TEXT,
       created_at TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS orders (
+      id TEXT NOT NULL,
+      version INTEGER NOT NULL,
+      payment_flow TEXT NOT NULL,
+      status TEXT NOT NULL,
+      currency TEXT NOT NULL,
+      base_amount_jpy INTEGER NOT NULL,
+      fx_cost_jpy INTEGER NOT NULL,
+      total_amount_jpy INTEGER NOT NULL,
+      platform_fee_jpy INTEGER NOT NULL,
+      payer_country TEXT NOT NULL,
+      payee_country TEXT NOT NULL,
+      is_international INTEGER NOT NULL,
+      destination_account_id TEXT NOT NULL,
+      human_id TEXT,
+      task_id TEXT,
+      checkout_session_id TEXT,
+      payment_intent_id TEXT,
+      charge_id TEXT,
+      mismatch_reason TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (id, version)
+    );
+
+    CREATE TABLE IF NOT EXISTS stripe_webhook_events (
+      event_id TEXT PRIMARY KEY,
+      event_type TEXT NOT NULL,
+      event_created INTEGER NOT NULL,
+      payload_json TEXT NOT NULL,
+      received_at TEXT NOT NULL,
+      status TEXT NOT NULL,
+      processing_started_at TEXT,
+      processed_at TEXT,
+      processing_error TEXT
+    );
   `);
 
   ensureSqliteColumn(db, "tasks", "task_en", "TEXT");
@@ -521,6 +596,7 @@ async function initSqlite() {
   ensureSqliteColumn(db, "tasks", "payment_error_message", "TEXT");
   ensureSqliteColumn(db, "humans", "email", "TEXT");
   ensureSqliteColumn(db, "humans", "paypal_email", "TEXT");
+  ensureSqliteColumn(db, "humans", "stripe_account_id", "TEXT");
   ensureSqliteColumn(db, "humans", "country", "TEXT");
   ensureSqliteColumn(db, "idempotency_keys", "status_code", "INTEGER");
   ensureSqliteColumn(db, "idempotency_keys", "response_body", "TEXT");
@@ -629,11 +705,54 @@ export type Human = {
   name: string;
   email: string | null;
   paypal_email: string | null;
+  stripe_account_id: string | null;
   location: string | null;
   country: string | null;
   min_budget_usd: number;
   status: "available" | "busy";
   created_at: string;
+};
+
+export type Order = {
+  id: string;
+  version: number;
+  payment_flow: "checkout";
+  status:
+    | "created"
+    | "checkout_created"
+    | "paid"
+    | "failed_mismatch"
+    | "failed_provider"
+    | "canceled";
+  currency: "jpy";
+  base_amount_jpy: number;
+  fx_cost_jpy: number;
+  total_amount_jpy: number;
+  platform_fee_jpy: number;
+  payer_country: "JP" | "US";
+  payee_country: "JP" | "US";
+  is_international: 0 | 1;
+  destination_account_id: string;
+  human_id: string | null;
+  task_id: string | null;
+  checkout_session_id: string | null;
+  payment_intent_id: string | null;
+  charge_id: string | null;
+  mismatch_reason: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type StripeWebhookEventRow = {
+  event_id: string;
+  event_type: string;
+  event_created: number;
+  payload_json: string;
+  received_at: string;
+  status: "pending" | "processing" | "processed" | "failed";
+  processing_started_at: string | null;
+  processed_at: string | null;
+  processing_error: string | null;
 };
 
 // Task lifecycle:
