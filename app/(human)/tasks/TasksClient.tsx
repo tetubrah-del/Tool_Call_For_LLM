@@ -23,6 +23,7 @@ type Task = {
   not_allowed: string | null;
   is_international_payout?: boolean;
   deliverable: "photo" | "video" | "text" | null;
+  deadline_at?: string | null;
   status: "open" | "accepted" | "completed" | "failed";
   failure_reason?: string | null;
   human_id: string | null;
@@ -355,60 +356,93 @@ export default function TasksClient() {
             0
           );
           const showIntlFeeNote = Boolean(task.is_international_payout);
+          const deadlineChip =
+            task.deadline_at && Number.isFinite(Date.parse(task.deadline_at))
+              ? new Date(task.deadline_at).toLocaleDateString(lang, {
+                  year: "numeric",
+                  month: "2-digit",
+                  day: "2-digit"
+                })
+              : null;
+          const primaryChip =
+            task.task_label ? TASK_LABEL_TEXT[task.task_label][lang] : strings.any;
           return (
             <div key={task.id} className="task-item">
-              <div className="task-header">
-                <h3>{task.task_display || task.task}</h3>
-                <span className="status-pill">{statusLabel}</span>
-              </div>
-              {showTranslationPending && (
-                <p className="muted">{strings.translationPending}</p>
-              )}
-              {showBestEffort && (
-                <p className="muted">
-                  {strings.bestEffort} | {strings.noTimeGuarantee}
-                </p>
-              )}
-              {showIntlFeeNote && <p className="muted">{strings.intlFeeNote}</p>}
-              <p className="muted">
-                {strings.payout}: ${netPayout} | {strings.location}:{" "}
-                {task.location || strings.any} | {strings.deliverable}:{" "}
-                {task.deliverable || "text"} | {strings.taskLabel}:{" "}
-                {task.task_label ? TASK_LABEL_TEXT[task.task_label][lang] : strings.any}
-              </p>
-              {task.acceptance_criteria && (
-                <p className="muted">
-                  {strings.acceptanceCriteria}: {task.acceptance_criteria}
-                </p>
-              )}
-              {task.not_allowed && (
-                <p className="muted">
-                  {strings.notAllowed}: {task.not_allowed}
-                </p>
-              )}
-              {task.status === "failed" && task.failure_reason && (
-                <p className="muted">
-                  {strings.failureReason}: {task.failure_reason}
-                </p>
-              )}
-              <div className="task-actions">
-                <a className="text-link" href={`/tasks/${task.id}?lang=${lang}`}>
-                  {strings.details}
-                </a>
-                <div className="row">
-                  {task.status === "open" && (
-                    <button onClick={() => acceptTask(task.id)}>{strings.accept}</button>
+              <div className="task-main">
+                <div className="task-topline">
+                  <div className="task-chips">
+                    <span className="task-chip">{primaryChip}</span>
+                    {deadlineChip && (
+                      <span className="task-chip">
+                        {strings.deadline} {deadlineChip}
+                      </span>
+                    )}
+                    <span className="task-chip">{task.deliverable || "text"}</span>
+                    {task.origin_country && (
+                      <span className="task-chip">{task.origin_country}</span>
+                    )}
+                  </div>
+                  <span className="status-pill">{statusLabel}</span>
+                </div>
+
+                <h3 className="task-title-lg">{task.task_display || task.task}</h3>
+
+                {(task.acceptance_criteria || showTranslationPending) && (
+                  <p className="task-desc">
+                    {showTranslationPending
+                      ? strings.translationPending
+                      : task.acceptance_criteria || ""}
+                  </p>
+                )}
+
+                <div className="task-meta-row">
+                  <span className="task-meta-item">
+                    {strings.location}: {task.location || strings.any}
+                  </span>
+                  {showBestEffort && (
+                    <span className="task-meta-item">
+                      {strings.bestEffort}
+                    </span>
                   )}
-                  {(task.status === "accepted" || isAssigned) && (
-                    <a href={`/tasks/${task.id}?lang=${lang}`}>{strings.deliver}</a>
+                  {showIntlFeeNote && (
+                    <span className="task-meta-item">{strings.intlFeeNote}</span>
                   )}
-                  {(task.status === "open" || isAssigned) && (
-                    <button className="secondary" onClick={() => skipTask(task.id)}>
-                      {strings.skip}
-                    </button>
+                  {task.status === "failed" && task.failure_reason && (
+                    <span className="task-meta-item">
+                      {strings.failureReason}: {task.failure_reason}
+                    </span>
                   )}
                 </div>
+
+                <div className="task-actions-compact">
+                  <a className="text-link" href={`/tasks/${task.id}?lang=${lang}`}>
+                    {strings.details}
+                  </a>
+                  <div className="row">
+                    {task.status === "open" && (
+                      <button onClick={() => acceptTask(task.id)}>{strings.accept}</button>
+                    )}
+                    {(task.status === "accepted" || isAssigned) && (
+                      <a href={`/tasks/${task.id}?lang=${lang}`}>{strings.deliver}</a>
+                    )}
+                    {(task.status === "open" || isAssigned) && (
+                      <button className="secondary" onClick={() => skipTask(task.id)}>
+                        {strings.skip}
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
+
+              <aside className="task-price">
+                <div className="task-price-amount">
+                  ${netPayout}
+                </div>
+                <div className="task-price-sub">{strings.payout}</div>
+                <div className="task-price-raw muted">
+                  ${task.budget_usd} gross
+                </div>
+              </aside>
             </div>
           );
         })}
