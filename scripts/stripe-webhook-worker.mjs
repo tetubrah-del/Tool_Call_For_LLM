@@ -162,6 +162,16 @@ function parseOrderKeyFromMetadata(meta) {
   return { orderId, version };
 }
 
+function requireConsistentOrderKey(meta, ref) {
+  const fromMeta = parseOrderKeyFromMetadata(meta);
+  const fromRef = parseOrderKeyFromRef(ref);
+  if (!fromMeta || !fromRef) return null;
+  if (fromMeta.orderId !== fromRef.orderId || fromMeta.version !== fromRef.version) {
+    return { mismatch: true, fromMeta, fromRef };
+  }
+  return { mismatch: false, key: fromMeta };
+}
+
 function computeMismatchReason(mismatches) {
   return JSON.stringify({ mismatches });
 }
@@ -190,7 +200,8 @@ async function markOrderPaid(db, orderId, version, updates) {
          checkout_session_id = COALESCE(checkout_session_id, ?),
          charge_id = COALESCE(charge_id, ?),
          updated_at = ?
-     WHERE id = ? AND version = ?`,
+     WHERE id = ? AND version = ?
+       AND status IN ('created', 'checkout_created', 'paid')`,
     [paymentIntentId || null, checkoutSessionId || null, chargeId || null, nowIso(), orderId, version]
   );
 }
@@ -202,7 +213,8 @@ async function updateOrderCheckoutCreated(db, orderId, version, sessionId, payme
          checkout_session_id = COALESCE(checkout_session_id, ?),
          payment_intent_id = COALESCE(payment_intent_id, ?),
          updated_at = ?
-     WHERE id = ? AND version = ?`,
+     WHERE id = ? AND version = ?
+       AND status IN ('created', 'checkout_created')`,
     [sessionId || null, paymentIntentId || null, nowIso(), orderId, version]
   );
 }
@@ -213,7 +225,8 @@ async function updateOrderCharge(db, orderId, version, chargeId, paymentIntentId
      SET charge_id = COALESCE(charge_id, ?),
          payment_intent_id = COALESCE(payment_intent_id, ?),
          updated_at = ?
-     WHERE id = ? AND version = ?`,
+     WHERE id = ? AND version = ?
+       AND status IN ('created', 'checkout_created', 'paid')`,
     [chargeId || null, paymentIntentId || null, nowIso(), orderId, version]
   );
 }
@@ -262,16 +275,27 @@ async function handleCheckoutSessionCompleted(db, event) {
   const isSubscriptionPurchase = !!payload.subscription;
   console.log("checkout.session.completed", { ...payload, is_subscription_purchase: isSubscriptionPurchase });
 
-  const key =
-    parseOrderKeyFromMetadata(session.metadata) ||
-    parseOrderKeyFromRef(session.client_reference_id);
-  if (!key) {
-    throw new Error("missing_order_key_in_session");
+  // Strict requirement: both metadata and client_reference_id must exist and match.
+  const resolved = requireConsistentOrderKey(session.metadata, session.client_reference_id);
+  if (!resolved) throw new Error("missing_order_key_in_session");
+  if (resolved.mismatch) {
+    // If we can't trust the linkage, we fail the order by the metadata key if present, else drop.
+    const reason = computeMismatchReason([
+      { field: "order_key", meta: resolved.fromMeta, ref: resolved.fromRef }
+    ]);
+    await markOrderMismatch(db, resolved.fromMeta.orderId, resolved.fromMeta.version, reason);
+    return;
   }
+  const key = resolved.key;
 
   const order = await findOrderByKey(db, key.orderId, key.version);
   if (!order) {
     throw new Error("order_not_found");
+  }
+
+  // Terminal states: do not mutate (except we may still record linkage elsewhere).
+  if (order.status === "failed_mismatch" || order.status === "failed_provider" || order.status === "canceled") {
+    return;
   }
 
   // SoT check: if checkout_session_id exists and differs, mismatch.
@@ -298,16 +322,16 @@ async function handlePaymentIntentSucceeded(db, event) {
   };
   console.log("payment_intent.succeeded", payload);
 
+  // Strict requirement: metadata must include order_id + version.
   const key = parseOrderKeyFromMetadata(pi.metadata);
   let order = null;
   if (key) {
     order = await findOrderByKey(db, key.orderId, key.version);
   }
-  if (!order) {
-    order = await findOrderByPaymentIntent(db, pi.id);
-  }
-  if (!order) {
-    throw new Error("order_not_found");
+  if (!order) throw new Error("order_not_found");
+
+  if (order.status === "failed_mismatch" || order.status === "failed_provider" || order.status === "canceled") {
+    return;
   }
 
   const mismatches = [];
@@ -353,12 +377,16 @@ async function handleChargeSucceeded(db, event) {
     order = await findOrderByPaymentIntent(db, piId);
   }
   if (!order) {
-    // Fallback: if charge metadata has order key, use it.
+    // Fallback: if charge metadata has order key, use it (metadata is still required in our system).
     const key = parseOrderKeyFromMetadata(charge.metadata);
     if (key) order = await findOrderByKey(db, key.orderId, key.version);
   }
   if (!order) {
     throw new Error("order_not_found");
+  }
+
+  if (order.status === "failed_mismatch" || order.status === "failed_provider" || order.status === "canceled") {
+    return;
   }
 
   await updateOrderCharge(db, order.id, Number(order.version), charge.id, piId);
@@ -447,4 +475,3 @@ main().catch((err) => {
   console.error("stripe webhook worker fatal", err);
   process.exit(1);
 });
-
