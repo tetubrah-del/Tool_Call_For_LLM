@@ -201,6 +201,7 @@ export const UI_STRINGS: Record<UiLang, Record<string, string>> = {
     availability: "Availability",
     counterOffer: "Counter offer (optional)",
     apply: "Apply",
+    applyClosed: "Applications are closed for this task.",
     backToTasks: "Back to Tasks",
     submitted: "Submitted.",
     taskNotFound: "Task not found."
@@ -402,6 +403,7 @@ export const UI_STRINGS: Record<UiLang, Record<string, string>> = {
     availability: "可用性",
     counterOffer: "反対提案（オプション）",
     apply: "応募する",
+    applyClosed: "このタスクの応募受付は終了しました。",
     backToTasks: "タスク一覧へ",
     submitted: "送信しました。",
     taskNotFound: "タスクが見つかりません。"
