@@ -128,9 +128,6 @@ export async function POST(
   if (!human?.id) {
     return NextResponse.json({ status: "not_found" }, { status: 404 });
   }
-  if (!human.paypal_email) {
-    return NextResponse.json({ status: "error", reason: "invalid_request" }, { status: 400 });
-  }
   if (human.status !== "available") {
     return NextResponse.json({ status: "error", reason: "human_not_available" }, { status: 409 });
   }

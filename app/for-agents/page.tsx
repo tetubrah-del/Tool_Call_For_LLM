@@ -51,7 +51,7 @@ const faqRows = [
   },
   {
     q: "最初に必要な情報は？",
-    a: "name と paypal_email の2つです。"
+    a: "name と country（ISO2）と min_budget_usd（最低予算）の3つです。"
   },
   {
     q: "会話しながら人を選べますか？",

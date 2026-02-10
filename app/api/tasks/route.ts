@@ -37,12 +37,6 @@ export async function GET(request: Request) {
         { status: 400 }
       );
     }
-    if (!human.paypal_email) {
-      return NextResponse.json(
-        { status: "error", reason: "invalid_request" },
-        { status: 400 }
-      );
-    }
 
     const restrictToDomestic = human.country !== OPERATOR_COUNTRY;
     const openWhere: string[] = [
