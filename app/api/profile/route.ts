@@ -6,6 +6,64 @@ import { getDb } from "@/lib/db";
 import { normalizeCountry } from "@/lib/country";
 import { normalizePaypalEmail } from "@/lib/paypal";
 
+function normalizeOptionalString(value: unknown, maxLen: number): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return trimmed.length > maxLen ? trimmed.slice(0, maxLen) : trimmed;
+}
+
+function normalizeOptionalNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function normalizeSkills(value: unknown): string | null {
+  // Stored as JSON array string for forward compatibility.
+  const maxSkills = 50;
+  const maxSkillLen = 40;
+
+  let raw: unknown[] = [];
+  if (Array.isArray(value)) {
+    raw = value;
+  } else if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    // Accept either JSON array or comma-separated for backward compatibility.
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        raw = parsed;
+      } else {
+        raw = trimmed.split(",");
+      }
+    } catch {
+      raw = trimmed.split(",");
+    }
+  } else {
+    return null;
+  }
+
+  const skills = raw
+    .map((v) => (typeof v === "string" ? v.trim() : ""))
+    .filter(Boolean)
+    .map((v) => (v.length > maxSkillLen ? v.slice(0, maxSkillLen) : v))
+    .slice(0, maxSkills);
+
+  if (skills.length === 0) return null;
+  return JSON.stringify(skills);
+}
+
+const ALLOWED_GENDERS = new Set([
+  "unspecified",
+  "male",
+  "female",
+  "nonbinary",
+  "other",
+  "prefer_not_to_say"
+]);
+
 async function parseRequest(request: Request) {
   const contentType = request.headers.get("content-type") || "";
   if (contentType.includes("application/json")) {
@@ -54,6 +112,21 @@ export async function POST(request: Request) {
     const country = normalizeCountry(payload?.country);
     const paypalEmail = normalizePaypalEmail(payload?.paypal_email);
     const minBudgetUsd = Number(payload?.min_budget_usd);
+    const headline = normalizeOptionalString(payload?.headline, 120);
+    const genderRaw = typeof payload?.gender === "string" ? payload.gender.trim() : "";
+    const gender = genderRaw && ALLOWED_GENDERS.has(genderRaw) ? genderRaw : null;
+    const bio = normalizeOptionalString(payload?.bio, 4000);
+    const city = normalizeOptionalString(payload?.city, 80);
+    const region = normalizeOptionalString(payload?.region, 80);
+    const timezone = normalizeOptionalString(payload?.timezone, 64);
+    const hourlyRateUsd = normalizeOptionalNumber(payload?.hourly_rate_usd);
+    const skillsJson = normalizeSkills(payload?.skills);
+    const twitterUrl = normalizeOptionalString(payload?.twitter_url, 240);
+    const githubUrl = normalizeOptionalString(payload?.github_url, 240);
+    const instagramUrl = normalizeOptionalString(payload?.instagram_url, 240);
+    const linkedinUrl = normalizeOptionalString(payload?.linkedin_url, 240);
+    const websiteUrl = normalizeOptionalString(payload?.website_url, 240);
+    const youtubeUrl = normalizeOptionalString(payload?.youtube_url, 240);
 
     if (!name || !Number.isFinite(minBudgetUsd) || !country || !paypalEmail) {
       return NextResponse.json(
@@ -69,8 +142,50 @@ export async function POST(request: Request) {
 
     if (existing?.id) {
       await db.prepare(
-        `UPDATE humans SET name = ?, location = ?, country = ?, min_budget_usd = ?, paypal_email = ? WHERE id = ?`
-      ).run(name, location, country, minBudgetUsd, paypalEmail, existing.id);
+        `UPDATE humans
+         SET
+           name = ?,
+           location = ?,
+           country = ?,
+           min_budget_usd = ?,
+           paypal_email = ?,
+           headline = ?,
+           gender = ?,
+           bio = ?,
+           city = ?,
+           region = ?,
+           timezone = ?,
+           hourly_rate_usd = ?,
+           skills_json = ?,
+           twitter_url = ?,
+           github_url = ?,
+           instagram_url = ?,
+           linkedin_url = ?,
+           website_url = ?,
+           youtube_url = ?
+         WHERE id = ?`
+      ).run(
+        name,
+        location,
+        country,
+        minBudgetUsd,
+        paypalEmail,
+        headline,
+        gender,
+        bio,
+        city,
+        region,
+        timezone,
+        hourlyRateUsd,
+        skillsJson,
+        twitterUrl,
+        githubUrl,
+        instagramUrl,
+        linkedinUrl,
+        websiteUrl,
+        youtubeUrl,
+        existing.id
+      );
 
       return NextResponse.json({ id: existing.id, status: "available" });
     }
@@ -78,9 +193,58 @@ export async function POST(request: Request) {
     const id = crypto.randomUUID();
     const createdAt = new Date().toISOString();
     await db.prepare(
-      `INSERT INTO humans (id, name, email, paypal_email, location, country, min_budget_usd, status, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'available', ?)`
-    ).run(id, name, email, paypalEmail, location, country, minBudgetUsd, createdAt);
+      `INSERT INTO humans (
+         id,
+         name,
+         email,
+         paypal_email,
+         location,
+         country,
+         min_budget_usd,
+         headline,
+         gender,
+         bio,
+         city,
+         region,
+         timezone,
+         hourly_rate_usd,
+         skills_json,
+         twitter_url,
+         github_url,
+         instagram_url,
+         linkedin_url,
+         website_url,
+         youtube_url,
+         status,
+         created_at
+       )
+       VALUES (
+         ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'available', ?
+       )`
+    ).run(
+      id,
+      name,
+      email,
+      paypalEmail,
+      location,
+      country,
+      minBudgetUsd,
+      headline,
+      gender,
+      bio,
+      city,
+      region,
+      timezone,
+      hourlyRateUsd,
+      skillsJson,
+      twitterUrl,
+      githubUrl,
+      instagramUrl,
+      linkedinUrl,
+      websiteUrl,
+      youtubeUrl,
+      createdAt
+    );
 
     return NextResponse.json({ id, status: "available" });
   } catch (error) {
