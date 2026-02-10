@@ -136,7 +136,7 @@ export async function POST(request: Request) {
   }
 
   const aiAccount = await db
-    .prepare(`SELECT * FROM ai_accounts WHERE id = ?`)
+    .prepare(`SELECT * FROM ai_accounts WHERE id = ? AND deleted_at IS NULL`)
     .get(aiAccountId) as
     | { id: string; paypal_email: string; api_key: string; status: string }
     | undefined;
@@ -176,6 +176,7 @@ export async function POST(request: Request) {
   const stmt = db.prepare(
     `SELECT * FROM humans
      WHERE status = 'available'
+       AND deleted_at IS NULL
        AND min_budget_usd <= ?
        ${location ? "AND location = ?" : ""}
      ORDER BY min_budget_usd ASC

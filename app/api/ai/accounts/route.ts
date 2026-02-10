@@ -23,7 +23,9 @@ export async function POST(request: Request) {
 
   const db = getDb();
   const existing = await db
-    .prepare(`SELECT * FROM ai_accounts WHERE paypal_email = ? ORDER BY created_at DESC LIMIT 1`)
+    .prepare(
+      `SELECT * FROM ai_accounts WHERE paypal_email = ? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1`
+    )
     .get(paypalEmail) as
     | { id: string; api_key: string; status: "active" | "disabled" }
     | undefined;
@@ -74,7 +76,7 @@ export async function GET(request: Request) {
   }
 
   const account = await db
-    .prepare(`SELECT * FROM ai_accounts WHERE id = ?`)
+    .prepare(`SELECT * FROM ai_accounts WHERE id = ? AND deleted_at IS NULL`)
     .get(accountId) as
     | { id: string; name: string; paypal_email: string; api_key: string; status: string }
     | undefined;

@@ -42,7 +42,7 @@ export async function POST(request: Request) {
 
     const db = getDb();
     const human = await db
-      .prepare(`SELECT * FROM humans WHERE id = ?`)
+      .prepare(`SELECT * FROM humans WHERE id = ? AND deleted_at IS NULL`)
       .get<{ id: string; country: string | null; stripe_account_id: string | null }>(humanId);
     if (!human) {
       return NextResponse.json({ status: "error", reason: "missing_human" }, { status: 404 });

@@ -176,7 +176,7 @@ export async function getNormalizedTask(
   langValue: string | null
 ): Promise<NormalizedTask | null> {
   const rawTask = await db
-    .prepare(`SELECT * FROM tasks WHERE id = ?`)
+    .prepare(`SELECT * FROM tasks WHERE id = ? AND deleted_at IS NULL`)
     .get<Task>(taskId);
   if (!rawTask) return null;
 

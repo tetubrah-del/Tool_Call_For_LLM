@@ -27,7 +27,7 @@ async function requireAiCredentials(payload: any) {
   }
   const db = getDb();
   const aiAccount = (await db
-    .prepare(`SELECT * FROM ai_accounts WHERE id = ?`)
+    .prepare(`SELECT * FROM ai_accounts WHERE id = ? AND deleted_at IS NULL`)
     .get(aiAccountId)) as { id: string; api_key: string; status: string } | undefined;
   if (!aiAccount || aiAccount.api_key !== aiApiKey || aiAccount.status !== "active") {
     return {

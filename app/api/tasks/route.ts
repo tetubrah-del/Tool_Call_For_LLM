@@ -26,7 +26,7 @@ export async function GET(request: Request) {
 
   if (humanId) {
     const human = await db
-      .prepare(`SELECT * FROM humans WHERE id = ?`)
+      .prepare(`SELECT * FROM humans WHERE id = ? AND deleted_at IS NULL`)
       .get(humanId);
     if (!human) {
       return NextResponse.json({ status: "not_found" }, { status: 404 });
@@ -40,6 +40,7 @@ export async function GET(request: Request) {
 
     const restrictToDomestic = human.country !== OPERATOR_COUNTRY;
     const openWhere: string[] = [
+      "deleted_at IS NULL",
       "status = 'open'",
       "budget_usd >= ?",
       "(location IS NULL OR location = ?)"
@@ -61,7 +62,11 @@ export async function GET(request: Request) {
       )
       .all(...openParams);
 
-    const assignedWhere: string[] = ["human_id = ?", "status IN ('accepted', 'completed')"];
+    const assignedWhere: string[] = [
+      "deleted_at IS NULL",
+      "human_id = ?",
+      "status IN ('accepted', 'completed')"
+    ];
     const assignedParams: Array<string | number | null> = [humanId];
     if (filterTaskLabel) {
       assignedWhere.push("task_label = ?");
@@ -113,6 +118,7 @@ export async function GET(request: Request) {
 
   const where: string[] = [];
   const params: Array<string | number | null> = [];
+  where.push("deleted_at IS NULL");
   if (filterTaskLabel) {
     where.push("task_label = ?");
     params.push(filterTaskLabel);
@@ -218,7 +224,7 @@ export async function POST(request: Request) {
       return respond({ status: "error", reason: "invalid_request" }, 400);
     }
     const aiAccount = await db
-      .prepare(`SELECT * FROM ai_accounts WHERE id = ?`)
+      .prepare(`SELECT * FROM ai_accounts WHERE id = ? AND deleted_at IS NULL`)
       .get(aiAccountId) as
       | { id: string; paypal_email: string; api_key: string; status: string }
       | undefined;

@@ -18,7 +18,7 @@ export async function GET(
   let isInternationalPayout = false;
   if (humanId) {
     const human = await db
-      .prepare(`SELECT * FROM humans WHERE id = ?`)
+      .prepare(`SELECT * FROM humans WHERE id = ? AND deleted_at IS NULL`)
       .get(humanId);
     if (human?.country) {
       isInternationalPayout = human.country !== OPERATOR_COUNTRY;

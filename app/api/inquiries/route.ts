@@ -26,7 +26,7 @@ export async function POST(request: Request) {
 
   const db = getDb();
   const human = await db
-    .prepare(`SELECT id FROM humans WHERE id = ? LIMIT 1`)
+    .prepare(`SELECT id FROM humans WHERE id = ? AND deleted_at IS NULL LIMIT 1`)
     .get(humanId) as { id: string } | undefined;
   if (!human?.id) {
     return NextResponse.json({ status: "not_found" }, { status: 404 });

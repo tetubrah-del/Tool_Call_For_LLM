@@ -56,7 +56,7 @@ export async function POST(request: Request) {
 export async function GET() {
   const db = getDb();
   const humans = await db
-    .prepare(`SELECT * FROM humans ORDER BY created_at DESC`)
+    .prepare(`SELECT * FROM humans WHERE deleted_at IS NULL ORDER BY created_at DESC`)
     .all();
   return NextResponse.json({ humans });
 }

@@ -25,14 +25,14 @@ export async function POST(
   const db = getDb();
 
   const aiAccount = await db
-    .prepare(`SELECT id, api_key, status FROM ai_accounts WHERE id = ?`)
+    .prepare(`SELECT id, api_key, status FROM ai_accounts WHERE id = ? AND deleted_at IS NULL`)
     .get<{ id: string; api_key: string; status: string }>(aiAccountId);
   if (!aiAccount?.id || aiAccount.api_key !== aiApiKey || aiAccount.status !== "active") {
     return NextResponse.json({ status: "unauthorized" }, { status: 401 });
   }
 
   const task = await db
-    .prepare(`SELECT id, status, human_id, ai_account_id FROM tasks WHERE id = ?`)
+    .prepare(`SELECT id, status, human_id, ai_account_id FROM tasks WHERE id = ? AND deleted_at IS NULL`)
     .get<{ id: string; status: string; human_id: string | null; ai_account_id: string | null }>(
       params.taskId
     );
@@ -57,7 +57,7 @@ export async function POST(
   }
 
   const human = await db
-    .prepare(`SELECT id, paypal_email, status FROM humans WHERE id = ?`)
+    .prepare(`SELECT id, paypal_email, status FROM humans WHERE id = ? AND deleted_at IS NULL`)
     .get<{ id: string; paypal_email: string | null; status: string }>(selectedHumanId);
   if (!human?.id) {
     return NextResponse.json({ status: "not_found" }, { status: 404 });

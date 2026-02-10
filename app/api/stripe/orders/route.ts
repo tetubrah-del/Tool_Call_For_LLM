@@ -25,7 +25,7 @@ async function requireAiCredentials(payload: any) {
   }
   const db = getDb();
   const aiAccount = (await db
-    .prepare(`SELECT * FROM ai_accounts WHERE id = ?`)
+    .prepare(`SELECT * FROM ai_accounts WHERE id = ? AND deleted_at IS NULL`)
     .get(aiAccountId)) as { id: string; api_key: string; status: string } | undefined;
   if (!aiAccount || aiAccount.api_key !== aiApiKey || aiAccount.status !== "active") {
     return { ok: false as const, response: NextResponse.json({ status: "error", reason: "unauthorized" }, { status: 401 }) };
@@ -54,13 +54,13 @@ export async function POST(request: Request) {
     const platformFeeJpy = computePlatformFeeJpyFloor(totalAmountJpy);
 
     const db = getDb();
-    const task = (await db.prepare(`SELECT * FROM tasks WHERE id = ?`).get(taskId)) as
+    const task = (await db.prepare(`SELECT * FROM tasks WHERE id = ? AND deleted_at IS NULL`).get(taskId)) as
       | { id: string; origin_country: string | null; human_id: string | null }
       | undefined;
     if (!task) return NextResponse.json({ status: "error", reason: "task_not_found" }, { status: 404 });
     if (!task.human_id) return conflict("missing_human");
 
-    const human = (await db.prepare(`SELECT * FROM humans WHERE id = ?`).get(task.human_id)) as
+    const human = (await db.prepare(`SELECT * FROM humans WHERE id = ? AND deleted_at IS NULL`).get(task.human_id)) as
       | { id: string; country: string | null; stripe_account_id: string | null }
       | undefined;
     if (!human) return conflict("missing_human");
