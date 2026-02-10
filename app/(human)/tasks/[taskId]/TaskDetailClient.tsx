@@ -78,13 +78,8 @@ export default function TaskDetailClient() {
   );
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [task, setTask] = useState<Task | null>(null);
-  const [text, setText] = useState("");
-  const [file, setFile] = useState<File | null>(null);
-  const [status, setStatus] = useState<"idle" | "loading" | "saving" | "done" | "error">(
-    "loading"
-  );
+  const [status, setStatus] = useState<"idle" | "loading" | "error">("loading");
   const [error, setError] = useState<string | null>(null);
-  const [validationError, setValidationError] = useState<string | null>(null);
 
   const [contactLoading, setContactLoading] = useState(false);
   const [contactError, setContactError] = useState<string | null>(null);
@@ -363,55 +358,6 @@ export default function TaskDetailClient() {
     }
   }
 
-  async function onSubmit(event: React.FormEvent) {
-    event.preventDefault();
-    if (!task) return;
-
-    setStatus("saving");
-    setError(null);
-    setValidationError(null);
-
-    try {
-      const formData = new FormData();
-      formData.append("task_id", task.id);
-      const type = task.deliverable || "text";
-      formData.append("type", type);
-      if (humanId && humanTestToken) {
-        formData.append("human_id", humanId);
-        formData.append("human_test_token", humanTestToken);
-      }
-      if (type === "text") {
-        if (!text.trim()) {
-          setValidationError(strings.missingText);
-          setStatus("idle");
-          return;
-        }
-        formData.append("text", text);
-      } else if (file) {
-        formData.append("file", file);
-      } else {
-        setValidationError(strings.missingFile);
-        setStatus("idle");
-        return;
-      }
-
-      const res = await fetch("/api/submissions", {
-        method: "POST",
-        body: formData
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data?.reason || "failed");
-      }
-
-      setStatus("done");
-    } catch (err: any) {
-      setError(err.message || "failed");
-      setStatus("error");
-    }
-  }
-
   if (status === "loading") {
     return <p>{strings.loading}</p>;
   }
@@ -429,8 +375,6 @@ export default function TaskDetailClient() {
   );
   const showIntlFeeNote = Boolean(task.is_international_payout);
   const showBestEffort = Boolean(strings.bestEffort && strings.noTimeGuarantee);
-  const canSubmit =
-    deliverable === "text" ? text.trim().length > 0 : Boolean(file);
   const isAssignedToMe = Boolean(task.human_id && humanId && task.human_id === humanId);
   const canActAsHuman = isLoggedIn || Boolean(humanId && humanTestToken);
   const canApply = canActAsHuman && task.status === "open" && Boolean(humanId);
@@ -723,39 +667,15 @@ export default function TaskDetailClient() {
         </div>
 
         {canActAsHuman && isAssignedToMe && task.status === "accepted" && (
-          <form className="card task-side-card" onSubmit={onSubmit}>
+          <div className="card task-side-card">
             <h3>{strings.deliverTask}</h3>
-            {deliverable === "text" && (
-              <label>
-                {strings.text}
-                <textarea value={text} onChange={(e) => setText(e.target.value)} rows={5} />
-              </label>
-            )}
-            {deliverable !== "text" && (
-              <label>
-                {strings.upload} {deliverable}
-                <input
-                  type="file"
-                  accept={deliverable === "photo" ? "image/*" : "video/*"}
-                  onChange={(e) => setFile(e.target.files?.[0] || null)}
-                />
-              </label>
-            )}
-            <button type="submit" disabled={status === "saving" || !canSubmit}>
-              {status === "saving" ? strings.loading : strings.submit}
-            </button>
-            {validationError && (
-              <p className="muted">
-                {strings.failed}: {validationError}
-              </p>
-            )}
-            {status === "error" && error && (
-              <p className="muted">
-                {strings.failed}: {error}
-              </p>
-            )}
-            {status === "done" && <p className="muted">{strings.submitted}</p>}
-          </form>
+            <a
+              className="button-link"
+              href={`/me?lang=${lang}&tab=messages&task_id=${encodeURIComponent(task.id)}`}
+            >
+              {strings.openMessages}
+            </a>
+          </div>
         )}
 
         <div className="card task-side-card">

@@ -85,6 +85,29 @@ button:hover {
   color: #0f1218;
 }
 
+/* Anchor styled like primary button (used for navigation). */
+a.button-link {
+  display: block;
+  width: 100%;
+  padding: 12px 14px;
+  margin-top: 6px;
+  border: 1px solid #ff8a1c;
+  border-radius: 10px;
+  font-size: 14px;
+  background: #ff8a1c;
+  color: #101318;
+  cursor: pointer;
+  font-weight: 700;
+  text-align: center;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+a.button-link:hover {
+  background: #ff6b00;
+  border-color: #ff6b00;
+  color: #0f1218;
+}
+
 button.secondary {
   background: #2f9e44;
   color: #f5fff6;

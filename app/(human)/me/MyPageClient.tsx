@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { normalizeLang, UI_STRINGS } from "@/lib/i18n";
 import RegisterClient from "../register/RegisterClient";
@@ -13,7 +13,14 @@ export default function MyPageClient() {
   const searchParams = useSearchParams();
   const lang = useMemo(() => normalizeLang(searchParams.get("lang")), [searchParams]);
   const strings = UI_STRINGS[lang];
-  const [activeTab, setActiveTab] = useState<TabKey>("profile");
+  const initialTab = useMemo((): TabKey => {
+    const raw = (searchParams.get("tab") || "").toLowerCase();
+    if (raw === "payments" || raw === "messages" || raw === "api" || raw === "profile") {
+      return raw as TabKey;
+    }
+    return "profile";
+  }, [searchParams]);
+  const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
   const formId = "profile-form";
 
   const tabs: Array<{ key: TabKey; label: string }> = [
@@ -22,6 +29,10 @@ export default function MyPageClient() {
     { key: "messages", label: strings.tabMessages },
     { key: "api", label: strings.tabApi }
   ];
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
 
   return (
     <div className="mypage">
