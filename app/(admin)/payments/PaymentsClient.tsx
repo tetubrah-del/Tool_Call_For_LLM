@@ -70,13 +70,7 @@ export default function PaymentsClient() {
     }
   }
 
-  useEffect(() => {
-    const saved = localStorage.getItem("admin_token") || "";
-    if (saved) {
-      setAdminToken(saved);
-      setTokenReady(true);
-    }
-  }, []);
+  // Intentionally do not persist admin token in localStorage.
 
   async function approveTask(taskId: string) {
     const res = await fetch(`/api/tasks/${taskId}/pay`, {
@@ -136,9 +130,35 @@ export default function PaymentsClient() {
   }
 
   function onSetToken() {
-    localStorage.setItem("admin_token", adminToken);
     setTokenReady(true);
     loadTasks();
+  }
+
+  async function exportCsv() {
+    if (!tokenReady) {
+      setError("Admin token required");
+      return;
+    }
+    try {
+      const res = await fetch("/api/payments/export", {
+        headers: { "x-admin-token": adminToken }
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.reason || "failed");
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "payments.csv";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      setError(err.message || "failed");
+    }
   }
 
   return (
@@ -165,18 +185,9 @@ export default function PaymentsClient() {
         <button onClick={loadTasks} disabled={loading || !tokenReady}>
           {loading ? "Loading..." : "Refresh"}
         </button>
-        <a
-          className="secondary"
-          href={tokenReady ? `/api/payments/export?token=${encodeURIComponent(adminToken)}` : "#"}
-          onClick={(event) => {
-            if (!tokenReady) {
-              event.preventDefault();
-              setError("Admin token required");
-            }
-          }}
-        >
+        <button type="button" className="secondary" onClick={exportCsv} disabled={!tokenReady}>
           Export CSV
-        </a>
+        </button>
       </div>
       {error && <p className="muted">Error: {error}</p>}
 
