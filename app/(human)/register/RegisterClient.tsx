@@ -56,10 +56,25 @@ export default function RegisterClient({
   const searchParams = useSearchParams();
   const lang = useMemo<UiLang>(() => normalizeLang(searchParams.get("lang")), [searchParams]);
   const [name, setName] = useState("");
+  // `location` is used for task matching (exact match). Keep it as the "city/ward" field.
   const [location, setLocation] = useState("");
   const [country, setCountry] = useState("JP");
   const [paypalEmail, setPaypalEmail] = useState("");
   const [minBudgetUsd, setMinBudgetUsd] = useState("15");
+  const [headline, setHeadline] = useState("");
+  const [gender, setGender] = useState("unspecified");
+  const [bio, setBio] = useState("");
+  const [region, setRegion] = useState("");
+  const [timezone, setTimezone] = useState("UTC");
+  const [hourlyRateUsd, setHourlyRateUsd] = useState("");
+  const [skills, setSkills] = useState<string[]>([]);
+  const [skillInput, setSkillInput] = useState("");
+  const [twitterUrl, setTwitterUrl] = useState("");
+  const [githubUrl, setGithubUrl] = useState("");
+  const [instagramUrl, setInstagramUrl] = useState("");
+  const [linkedinUrl, setLinkedinUrl] = useState("");
+  const [websiteUrl, setWebsiteUrl] = useState("");
+  const [youtubeUrl, setYoutubeUrl] = useState("");
   const [status, setStatus] = useState<"idle" | "saving" | "done" | "error">("idle");
   const [humanId, setHumanId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -68,6 +83,51 @@ export default function RegisterClient({
   const strings = UI_STRINGS[lang];
   const normalizedCountry = country.trim().toUpperCase();
   const hasCountryInList = COUNTRY_OPTIONS.some((option) => option.code === normalizedCountry);
+  const MAX_BIO_LENGTH = 4000;
+  const MAX_SKILLS = 5;
+  const TIMEZONE_OPTIONS = [
+    "UTC",
+    "Asia/Tokyo",
+    "Asia/Seoul",
+    "Asia/Singapore",
+    "Asia/Hong_Kong",
+    "America/Los_Angeles",
+    "America/New_York",
+    "Europe/London",
+    "Europe/Berlin",
+    "Australia/Sydney"
+  ];
+
+  function parseSkillsJson(value: unknown): string[] {
+    if (typeof value !== "string" || !value.trim()) return [];
+    try {
+      const parsed = JSON.parse(value);
+      if (!Array.isArray(parsed)) return [];
+      return parsed
+        .map((v) => (typeof v === "string" ? v.trim() : ""))
+        .filter(Boolean);
+    } catch {
+      return [];
+    }
+  }
+
+  function normalizeSkill(value: string): string {
+    return value.trim().replace(/\s+/g, " ").slice(0, 40);
+  }
+
+  function addSkill(raw: string) {
+    const next = normalizeSkill(raw);
+    if (!next) return;
+    setSkills((prev) => {
+      if (prev.includes(next)) return prev;
+      if (prev.length >= MAX_SKILLS) return prev;
+      return [...prev, next];
+    });
+  }
+
+  function removeSkill(skill: string) {
+    setSkills((prev) => prev.filter((v) => v !== skill));
+  }
 
   async function parseApiResponse(res: Response) {
     const raw = await res.text();
@@ -101,7 +161,8 @@ export default function RegisterClient({
         const data = await res.json();
         if (!cancelled && data.profile) {
           setName(data.profile.name || "");
-          setLocation(data.profile.location || "");
+          const city = data.profile.city || data.profile.location || "";
+          setLocation(city);
           setCountry(
             typeof data.profile.country === "string" && data.profile.country.trim()
               ? data.profile.country.trim().toUpperCase()
@@ -109,6 +170,23 @@ export default function RegisterClient({
           );
           setPaypalEmail(data.profile.paypal_email || "");
           setMinBudgetUsd(String(data.profile.min_budget_usd ?? 15));
+          setHeadline(data.profile.headline || "");
+          setGender(typeof data.profile.gender === "string" ? data.profile.gender : "unspecified");
+          setBio(data.profile.bio || "");
+          setRegion(data.profile.region || "");
+          setTimezone(data.profile.timezone || "UTC");
+          setHourlyRateUsd(
+            data.profile.hourly_rate_usd === null || data.profile.hourly_rate_usd === undefined
+              ? ""
+              : String(data.profile.hourly_rate_usd)
+          );
+          setSkills(parseSkillsJson(data.profile.skills_json));
+          setTwitterUrl(data.profile.twitter_url || "");
+          setGithubUrl(data.profile.github_url || "");
+          setInstagramUrl(data.profile.instagram_url || "");
+          setLinkedinUrl(data.profile.linkedin_url || "");
+          setWebsiteUrl(data.profile.website_url || "");
+          setYoutubeUrl(data.profile.youtube_url || "");
           setHumanId(data.profile.id || null);
           if (data.profile.id) {
             localStorage.setItem("human_id", data.profile.id);
@@ -145,7 +223,21 @@ export default function RegisterClient({
           location,
           country,
           paypal_email: paypalEmail,
-          min_budget_usd: Number(minBudgetUsd)
+          min_budget_usd: Number(minBudgetUsd),
+          headline,
+          gender,
+          bio,
+          city: location,
+          region,
+          timezone,
+          hourly_rate_usd: hourlyRateUsd ? Number(hourlyRateUsd) : null,
+          skills,
+          twitter_url: twitterUrl,
+          github_url: githubUrl,
+          instagram_url: instagramUrl,
+          linkedin_url: linkedinUrl,
+          website_url: websiteUrl,
+          youtube_url: youtubeUrl
         })
       });
 
@@ -169,55 +261,235 @@ export default function RegisterClient({
         <h1>{title || strings.registerTitle}</h1>
       </div>
       {loadingProfile && <p className="muted">{strings.loading}</p>}
-      <form id={formId} className="card" onSubmit={onSubmit}>
-        <label>
-          {strings.displayName}
-          <input value={name} onChange={(e) => setName(e.target.value)} required />
-        </label>
-        <label>
-          {strings.locationHint}
-          <input value={location} onChange={(e) => setLocation(e.target.value)} />
-        </label>
-        <label>
-          {strings.countryLabel}
-          <select value={normalizedCountry || "JP"} onChange={(e) => setCountry(e.target.value)} required>
-            {!hasCountryInList && normalizedCountry && (
-              <option value={normalizedCountry}>{normalizedCountry}</option>
-            )}
-            {COUNTRY_OPTIONS.map((option) => (
-              <option key={option.code} value={option.code}>
-                {option.code} - {lang === "ja" ? option.ja : option.en}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          {strings.paypalEmail}
-          <input
-            type="email"
-            value={paypalEmail}
-            onChange={(e) => setPaypalEmail(e.target.value)}
-            placeholder={strings.paypalEmailPlaceholder}
-            required
+      <form id={formId} className="profile-form" onSubmit={onSubmit}>
+        <div className="card profile-section">
+          <div className="profile-grid profile-grid-3">
+            <label>
+              {strings.displayName}
+              <input value={name} onChange={(e) => setName(e.target.value)} required />
+            </label>
+            <label>
+              {strings.headlineLabel}
+              <input
+                value={headline}
+                onChange={(e) => setHeadline(e.target.value)}
+                placeholder={strings.headlinePlaceholder}
+              />
+            </label>
+            <label>
+              {strings.genderLabel}
+              <select value={gender} onChange={(e) => setGender(e.target.value)}>
+                <option value="unspecified">{strings.genderPlaceholder}</option>
+                <option value="male">{strings.genderMale}</option>
+                <option value="female">{strings.genderFemale}</option>
+                <option value="nonbinary">{strings.genderNonbinary}</option>
+                <option value="other">{strings.genderOther}</option>
+                <option value="prefer_not_to_say">{strings.genderPreferNot}</option>
+              </select>
+            </label>
+          </div>
+
+          <div className="label-row">
+            <label className="label-inline">{strings.bioLabel}</label>
+            <span className="muted">
+              {Math.min(bio.length, MAX_BIO_LENGTH)}/{MAX_BIO_LENGTH}
+            </span>
+          </div>
+          <textarea
+            value={bio}
+            onChange={(e) => setBio(e.target.value.slice(0, MAX_BIO_LENGTH))}
+            rows={6}
+            placeholder={strings.bioPlaceholder}
           />
-        </label>
-        <label>
-          {strings.minBudget}
-          <input
-            type="number"
-            step="1"
-            min="1"
-            value={minBudgetUsd}
-            onChange={(e) => setMinBudgetUsd(e.target.value)}
-            required
-          />
-        </label>
+        </div>
+
+        <div className="card profile-section">
+          <h3 className="profile-section-title">{strings.locationSectionTitle}</h3>
+          <div className="profile-grid profile-grid-3">
+            <label>
+              {strings.cityLabel}
+              <input value={location} onChange={(e) => setLocation(e.target.value)} />
+            </label>
+            <label>
+              {strings.regionLabel}
+              <input value={region} onChange={(e) => setRegion(e.target.value)} />
+            </label>
+            <label>
+              {strings.countryLabel}
+              <select
+                value={normalizedCountry || "JP"}
+                onChange={(e) => setCountry(e.target.value)}
+                required
+              >
+                {!hasCountryInList && normalizedCountry && (
+                  <option value={normalizedCountry}>{normalizedCountry}</option>
+                )}
+                {COUNTRY_OPTIONS.map((option) => (
+                  <option key={option.code} value={option.code}>
+                    {option.code} - {lang === "ja" ? option.ja : option.en}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <div className="card profile-section">
+          <div className="profile-section-head">
+            <h3 className="profile-section-title">{strings.skillsLabel}</h3>
+            <span className="muted">
+              {skills.length} / {MAX_SKILLS}
+            </span>
+          </div>
+          <div className="row profile-skill-row">
+            <input
+              value={skillInput}
+              onChange={(e) => setSkillInput(e.target.value)}
+              placeholder={strings.skillsPlaceholder}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addSkill(skillInput);
+                  setSkillInput("");
+                }
+              }}
+            />
+            <button
+              type="button"
+              className="secondary inline-button"
+              onClick={() => {
+                addSkill(skillInput);
+                setSkillInput("");
+              }}
+              disabled={!skillInput.trim() || skills.length >= MAX_SKILLS}
+            >
+              {strings.skillsAdd}
+            </button>
+          </div>
+          {skills.length > 0 && (
+            <div className="tag-list">
+              {skills.map((skill) => (
+                <button
+                  key={skill}
+                  type="button"
+                  className="tag"
+                  onClick={() => removeSkill(skill)}
+                  title="Remove"
+                >
+                  {skill} <span className="tag-x">×</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="card profile-section">
+          <h3 className="profile-section-title">{strings.socialLinksTitle}</h3>
+          <div className="profile-grid profile-grid-2">
+            <label>
+              {strings.twitterLabel}
+              <input
+                value={twitterUrl}
+                onChange={(e) => setTwitterUrl(e.target.value)}
+                placeholder="twitter.com/username"
+              />
+            </label>
+            <label>
+              {strings.linkedinLabel}
+              <input
+                value={linkedinUrl}
+                onChange={(e) => setLinkedinUrl(e.target.value)}
+                placeholder="linkedin.com/in/username"
+              />
+            </label>
+            <label>
+              {strings.githubLabel}
+              <input
+                value={githubUrl}
+                onChange={(e) => setGithubUrl(e.target.value)}
+                placeholder="github.com/username"
+              />
+            </label>
+            <label>
+              {strings.websiteLabel}
+              <input
+                value={websiteUrl}
+                onChange={(e) => setWebsiteUrl(e.target.value)}
+                placeholder="yoursite.com"
+              />
+            </label>
+            <label>
+              {strings.instagramLabel}
+              <input
+                value={instagramUrl}
+                onChange={(e) => setInstagramUrl(e.target.value)}
+                placeholder="instagram.com/username"
+              />
+            </label>
+            <label>
+              {strings.youtubeLabel}
+              <input
+                value={youtubeUrl}
+                onChange={(e) => setYoutubeUrl(e.target.value)}
+                placeholder="youtube.com/@channel"
+              />
+            </label>
+          </div>
+
+          <div className="profile-grid profile-grid-2">
+            <label>
+              {strings.hourlyRateUsdLabel}
+              <input
+                type="number"
+                step="1"
+                min="0"
+                value={hourlyRateUsd}
+                onChange={(e) => setHourlyRateUsd(e.target.value)}
+                placeholder="50"
+              />
+            </label>
+            <label>
+              {strings.timezoneLabel}
+              <select value={timezone} onChange={(e) => setTimezone(e.target.value)}>
+                {TIMEZONE_OPTIONS.map((tz) => (
+                  <option key={tz} value={tz}>
+                    {tz}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <div className="card profile-section">
+          <h3 className="profile-section-title">{strings.tabPayments}</h3>
+          <div className="profile-grid profile-grid-2">
+            <label>
+              {strings.paypalEmail}
+              <input
+                type="email"
+                value={paypalEmail}
+                onChange={(e) => setPaypalEmail(e.target.value)}
+                placeholder={strings.paypalEmailPlaceholder}
+                required
+              />
+            </label>
+            <label>
+              {strings.minBudget}
+              <input
+                type="number"
+                step="1"
+                min="1"
+                value={minBudgetUsd}
+                onChange={(e) => setMinBudgetUsd(e.target.value)}
+                required
+              />
+            </label>
+          </div>
+        </div>
+
         {showSubmit && (
-          <button
-            type="submit"
-            disabled={status === "saving"}
-            className={submitClassName}
-          >
+          <button type="submit" disabled={status === "saving"} className={submitClassName}>
             {status === "saving" ? strings.saving : submitLabel ?? strings.saveProfile}
           </button>
         )}

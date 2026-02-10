@@ -139,6 +139,20 @@ async function initPostgres() {
       location TEXT,
       country TEXT NOT NULL,
       min_budget_usd DOUBLE PRECISION NOT NULL,
+      headline TEXT,
+      gender TEXT,
+      bio TEXT,
+      city TEXT,
+      region TEXT,
+      timezone TEXT,
+      hourly_rate_usd DOUBLE PRECISION,
+      skills_json TEXT,
+      twitter_url TEXT,
+      github_url TEXT,
+      instagram_url TEXT,
+      linkedin_url TEXT,
+      website_url TEXT,
+      youtube_url TEXT,
       status TEXT NOT NULL,
       created_at TEXT NOT NULL
     )`,
@@ -336,6 +350,20 @@ async function initPostgres() {
     `ALTER TABLE humans ADD COLUMN IF NOT EXISTS paypal_email TEXT`,
     `ALTER TABLE humans ADD COLUMN IF NOT EXISTS stripe_account_id TEXT`,
     `ALTER TABLE humans ADD COLUMN IF NOT EXISTS country TEXT`,
+    `ALTER TABLE humans ADD COLUMN IF NOT EXISTS headline TEXT`,
+    `ALTER TABLE humans ADD COLUMN IF NOT EXISTS gender TEXT`,
+    `ALTER TABLE humans ADD COLUMN IF NOT EXISTS bio TEXT`,
+    `ALTER TABLE humans ADD COLUMN IF NOT EXISTS city TEXT`,
+    `ALTER TABLE humans ADD COLUMN IF NOT EXISTS region TEXT`,
+    `ALTER TABLE humans ADD COLUMN IF NOT EXISTS timezone TEXT`,
+    `ALTER TABLE humans ADD COLUMN IF NOT EXISTS hourly_rate_usd DOUBLE PRECISION`,
+    `ALTER TABLE humans ADD COLUMN IF NOT EXISTS skills_json TEXT`,
+    `ALTER TABLE humans ADD COLUMN IF NOT EXISTS twitter_url TEXT`,
+    `ALTER TABLE humans ADD COLUMN IF NOT EXISTS github_url TEXT`,
+    `ALTER TABLE humans ADD COLUMN IF NOT EXISTS instagram_url TEXT`,
+    `ALTER TABLE humans ADD COLUMN IF NOT EXISTS linkedin_url TEXT`,
+    `ALTER TABLE humans ADD COLUMN IF NOT EXISTS website_url TEXT`,
+    `ALTER TABLE humans ADD COLUMN IF NOT EXISTS youtube_url TEXT`,
     `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS task_en TEXT`,
     `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS origin_country TEXT`,
     `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS task_label TEXT`,
@@ -391,6 +419,20 @@ async function initSqlite() {
       location TEXT,
       country TEXT NOT NULL,
       min_budget_usd REAL NOT NULL,
+      headline TEXT,
+      gender TEXT,
+      bio TEXT,
+      city TEXT,
+      region TEXT,
+      timezone TEXT,
+      hourly_rate_usd REAL,
+      skills_json TEXT,
+      twitter_url TEXT,
+      github_url TEXT,
+      instagram_url TEXT,
+      linkedin_url TEXT,
+      website_url TEXT,
+      youtube_url TEXT,
       status TEXT NOT NULL,
       created_at TEXT NOT NULL
     );
@@ -620,6 +662,20 @@ async function initSqlite() {
   ensureSqliteColumn(db, "humans", "paypal_email", "TEXT");
   ensureSqliteColumn(db, "humans", "stripe_account_id", "TEXT");
   ensureSqliteColumn(db, "humans", "country", "TEXT");
+  ensureSqliteColumn(db, "humans", "headline", "TEXT");
+  ensureSqliteColumn(db, "humans", "gender", "TEXT");
+  ensureSqliteColumn(db, "humans", "bio", "TEXT");
+  ensureSqliteColumn(db, "humans", "city", "TEXT");
+  ensureSqliteColumn(db, "humans", "region", "TEXT");
+  ensureSqliteColumn(db, "humans", "timezone", "TEXT");
+  ensureSqliteColumn(db, "humans", "hourly_rate_usd", "REAL");
+  ensureSqliteColumn(db, "humans", "skills_json", "TEXT");
+  ensureSqliteColumn(db, "humans", "twitter_url", "TEXT");
+  ensureSqliteColumn(db, "humans", "github_url", "TEXT");
+  ensureSqliteColumn(db, "humans", "instagram_url", "TEXT");
+  ensureSqliteColumn(db, "humans", "linkedin_url", "TEXT");
+  ensureSqliteColumn(db, "humans", "website_url", "TEXT");
+  ensureSqliteColumn(db, "humans", "youtube_url", "TEXT");
   ensureSqliteColumn(db, "idempotency_keys", "status_code", "INTEGER");
   ensureSqliteColumn(db, "idempotency_keys", "response_body", "TEXT");
   ensureSqliteColumn(db, "webhook_endpoints", "events", "TEXT");
