@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { calculatePayout, normalizePaymentStatus } from "@/lib/payments";
-import { requireAdminToken } from "@/lib/admin-auth";
+import { requireAdmin } from "@/lib/admin-auth";
 
 export async function POST(
   request: Request,
   { params }: { params: { taskId: string } }
 ) {
-  const authError = requireAdminToken(request);
+  const authError = await requireAdmin(request);
   if (authError) return authError;
 
   const payload: any = await request.json().catch(() => ({}));

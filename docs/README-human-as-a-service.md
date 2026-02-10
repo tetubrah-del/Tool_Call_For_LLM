@@ -362,7 +362,7 @@ or
 ### Admin payments (manual)
 
 1. Open `/payments` (admin UI).
-1. Set `ADMIN_TOKEN` in the environment and enter it in the admin UI (not persisted; re-enter after refresh).
+1. Set `ADMIN_EMAILS` (comma-separated list of admin emails) in the environment. Admin pages/API require a logged-in session whose email is in this allowlist.
 2. Find completed tasks under **Unpaid**.
 3. Enter PayPal fee (USD). Use `0` for domestic.
 4. Click **Mark Paid** after sending payout.

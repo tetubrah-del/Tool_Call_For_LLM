@@ -31,8 +31,7 @@ export default function PaymentsClient() {
   const [paypalFees, setPaypalFees] = useState<Record<string, string>>({});
   const [batchIds, setBatchIds] = useState<Record<string, string>>({});
   const [failureMessages, setFailureMessages] = useState<Record<string, string>>({});
-  const [adminToken, setAdminToken] = useState("");
-  const [tokenReady, setTokenReady] = useState(false);
+  const [authReady, setAuthReady] = useState(false);
 
   const pendingTasks = useMemo(
     () => tasks.filter((task) => task.status === "completed" && task.paid_status === "pending"),
@@ -55,11 +54,10 @@ export default function PaymentsClient() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/admin/tasks", {
-        headers: { "x-admin-token": adminToken }
-      });
+      const res = await fetch("/api/admin/tasks");
       if (!res.ok) {
-        throw new Error("failed to load");
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.reason || "failed to load");
       }
       const data = await res.json();
       setTasks(data.tasks || []);
@@ -70,12 +68,17 @@ export default function PaymentsClient() {
     }
   }
 
-  // Intentionally do not persist admin token in localStorage.
+  useEffect(() => {
+    // If the user can render this page, they should have a session. We'll confirm by attempting an API call.
+    setAuthReady(true);
+    void loadTasks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function approveTask(taskId: string) {
     const res = await fetch(`/api/tasks/${taskId}/pay`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-admin-token": adminToken },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "approve" })
     });
     if (!res.ok) {
@@ -91,7 +94,7 @@ export default function PaymentsClient() {
     const message = (failureMessages[taskId] || "").trim();
     const res = await fetch(`/api/tasks/${taskId}/pay`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-admin-token": adminToken },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "mark_failed", error_message: message || null })
     });
     if (!res.ok) {
@@ -103,7 +106,7 @@ export default function PaymentsClient() {
     await loadTasks();
   }
 
-  async function markPaid(taskId: string, budgetUsd: number) {
+  async function markPaid(taskId: string, _budgetUsd: number) {
     const feeInput = paypalFees[taskId] || "0";
     const paypalFeeUsd = Number(feeInput);
     if (!Number.isFinite(paypalFeeUsd) || paypalFeeUsd < 0) {
@@ -113,7 +116,7 @@ export default function PaymentsClient() {
     const payoutBatchId = (batchIds[taskId] || "").trim();
     const res = await fetch(`/api/tasks/${taskId}/pay`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-admin-token": adminToken },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         action: "mark_paid",
         paypal_fee_usd: paypalFeeUsd,
@@ -129,20 +132,9 @@ export default function PaymentsClient() {
     await loadTasks();
   }
 
-  function onSetToken() {
-    setTokenReady(true);
-    loadTasks();
-  }
-
   async function exportCsv() {
-    if (!tokenReady) {
-      setError("Admin token required");
-      return;
-    }
     try {
-      const res = await fetch("/api/payments/export", {
-        headers: { "x-admin-token": adminToken }
-      });
+      const res = await fetch("/api/payments/export");
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data?.reason || "failed");
@@ -165,27 +157,11 @@ export default function PaymentsClient() {
     <div>
       <h1>Payments</h1>
       <p className="muted">Minimum budget: ${MIN_BUDGET_USD}</p>
-      {!tokenReady && (
-        <div className="card">
-          <label>
-            Admin Token
-            <input
-              type="password"
-              value={adminToken}
-              onChange={(e) => setAdminToken(e.target.value)}
-              placeholder="Set ADMIN_TOKEN"
-            />
-          </label>
-          <button onClick={onSetToken} disabled={!adminToken}>
-            Save Token
-          </button>
-        </div>
-      )}
       <div className="row">
-        <button onClick={loadTasks} disabled={loading || !tokenReady}>
+        <button onClick={loadTasks} disabled={loading || !authReady}>
           {loading ? "Loading..." : "Refresh"}
         </button>
-        <button type="button" className="secondary" onClick={exportCsv} disabled={!tokenReady}>
+        <button type="button" className="secondary" onClick={exportCsv} disabled={!authReady}>
           Export CSV
         </button>
       </div>
