@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { UI_STRINGS, type UiLang } from "@/lib/i18n";
 
 type Inquiry = {
@@ -51,6 +52,8 @@ type MessagesPanelProps = {
 
 export default function MessagesPanel({ lang }: MessagesPanelProps) {
   const strings = UI_STRINGS[lang];
+  const searchParams = useSearchParams();
+  const preferredTaskId = (searchParams.get("task_id") || "").trim() || null;
   const [channels, setChannels] = useState<Channel[]>([]);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [threadMessages, setThreadMessages] = useState<ContactMessage[]>([]);
@@ -80,6 +83,9 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
       const nextChannels = data.channels || [];
       setChannels(nextChannels);
       setSelectedTaskId((current) => {
+        if (preferredTaskId && nextChannels.some((ch: Channel) => ch.task_id === preferredTaskId)) {
+          return preferredTaskId;
+        }
         if (current && nextChannels.some((ch: Channel) => ch.task_id === current)) {
           return current;
         }
@@ -94,7 +100,8 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
 
   useEffect(() => {
     loadMessages();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preferredTaskId]);
 
   useEffect(() => {
     async function loadThread() {

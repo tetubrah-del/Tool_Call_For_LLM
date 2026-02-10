@@ -205,6 +205,7 @@ export const UI_STRINGS: Record<UiLang, Record<string, string>> = {
     applyClosed: "Applications are closed for this task.",
     backToTasks: "Back to Tasks",
     submitted: "Submitted.",
+    openMessages: "Open messages",
     taskNotFound: "Task not found."
   },
   ja: {
@@ -408,6 +409,7 @@ export const UI_STRINGS: Record<UiLang, Record<string, string>> = {
     applyClosed: "このタスクの応募受付は終了しました。",
     backToTasks: "タスク一覧へ",
     submitted: "送信しました。",
+    openMessages: "メッセージへ",
     taskNotFound: "タスクが見つかりません。"
   }
 };
