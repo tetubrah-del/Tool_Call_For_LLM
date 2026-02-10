@@ -59,7 +59,6 @@ export default function RegisterClient({
   // `location` is used for task matching (exact match). Keep it as the "city/ward" field.
   const [location, setLocation] = useState("");
   const [country, setCountry] = useState("JP");
-  const [paypalEmail, setPaypalEmail] = useState("");
   const [minBudgetUsd, setMinBudgetUsd] = useState("15");
   const [headline, setHeadline] = useState("");
   const [gender, setGender] = useState("unspecified");
@@ -167,7 +166,6 @@ export default function RegisterClient({
               ? data.profile.country.trim().toUpperCase()
               : "JP"
           );
-          setPaypalEmail(data.profile.paypal_email || "");
           setMinBudgetUsd(String(data.profile.min_budget_usd ?? 15));
           setHeadline(data.profile.headline || "");
           setGender(typeof data.profile.gender === "string" ? data.profile.gender : "unspecified");
@@ -216,7 +214,6 @@ export default function RegisterClient({
           name,
           location,
           country,
-          paypal_email: paypalEmail,
           min_budget_usd: Number(minBudgetUsd),
           headline,
           gender,
@@ -446,16 +443,6 @@ export default function RegisterClient({
         <div className="card profile-section">
           <h3 className="profile-section-title">{strings.tabPayments}</h3>
           <div className="profile-grid profile-grid-2">
-            <label>
-              {strings.paypalEmail}
-              <input
-                type="email"
-                value={paypalEmail}
-                onChange={(e) => setPaypalEmail(e.target.value)}
-                placeholder={strings.paypalEmailPlaceholder}
-                required
-              />
-            </label>
             <label>
               {strings.minBudget}
               <input

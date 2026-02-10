@@ -145,7 +145,7 @@ A:
 Q:
 - `最初に必要な情報は？`
 A:
-- `name と paypal_email の2つです。`
+- `name と country（ISO2）と min_budget_usd（最低予算）の3つです。`
 
 Q:
 - `会話しながら人を選べますか？`

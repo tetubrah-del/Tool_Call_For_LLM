@@ -341,7 +341,7 @@ or
 - `/profile/:humanId` to view public profile (public photos only)
 - `/me` message tab to manage inquiry history and templates
 - `country` is required on human registration (ISO2, e.g., `JP`).
-- `paypal_email` is required on human registration/profile.
+- `paypal_email` is optional on human registration/profile (PayPal payout is not required).
 
 ---
 

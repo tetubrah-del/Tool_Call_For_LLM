@@ -128,7 +128,7 @@ export async function POST(request: Request) {
     const websiteUrl = normalizeOptionalString(payload?.website_url, 240);
     const youtubeUrl = normalizeOptionalString(payload?.youtube_url, 240);
 
-    if (!name || !Number.isFinite(minBudgetUsd) || !country || !paypalEmail) {
+    if (!name || !Number.isFinite(minBudgetUsd) || !country) {
       return NextResponse.json(
         { status: "error", reason: "invalid_request" },
         { status: 400 }

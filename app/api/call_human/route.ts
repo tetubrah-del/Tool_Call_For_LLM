@@ -176,8 +176,6 @@ export async function POST(request: Request) {
   const stmt = db.prepare(
     `SELECT * FROM humans
      WHERE status = 'available'
-       AND paypal_email IS NOT NULL
-       AND paypal_email <> ''
        AND min_budget_usd <= ?
        ${location ? "AND location = ?" : ""}
      ORDER BY min_budget_usd ASC
@@ -199,7 +197,7 @@ export async function POST(request: Request) {
     taskId
   );
   await db.prepare(`UPDATE tasks SET payee_paypal_email = ? WHERE id = ?`).run(
-    human.paypal_email,
+    human.paypal_email || null,
     taskId
   );
   await db.prepare(`UPDATE humans SET status = 'busy' WHERE id = ?`).run(human.id);
