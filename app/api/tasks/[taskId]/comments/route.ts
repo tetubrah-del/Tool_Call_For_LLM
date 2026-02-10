@@ -18,7 +18,7 @@ export async function GET(
 ) {
   const db = getDb();
   const task = await db
-    .prepare(`SELECT id FROM tasks WHERE id = ?`)
+    .prepare(`SELECT id FROM tasks WHERE id = ? AND deleted_at IS NULL`)
     .get<{ id: string }>(params.taskId);
   if (!task?.id) {
     return NextResponse.json({ status: "not_found" }, { status: 404 });
@@ -50,7 +50,7 @@ export async function POST(
 
   const db = getDb();
   const task = await db
-    .prepare(`SELECT id FROM tasks WHERE id = ?`)
+    .prepare(`SELECT id FROM tasks WHERE id = ? AND deleted_at IS NULL`)
     .get<{ id: string }>(params.taskId);
   if (!task?.id) {
     return NextResponse.json({ status: "not_found" }, { status: 404 });
@@ -80,7 +80,7 @@ export async function POST(
     .run(id, params.taskId, humanId, body, createdAt);
 
   const human = await db
-    .prepare(`SELECT name FROM humans WHERE id = ?`)
+    .prepare(`SELECT name FROM humans WHERE id = ? AND deleted_at IS NULL`)
     .get<{ name: string }>(humanId);
 
   return NextResponse.json({
@@ -95,4 +95,3 @@ export async function POST(
     }
   });
 }
-

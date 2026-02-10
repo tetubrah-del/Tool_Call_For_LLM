@@ -20,7 +20,7 @@ export async function POST(
   }
 
   const task = await db
-    .prepare(`SELECT id, ai_account_id, human_id, status FROM tasks WHERE id = ?`)
+    .prepare(`SELECT id, ai_account_id, human_id, status FROM tasks WHERE id = ? AND deleted_at IS NULL`)
     .get(params.taskId) as
     | { id: string; ai_account_id: string | null; human_id: string | null; status: string }
     | undefined;

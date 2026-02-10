@@ -56,7 +56,7 @@ export async function GET() {
          ) AS message_count
        FROM task_contacts tc
        JOIN tasks t ON t.id = tc.task_id
-       WHERE tc.human_id = ?
+       WHERE tc.human_id = ? AND t.deleted_at IS NULL
        ORDER BY t.created_at DESC`
     )
     .all(humanId);

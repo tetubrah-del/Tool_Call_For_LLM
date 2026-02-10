@@ -16,7 +16,12 @@ export default async function PublicProfilePage({
   const db = getDb();
 
   const human = await db
-    .prepare(`SELECT id, name, location, country, status FROM humans WHERE id = ? LIMIT 1`)
+    .prepare(
+      `SELECT id, name, location, country, status
+       FROM humans
+       WHERE id = ? AND deleted_at IS NULL
+       LIMIT 1`
+    )
     .get(params.humanId) as
     | { id: string; name: string; location: string | null; country: string | null; status: string }
     | undefined;

@@ -83,7 +83,9 @@ export async function GET() {
 
     const db = getDb();
     const profile = await db
-      .prepare(`SELECT * FROM humans WHERE email = ? ORDER BY created_at DESC LIMIT 1`)
+      .prepare(
+        `SELECT * FROM humans WHERE email = ? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1`
+      )
       .get(email);
 
     return NextResponse.json({ profile: profile || null });
@@ -137,7 +139,9 @@ export async function POST(request: Request) {
 
     const db = getDb();
     const existing = await db
-      .prepare(`SELECT * FROM humans WHERE email = ? ORDER BY created_at DESC LIMIT 1`)
+      .prepare(
+        `SELECT * FROM humans WHERE email = ? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1`
+      )
       .get<{ id: string }>(email);
 
     if (existing?.id) {

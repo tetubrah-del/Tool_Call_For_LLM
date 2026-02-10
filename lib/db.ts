@@ -153,6 +153,7 @@ async function initPostgres() {
       linkedin_url TEXT,
       website_url TEXT,
       youtube_url TEXT,
+      deleted_at TEXT,
       status TEXT NOT NULL,
       created_at TEXT NOT NULL
     )`,
@@ -161,6 +162,7 @@ async function initPostgres() {
       name TEXT NOT NULL,
       paypal_email TEXT NOT NULL,
       api_key TEXT NOT NULL,
+      deleted_at TEXT,
       status TEXT NOT NULL,
       created_at TEXT NOT NULL
     )`,
@@ -180,6 +182,7 @@ async function initPostgres() {
       deliverable TEXT,
       deadline_minutes DOUBLE PRECISION,
       deadline_at TEXT,
+      deleted_at TEXT,
       status TEXT NOT NULL,
       failure_reason TEXT,
       human_id TEXT,
@@ -364,6 +367,9 @@ async function initPostgres() {
     `ALTER TABLE humans ADD COLUMN IF NOT EXISTS linkedin_url TEXT`,
     `ALTER TABLE humans ADD COLUMN IF NOT EXISTS website_url TEXT`,
     `ALTER TABLE humans ADD COLUMN IF NOT EXISTS youtube_url TEXT`,
+    `ALTER TABLE humans ADD COLUMN IF NOT EXISTS deleted_at TEXT`,
+    `ALTER TABLE ai_accounts ADD COLUMN IF NOT EXISTS deleted_at TEXT`,
+    `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS deleted_at TEXT`,
     `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS task_en TEXT`,
     `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS origin_country TEXT`,
     `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS task_label TEXT`,
@@ -433,6 +439,7 @@ async function initSqlite() {
       linkedin_url TEXT,
       website_url TEXT,
       youtube_url TEXT,
+      deleted_at TEXT,
       status TEXT NOT NULL,
       created_at TEXT NOT NULL
     );
@@ -442,6 +449,7 @@ async function initSqlite() {
       name TEXT NOT NULL,
       paypal_email TEXT NOT NULL,
       api_key TEXT NOT NULL,
+      deleted_at TEXT,
       status TEXT NOT NULL,
       created_at TEXT NOT NULL
     );
@@ -462,6 +470,7 @@ async function initSqlite() {
       deliverable TEXT,
       deadline_minutes REAL,
       deadline_at TEXT,
+      deleted_at TEXT,
       status TEXT NOT NULL,
       failure_reason TEXT,
       human_id TEXT,
@@ -646,6 +655,7 @@ async function initSqlite() {
   ensureSqliteColumn(db, "tasks", "payer_paypal_email", "TEXT");
   ensureSqliteColumn(db, "tasks", "payee_paypal_email", "TEXT");
   ensureSqliteColumn(db, "tasks", "deadline_at", "TEXT");
+  ensureSqliteColumn(db, "tasks", "deleted_at", "TEXT");
   ensureSqliteColumn(db, "tasks", "failure_reason", "TEXT");
   ensureSqliteColumn(db, "tasks", "submission_id", "TEXT");
   ensureSqliteColumn(db, "tasks", "fee_rate", "REAL");
@@ -676,6 +686,8 @@ async function initSqlite() {
   ensureSqliteColumn(db, "humans", "linkedin_url", "TEXT");
   ensureSqliteColumn(db, "humans", "website_url", "TEXT");
   ensureSqliteColumn(db, "humans", "youtube_url", "TEXT");
+  ensureSqliteColumn(db, "humans", "deleted_at", "TEXT");
+  ensureSqliteColumn(db, "ai_accounts", "deleted_at", "TEXT");
   ensureSqliteColumn(db, "idempotency_keys", "status_code", "INTEGER");
   ensureSqliteColumn(db, "idempotency_keys", "response_body", "TEXT");
   ensureSqliteColumn(db, "webhook_endpoints", "events", "TEXT");

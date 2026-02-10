@@ -35,7 +35,7 @@ export async function verifyAiActor(
 ): Promise<{ id: string } | null> {
   if (!aiAccountId || !aiApiKey) return null;
   const aiAccount = await db
-    .prepare(`SELECT id, api_key, status FROM ai_accounts WHERE id = ?`)
+    .prepare(`SELECT id, api_key, status FROM ai_accounts WHERE id = ? AND deleted_at IS NULL`)
     .get<{ id: string; api_key: string; status: string }>(aiAccountId);
   if (!aiAccount) return null;
   if (aiAccount.api_key !== aiApiKey || aiAccount.status !== "active") return null;

@@ -24,7 +24,7 @@ export async function POST(
 
   const db = getDb();
   const task = await db
-    .prepare(`SELECT * FROM tasks WHERE id = ?`)
+    .prepare(`SELECT * FROM tasks WHERE id = ? AND deleted_at IS NULL`)
     .get(params.taskId);
 
   if (!task) {

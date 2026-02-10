@@ -110,7 +110,7 @@ export async function POST(
   }
 
   const task = await db
-    .prepare(`SELECT id, status, human_id FROM tasks WHERE id = ?`)
+    .prepare(`SELECT id, status, human_id FROM tasks WHERE id = ? AND deleted_at IS NULL`)
     .get<{ id: string; status: string; human_id: string | null }>(params.taskId);
   if (!task?.id) {
     return NextResponse.json({ status: "not_found" }, { status: 404 });
@@ -123,7 +123,7 @@ export async function POST(
   }
 
   const human = await db
-    .prepare(`SELECT id, paypal_email, status FROM humans WHERE id = ?`)
+    .prepare(`SELECT id, paypal_email, status FROM humans WHERE id = ? AND deleted_at IS NULL`)
     .get<{ id: string; paypal_email: string | null; status: string }>(humanId);
   if (!human?.id) {
     return NextResponse.json({ status: "not_found" }, { status: 404 });
