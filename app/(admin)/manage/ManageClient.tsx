@@ -90,11 +90,7 @@ export default function ManageClient() {
   }
 
   useEffect(() => {
-    const saved = localStorage.getItem("admin_token") || "";
-    if (saved) {
-      setAdminToken(saved);
-      setTokenReady(true);
-    }
+    // Intentionally do not persist admin token in localStorage.
   }, []);
 
   useEffect(() => {
@@ -103,7 +99,6 @@ export default function ManageClient() {
   }, [activeTab, queryString, tokenReady]);
 
   function onSetToken() {
-    localStorage.setItem("admin_token", adminToken);
     setTokenReady(true);
     void load();
   }
@@ -319,4 +314,3 @@ export default function ManageClient() {
     </div>
   );
 }
-

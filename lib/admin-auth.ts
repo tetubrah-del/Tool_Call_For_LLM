@@ -9,10 +9,7 @@ export function requireAdminToken(request: Request) {
     );
   }
   const headerToken = request.headers.get("x-admin-token");
-  const url = new URL(request.url);
-  const queryToken = url.searchParams.get("token");
-  const provided = headerToken || queryToken;
-  if (!provided || provided !== expected) {
+  if (!headerToken || headerToken !== expected) {
     return NextResponse.json(
       { status: "error", reason: "unauthorized" },
       { status: 401 }
