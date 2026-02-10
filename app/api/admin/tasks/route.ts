@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { getTaskDisplay } from "@/lib/task-api";
 import { closeContactChannel } from "@/lib/contact-channel";
-import { requireAdminToken } from "@/lib/admin-auth";
+import { requireAdmin } from "@/lib/admin-auth";
 import { normalizeTaskLabel } from "@/lib/task-labels";
 import { normalizePaymentStatus } from "@/lib/payments";
 
@@ -11,7 +11,7 @@ function normalizeText(value: unknown): string {
 }
 
 export async function GET(request: Request) {
-  const authError = requireAdminToken(request);
+  const authError = await requireAdmin(request);
   if (authError) return authError;
 
   const db = getDb();
@@ -57,7 +57,7 @@ export async function GET(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const authError = requireAdminToken(request);
+  const authError = await requireAdmin(request);
   if (authError) return authError;
 
   const payload: any = await request.json().catch(() => ({}));
@@ -96,7 +96,7 @@ export async function DELETE(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  const authError = requireAdminToken(request);
+  const authError = await requireAdmin(request);
   if (authError) return authError;
 
   const payload: any = await request.json().catch(() => ({}));

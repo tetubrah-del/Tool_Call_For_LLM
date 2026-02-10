@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import { requireAdminToken } from "@/lib/admin-auth";
+import { requireAdmin } from "@/lib/admin-auth";
 import { closeContactChannel } from "@/lib/contact-channel";
 
 function normalizeText(value: unknown): string {
@@ -8,7 +8,7 @@ function normalizeText(value: unknown): string {
 }
 
 export async function GET(request: Request) {
-  const authError = requireAdminToken(request);
+  const authError = await requireAdmin(request);
   if (authError) return authError;
 
   const url = new URL(request.url);
@@ -40,7 +40,7 @@ export async function GET(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const authError = requireAdminToken(request);
+  const authError = await requireAdmin(request);
   if (authError) return authError;
 
   const payload: any = await request.json().catch(() => ({}));
@@ -91,7 +91,7 @@ export async function DELETE(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  const authError = requireAdminToken(request);
+  const authError = await requireAdmin(request);
   if (authError) return authError;
 
   const payload: any = await request.json().catch(() => ({}));
@@ -111,4 +111,3 @@ export async function PATCH(request: Request) {
   await db.prepare(`UPDATE humans SET deleted_at = NULL WHERE id = ?`).run(id);
   return NextResponse.json({ status: "restored", id });
 }
-

@@ -36,8 +36,7 @@ type TaskRow = {
 type TabKey = "humans" | "ai" | "tasks";
 
 export default function ManageClient() {
-  const [adminToken, setAdminToken] = useState("");
-  const [tokenReady, setTokenReady] = useState(false);
+  const [authReady, setAuthReady] = useState(false);
   const [activeTab, setActiveTab] = useState<TabKey>("humans");
   const [q, setQ] = useState("");
   const [includeDeleted, setIncludeDeleted] = useState(false);
@@ -48,7 +47,7 @@ export default function ManageClient() {
   const [accounts, setAccounts] = useState<AiAccountRow[]>([]);
   const [tasks, setTasks] = useState<TaskRow[]>([]);
 
-  const canLoad = tokenReady && adminToken.trim().length > 0;
+  const canLoad = authReady;
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
@@ -57,27 +56,23 @@ export default function ManageClient() {
     return params.toString();
   }, [q, includeDeleted]);
 
-  function authHeaders() {
-    return { "x-admin-token": adminToken };
-  }
-
   async function load() {
     if (!canLoad) return;
     setLoading(true);
     setError(null);
     try {
       if (activeTab === "humans") {
-        const res = await fetch(`/api/admin/humans?${queryString}`, { headers: authHeaders() });
+        const res = await fetch(`/api/admin/humans?${queryString}`);
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data?.reason || "failed");
         setHumans(Array.isArray(data.humans) ? data.humans : []);
       } else if (activeTab === "ai") {
-        const res = await fetch(`/api/admin/ai-accounts?${queryString}`, { headers: authHeaders() });
+        const res = await fetch(`/api/admin/ai-accounts?${queryString}`);
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data?.reason || "failed");
         setAccounts(Array.isArray(data.accounts) ? data.accounts : []);
       } else {
-        const res = await fetch(`/api/admin/tasks?${queryString}`, { headers: authHeaders() });
+        const res = await fetch(`/api/admin/tasks?${queryString}`);
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data?.reason || "failed");
         setTasks(Array.isArray(data.tasks) ? data.tasks : []);
@@ -90,24 +85,21 @@ export default function ManageClient() {
   }
 
   useEffect(() => {
-    // Intentionally do not persist admin token in localStorage.
+    setAuthReady(true);
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, queryString, tokenReady]);
-
-  function onSetToken() {
-    setTokenReady(true);
-    void load();
-  }
+  }, [activeTab, queryString, authReady]);
 
   async function deleteHuman(human: HumanRow) {
     if (!confirm(`Soft-delete human ${human.email || human.id}?`)) return;
     const res = await fetch("/api/admin/humans", {
       method: "DELETE",
-      headers: { "Content-Type": "application/json", ...authHeaders() },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: human.id })
     });
     const data = await res.json().catch(() => ({}));
@@ -122,7 +114,7 @@ export default function ManageClient() {
   async function restoreHuman(human: HumanRow) {
     const res = await fetch("/api/admin/humans", {
       method: "PATCH",
-      headers: { "Content-Type": "application/json", ...authHeaders() },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: human.id })
     });
     const data = await res.json().catch(() => ({}));
@@ -138,7 +130,7 @@ export default function ManageClient() {
     if (!confirm(`Soft-delete AI account ${account.id}?`)) return;
     const res = await fetch("/api/admin/ai-accounts", {
       method: "DELETE",
-      headers: { "Content-Type": "application/json", ...authHeaders() },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: account.id })
     });
     const data = await res.json().catch(() => ({}));
@@ -153,7 +145,7 @@ export default function ManageClient() {
   async function restoreAccount(account: AiAccountRow) {
     const res = await fetch("/api/admin/ai-accounts", {
       method: "PATCH",
-      headers: { "Content-Type": "application/json", ...authHeaders() },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: account.id })
     });
     const data = await res.json().catch(() => ({}));
@@ -169,7 +161,7 @@ export default function ManageClient() {
     if (!confirm(`Soft-delete task ${task.id}?`)) return;
     const res = await fetch("/api/admin/tasks", {
       method: "DELETE",
-      headers: { "Content-Type": "application/json", ...authHeaders() },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: task.id })
     });
     const data = await res.json().catch(() => ({}));
@@ -184,7 +176,7 @@ export default function ManageClient() {
   async function restoreTask(task: TaskRow) {
     const res = await fetch("/api/admin/tasks", {
       method: "PATCH",
-      headers: { "Content-Type": "application/json", ...authHeaders() },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: task.id })
     });
     const data = await res.json().catch(() => ({}));
@@ -199,23 +191,6 @@ export default function ManageClient() {
   return (
     <div>
       <h1>Admin: Manage</h1>
-
-      {!tokenReady && (
-        <div className="card">
-          <label>
-            Admin Token
-            <input
-              type="password"
-              value={adminToken}
-              onChange={(e) => setAdminToken(e.target.value)}
-              placeholder="Set ADMIN_TOKEN"
-            />
-          </label>
-          <button onClick={onSetToken} disabled={!adminToken}>
-            Save Token
-          </button>
-        </div>
-      )}
 
       <div className="row">
         <button type="button" className={activeTab === "humans" ? "" : "button-neutral"} onClick={() => setActiveTab("humans")}>
