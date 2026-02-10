@@ -66,7 +66,6 @@ export default function RegisterClient({
   const [bio, setBio] = useState("");
   const [region, setRegion] = useState("");
   const [timezone, setTimezone] = useState("UTC");
-  const [hourlyRateUsd, setHourlyRateUsd] = useState("");
   const [skills, setSkills] = useState<string[]>([]);
   const [skillInput, setSkillInput] = useState("");
   const [twitterUrl, setTwitterUrl] = useState("");
@@ -175,11 +174,6 @@ export default function RegisterClient({
           setBio(data.profile.bio || "");
           setRegion(data.profile.region || "");
           setTimezone(data.profile.timezone || "UTC");
-          setHourlyRateUsd(
-            data.profile.hourly_rate_usd === null || data.profile.hourly_rate_usd === undefined
-              ? ""
-              : String(data.profile.hourly_rate_usd)
-          );
           setSkills(parseSkillsJson(data.profile.skills_json));
           setTwitterUrl(data.profile.twitter_url || "");
           setGithubUrl(data.profile.github_url || "");
@@ -230,7 +224,6 @@ export default function RegisterClient({
           city: location,
           region,
           timezone,
-          hourly_rate_usd: hourlyRateUsd ? Number(hourlyRateUsd) : null,
           skills,
           twitter_url: twitterUrl,
           github_url: githubUrl,
@@ -437,17 +430,6 @@ export default function RegisterClient({
           </div>
 
           <div className="profile-grid profile-grid-2">
-            <label>
-              {strings.hourlyRateUsdLabel}
-              <input
-                type="number"
-                step="1"
-                min="0"
-                value={hourlyRateUsd}
-                onChange={(e) => setHourlyRateUsd(e.target.value)}
-                placeholder="50"
-              />
-            </label>
             <label>
               {strings.timezoneLabel}
               <select value={timezone} onChange={(e) => setTimezone(e.target.value)}>
