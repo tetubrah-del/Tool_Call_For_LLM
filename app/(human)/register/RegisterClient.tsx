@@ -250,12 +250,13 @@ export default function RegisterClient({
       <div className="row">
         <h1>{title || strings.registerTitle}</h1>
       </div>
+      <p className="muted">{strings.requiredFieldsNote}</p>
       {loadingProfile && <p className="muted">{strings.loading}</p>}
       <form id={formId} className="profile-form" onSubmit={onSubmit}>
         <div className="card profile-section">
           <div className="profile-grid profile-grid-3">
             <label>
-              {strings.displayName}
+              {strings.displayName} <span className="muted">* {strings.requiredBadge}</span>
               <input value={name} onChange={(e) => setName(e.target.value)} required />
             </label>
             <label>
@@ -305,7 +306,7 @@ export default function RegisterClient({
               <input value={region} onChange={(e) => setRegion(e.target.value)} />
             </label>
             <label>
-              {strings.countryLabel}
+              {strings.countryLabel} <span className="muted">* {strings.requiredBadge}</span>
               <select
                 value={normalizedCountry || "JP"}
                 onChange={(e) => setCountry(e.target.value)}
@@ -436,23 +437,6 @@ export default function RegisterClient({
                   </option>
                 ))}
               </select>
-            </label>
-          </div>
-        </div>
-
-        <div className="card profile-section">
-          <h3 className="profile-section-title">{strings.tabPayments}</h3>
-          <div className="profile-grid profile-grid-2">
-            <label>
-              {strings.minBudget}
-              <input
-                type="number"
-                step="1"
-                min="1"
-                value={minBudgetUsd}
-                onChange={(e) => setMinBudgetUsd(e.target.value)}
-                required
-              />
             </label>
           </div>
         </div>
