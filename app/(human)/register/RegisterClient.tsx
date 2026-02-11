@@ -58,7 +58,7 @@ export default function RegisterClient({
   const [name, setName] = useState("");
   // `location` is used for task matching (exact match). Keep it as the "city/ward" field.
   const [location, setLocation] = useState("");
-  const [country, setCountry] = useState("JP");
+  const [country, setCountry] = useState("");
   const [minBudgetUsd, setMinBudgetUsd] = useState("15");
   const [headline, setHeadline] = useState("");
   const [gender, setGender] = useState("unspecified");
@@ -164,7 +164,7 @@ export default function RegisterClient({
           setCountry(
             typeof data.profile.country === "string" && data.profile.country.trim()
               ? data.profile.country.trim().toUpperCase()
-              : "JP"
+              : ""
           );
           setMinBudgetUsd(String(data.profile.min_budget_usd ?? 15));
           setHeadline(data.profile.headline || "");
@@ -308,10 +308,11 @@ export default function RegisterClient({
             <label>
               {strings.countryLabel} <span className="muted">* {strings.requiredBadge}</span>
               <select
-                value={normalizedCountry || "JP"}
+                value={normalizedCountry}
                 onChange={(e) => setCountry(e.target.value)}
                 required
               >
+                <option value="">{strings.countryPlaceholder}</option>
                 {!hasCountryInList && normalizedCountry && (
                   <option value={normalizedCountry}>{normalizedCountry}</option>
                 )}
