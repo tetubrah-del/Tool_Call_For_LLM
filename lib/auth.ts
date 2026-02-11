@@ -51,6 +51,10 @@ export const authOptions: NextAuthOptions = {
       return true;
     },
     async jwt({ token, user, account }) {
+      const alreadyTracked = token.oauth_user_tracked === true;
+      const shouldTrack = Boolean(account?.provider) || !alreadyTracked;
+      if (!shouldTrack) return token;
+
       const email = normalizeEmail(user?.email || token?.email);
       if (!email) return token;
       try {
@@ -81,6 +85,7 @@ export const authOptions: NextAuthOptions = {
             : typeof token?.provider === "string"
               ? token.provider
               : "google";
+        token.oauth_user_tracked = true;
       } catch (error) {
         console.error("oauth_user_upsert_jwt_failed", error);
       }
