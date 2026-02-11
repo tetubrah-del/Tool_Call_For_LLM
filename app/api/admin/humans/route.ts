@@ -36,7 +36,35 @@ export async function GET(request: Request) {
     )
     .all(...params);
 
-  return NextResponse.json({ humans });
+  const qSql = q ? "AND (lower(email) LIKE ? OR lower(name) LIKE ?)" : "";
+  const oauthUsers = await db
+    .prepare(
+      `SELECT email, name, first_seen_at
+       FROM oauth_users
+       WHERE NOT EXISTS (
+         SELECT 1 FROM humans h WHERE lower(h.email) = lower(oauth_users.email)
+       )
+       ${qSql}
+       ORDER BY first_seen_at DESC
+       LIMIT 200`
+    )
+    .all(...(q ? [`%${q}%`, `%${q}%`] : []));
+
+  const provisionalHumans = oauthUsers.map((row: any) => ({
+    id: `oauth:${row.email}`,
+    name: row.name || "(oauth user)",
+    email: row.email,
+    country: null,
+    location: null,
+    status: "provisional",
+    created_at: row.first_seen_at,
+    deleted_at: null,
+    is_provisional: true
+  }));
+
+  const normalHumans = humans.map((row: any) => ({ ...row, is_provisional: false }));
+
+  return NextResponse.json({ humans: [...normalHumans, ...provisionalHumans] });
 }
 
 export async function DELETE(request: Request) {
