@@ -209,6 +209,7 @@ async function initPostgres() {
       fx_cost_jpy INTEGER NOT NULL,
       total_amount_jpy INTEGER NOT NULL,
       platform_fee_jpy INTEGER NOT NULL,
+      intl_surcharge_minor INTEGER,
       payer_country TEXT NOT NULL,
       payee_country TEXT NOT NULL,
       is_international INTEGER NOT NULL,
@@ -405,7 +406,8 @@ async function initPostgres() {
     `ALTER TABLE webhook_deliveries ADD COLUMN IF NOT EXISTS status_code INTEGER`,
     `ALTER TABLE webhook_deliveries ADD COLUMN IF NOT EXISTS response_body TEXT`,
     `ALTER TABLE webhook_deliveries ADD COLUMN IF NOT EXISTS error TEXT`,
-    `ALTER TABLE orders ADD COLUMN IF NOT EXISTS provider_error TEXT`
+    `ALTER TABLE orders ADD COLUMN IF NOT EXISTS provider_error TEXT`,
+    `ALTER TABLE orders ADD COLUMN IF NOT EXISTS intl_surcharge_minor INTEGER`
   ];
 
   for (const statement of migrationStatements) {
@@ -617,6 +619,7 @@ async function initSqlite() {
       fx_cost_jpy INTEGER NOT NULL,
       total_amount_jpy INTEGER NOT NULL,
       platform_fee_jpy INTEGER NOT NULL,
+      intl_surcharge_minor INTEGER,
       payer_country TEXT NOT NULL,
       payee_country TEXT NOT NULL,
       is_international INTEGER NOT NULL,
@@ -703,6 +706,7 @@ async function initSqlite() {
   ensureSqliteColumn(db, "contact_messages", "read_by_ai", "INTEGER");
   ensureSqliteColumn(db, "contact_messages", "read_by_human", "INTEGER");
   ensureSqliteColumn(db, "orders", "provider_error", "TEXT");
+  ensureSqliteColumn(db, "orders", "intl_surcharge_minor", "INTEGER");
 }
 
 async function ensureInit() {
@@ -891,7 +895,7 @@ export type Task = {
   paid_status: "unpaid" | "pending" | "approved" | "paid" | "failed" | null;
   approved_at: string | null;
   paid_at: string | null;
-  paid_method: "paypal" | null;
+  paid_method: "paypal" | "stripe" | null;
   payout_batch_id: string | null;
   payment_error_message: string | null;
   created_at: string;

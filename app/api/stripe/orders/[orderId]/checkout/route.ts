@@ -108,6 +108,26 @@ export async function POST(
         ? "国が異なる取引のため、追加コストが発生する可能性があります"
         : null;
 
+    const currency = String(order.currency || "").trim().toLowerCase();
+    if (currency !== "jpy" && currency !== "usd") return conflict("unsupported_currency", { currency });
+
+    const intlSurchargeMinor = Number(order.intl_surcharge_minor || 0);
+    if (!Number.isInteger(intlSurchargeMinor) || intlSurchargeMinor < 0) {
+      return badRequest("invalid_intl_surcharge", { intl_surcharge_minor: order.intl_surcharge_minor });
+    }
+
+    // Total is stored in legacy column name; value represents minor units for `order.currency`.
+    const totalAmountMinor = Number(order.total_amount_jpy);
+    const platformFeeMinor = Number(order.platform_fee_jpy);
+    if (!Number.isInteger(totalAmountMinor) || totalAmountMinor <= 0) return badRequest("invalid_total_amount");
+    if (!Number.isInteger(platformFeeMinor) || platformFeeMinor < 0) return badRequest("invalid_platform_fee");
+
+    // Platform captures surcharge entirely to cover cross-border costs.
+    const applicationFeeMinor = platformFeeMinor + intlSurchargeMinor;
+    if (applicationFeeMinor > totalAmountMinor) {
+      return badRequest("invalid_application_fee", { application_fee_amount: applicationFeeMinor, total_amount: totalAmountMinor });
+    }
+
     const preferRestricted = shouldPreferRestrictedKeyForServerOps();
     const { stripe, used, fallback } = getStripePreferred(preferRestricted);
 
@@ -136,13 +156,13 @@ export async function POST(
       client.checkout.sessions.create(
         {
           mode: "payment",
-          currency: "jpy",
+          currency,
           line_items: [
             {
               quantity: 1,
               price_data: {
-                currency: "jpy",
-                unit_amount: Number(order.total_amount_jpy),
+                currency,
+                unit_amount: totalAmountMinor,
                 product_data: {
                   name: "Order payment"
                 }
@@ -159,7 +179,7 @@ export async function POST(
             version: String(v)
           },
           payment_intent_data: {
-            application_fee_amount: Number(order.platform_fee_jpy),
+            application_fee_amount: applicationFeeMinor,
             transfer_data: {
               destination: String(order.destination_account_id)
             },

@@ -4,7 +4,9 @@ import { getDb } from "@/lib/db";
 import {
   assertNonNegativeInt,
   computeIsInternational,
-  computePlatformFeeJpyFloor,
+  computeIntlSurchargeMinor,
+  computePlatformFeeMinorFloor,
+  currencyFromCountry2,
   normalizeCountry2
 } from "@/lib/stripe";
 
@@ -48,10 +50,19 @@ export async function POST(request: Request) {
     const version = payload?.version == null ? 1 : Number(payload.version);
     if (!Number.isInteger(version) || version <= 0) return badRequest("invalid_version");
 
-    const baseAmountJpy = assertNonNegativeInt(payload?.base_amount_jpy, "base_amount_jpy");
-    const fxCostJpy = payload?.fx_cost_jpy == null ? 0 : assertNonNegativeInt(payload?.fx_cost_jpy, "fx_cost_jpy");
-    const totalAmountJpy = baseAmountJpy + fxCostJpy;
-    const platformFeeJpy = computePlatformFeeJpyFloor(totalAmountJpy);
+    // Amount inputs are expressed in minor units for the chosen currency.
+    // Back-compat: accept legacy *_jpy fields (treated as "minor units").
+    const baseAmountMinor = assertNonNegativeInt(
+      payload?.base_amount_minor ?? payload?.base_amount_jpy,
+      "base_amount_minor"
+    );
+    const fxCostMinor =
+      payload?.fx_cost_minor == null && payload?.fx_cost_jpy == null
+        ? 0
+        : assertNonNegativeInt(
+            payload?.fx_cost_minor ?? payload?.fx_cost_jpy,
+            "fx_cost_minor"
+          );
 
     const db = getDb();
     const task = (await db.prepare(`SELECT * FROM tasks WHERE id = ? AND deleted_at IS NULL`).get(taskId)) as
@@ -74,6 +85,22 @@ export async function POST(request: Request) {
     if (!destinationAccountId.startsWith("acct_")) return conflict("missing_connect_account");
 
     const isInternational = computeIsInternational(payerCountry, payeeCountry);
+    const currency = currencyFromCountry2(payeeCountry);
+
+    // Surcharge policy:
+    // - Applied only when payer_country != payee_country
+    // - Added on top of (base + fx_cost) to cover cross-border fees + risk buffer
+    // - Captured entirely by the platform (see checkout: application_fee_amount includes surcharge)
+    const subtotalMinor = baseAmountMinor + fxCostMinor;
+    const intlSurchargeMinor = computeIntlSurchargeMinor(
+      subtotalMinor,
+      currency,
+      isInternational === 1
+    );
+    const totalAmountMinor = subtotalMinor + intlSurchargeMinor;
+
+    // Platform fee is still 20% of subtotal (excluding surcharge), preserving worker economics.
+    const platformFeeMinor = computePlatformFeeMinorFloor(subtotalMinor);
 
     const now = new Date().toISOString();
     const existing = (await db
@@ -85,11 +112,12 @@ export async function POST(request: Request) {
       version,
       payment_flow: "checkout",
       status: "created",
-      currency: "jpy",
-      base_amount_jpy: baseAmountJpy,
-      fx_cost_jpy: fxCostJpy,
-      total_amount_jpy: totalAmountJpy,
-      platform_fee_jpy: platformFeeJpy,
+      currency,
+      base_amount_jpy: baseAmountMinor,
+      fx_cost_jpy: fxCostMinor,
+      total_amount_jpy: totalAmountMinor,
+      platform_fee_jpy: platformFeeMinor,
+      intl_surcharge_minor: intlSurchargeMinor,
       payer_country: payerCountry,
       payee_country: payeeCountry,
       is_international: isInternational,
@@ -108,6 +136,7 @@ export async function POST(request: Request) {
         "fx_cost_jpy",
         "total_amount_jpy",
         "platform_fee_jpy",
+        "intl_surcharge_minor",
         "payer_country",
         "payee_country",
         "is_international",
@@ -115,6 +144,14 @@ export async function POST(request: Request) {
         "human_id",
         "task_id"
       ]) {
+        if (key === "intl_surcharge_minor") {
+          const existingN = Number(existing[key] || 0);
+          const requestedN = Number((normalizedOrder as any)[key] || 0);
+          if (existingN !== requestedN) {
+            mismatch[key] = { existing: existing[key], requested: (normalizedOrder as any)[key] };
+          }
+          continue;
+        }
         if (String(existing[key]) !== String((normalizedOrder as any)[key])) {
           mismatch[key] = { existing: existing[key], requested: (normalizedOrder as any)[key] };
         }
@@ -129,18 +166,21 @@ export async function POST(request: Request) {
       `INSERT INTO orders (
         id, version, payment_flow, status, currency,
         base_amount_jpy, fx_cost_jpy, total_amount_jpy, platform_fee_jpy,
+        intl_surcharge_minor,
         payer_country, payee_country, is_international, destination_account_id,
         human_id, task_id,
         checkout_session_id, payment_intent_id, charge_id, mismatch_reason, provider_error,
         created_at, updated_at
-      ) VALUES (?, ?, 'checkout', 'created', 'jpy', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, ?, ?)`
+      ) VALUES (?, ?, 'checkout', 'created', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, ?, ?)`
     ).run(
       orderId,
       version,
-      baseAmountJpy,
-      fxCostJpy,
-      totalAmountJpy,
-      platformFeeJpy,
+      currency,
+      baseAmountMinor,
+      fxCostMinor,
+      totalAmountMinor,
+      platformFeeMinor,
+      intlSurchargeMinor,
       payerCountry,
       payeeCountry,
       isInternational,
