@@ -11,6 +11,7 @@ type HumanRow = {
   status: string;
   created_at: string;
   deleted_at: string | null;
+  is_provisional?: boolean;
 };
 
 type AiAccountRow = {
@@ -96,6 +97,7 @@ export default function ManageClient() {
   }, [activeTab, queryString, authReady]);
 
   async function deleteHuman(human: HumanRow) {
+    if (human.is_provisional) return;
     if (!confirm(`Soft-delete human ${human.email || human.id}?`)) return;
     const res = await fetch("/api/admin/humans", {
       method: "DELETE",
@@ -112,6 +114,7 @@ export default function ManageClient() {
   }
 
   async function restoreHuman(human: HumanRow) {
+    if (human.is_provisional) return;
     const res = await fetch("/api/admin/humans", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -230,13 +233,25 @@ export default function ManageClient() {
           {humans.map((h) => (
             <div key={h.id} className="card">
               <p><strong>{h.name}</strong></p>
-              <p className="muted">{h.email || "-"} | {h.country || "-"} | {h.location || "-"} | {h.status}</p>
+              <p className="muted">
+                {h.email || "-"} | {h.country || "-"} | {h.location || "-"} | {h.status}
+                {h.is_provisional ? " (oauth-only)" : ""}
+              </p>
               <p className="muted">id: {h.id} | created: {h.created_at} | deleted: {h.deleted_at || "-"}</p>
               <div className="row">
-                <button type="button" onClick={() => deleteHuman(h)} disabled={Boolean(h.deleted_at)}>
+                <button
+                  type="button"
+                  onClick={() => deleteHuman(h)}
+                  disabled={Boolean(h.deleted_at) || Boolean(h.is_provisional)}
+                >
                   Delete
                 </button>
-                <button type="button" className="secondary" onClick={() => restoreHuman(h)} disabled={!h.deleted_at}>
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => restoreHuman(h)}
+                  disabled={!h.deleted_at || Boolean(h.is_provisional)}
+                >
                   Restore
                 </button>
               </div>

@@ -269,6 +269,14 @@ async function initPostgres() {
       is_read INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL
     )`,
+    `CREATE TABLE IF NOT EXISTS oauth_users (
+      email TEXT PRIMARY KEY,
+      name TEXT,
+      image TEXT,
+      provider TEXT NOT NULL DEFAULT 'google',
+      first_seen_at TEXT NOT NULL,
+      last_seen_at TEXT NOT NULL
+    )`,
     `CREATE TABLE IF NOT EXISTS message_templates (
       id TEXT PRIMARY KEY,
       human_id TEXT NOT NULL,
@@ -407,7 +415,12 @@ async function initPostgres() {
     `ALTER TABLE webhook_deliveries ADD COLUMN IF NOT EXISTS response_body TEXT`,
     `ALTER TABLE webhook_deliveries ADD COLUMN IF NOT EXISTS error TEXT`,
     `ALTER TABLE orders ADD COLUMN IF NOT EXISTS provider_error TEXT`,
-    `ALTER TABLE orders ADD COLUMN IF NOT EXISTS intl_surcharge_minor INTEGER`
+    `ALTER TABLE orders ADD COLUMN IF NOT EXISTS intl_surcharge_minor INTEGER`,
+    `ALTER TABLE oauth_users ADD COLUMN IF NOT EXISTS name TEXT`,
+    `ALTER TABLE oauth_users ADD COLUMN IF NOT EXISTS image TEXT`,
+    `ALTER TABLE oauth_users ADD COLUMN IF NOT EXISTS provider TEXT`,
+    `ALTER TABLE oauth_users ADD COLUMN IF NOT EXISTS first_seen_at TEXT`,
+    `ALTER TABLE oauth_users ADD COLUMN IF NOT EXISTS last_seen_at TEXT`
   ];
 
   for (const statement of migrationStatements) {
@@ -525,6 +538,15 @@ async function initSqlite() {
       body TEXT NOT NULL,
       is_read INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS oauth_users (
+      email TEXT PRIMARY KEY,
+      name TEXT,
+      image TEXT,
+      provider TEXT NOT NULL DEFAULT 'google',
+      first_seen_at TEXT NOT NULL,
+      last_seen_at TEXT NOT NULL
     );
 
     CREATE TABLE IF NOT EXISTS message_templates (
@@ -697,6 +719,11 @@ async function initSqlite() {
   ensureSqliteColumn(db, "webhook_deliveries", "status_code", "INTEGER");
   ensureSqliteColumn(db, "webhook_deliveries", "response_body", "TEXT");
   ensureSqliteColumn(db, "webhook_deliveries", "error", "TEXT");
+  ensureSqliteColumn(db, "oauth_users", "name", "TEXT");
+  ensureSqliteColumn(db, "oauth_users", "image", "TEXT");
+  ensureSqliteColumn(db, "oauth_users", "provider", "TEXT");
+  ensureSqliteColumn(db, "oauth_users", "first_seen_at", "TEXT");
+  ensureSqliteColumn(db, "oauth_users", "last_seen_at", "TEXT");
   ensureSqliteColumn(db, "human_photos", "is_public", "INTEGER");
   ensureSqliteColumn(db, "human_inquiries", "is_read", "INTEGER");
   ensureSqliteColumn(db, "message_templates", "updated_at", "TEXT");
