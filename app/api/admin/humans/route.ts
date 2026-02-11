@@ -42,7 +42,10 @@ export async function GET(request: Request) {
       `SELECT email, name, first_seen_at
        FROM oauth_users
        WHERE NOT EXISTS (
-         SELECT 1 FROM humans h WHERE lower(h.email) = lower(oauth_users.email)
+         SELECT 1
+         FROM humans h
+         WHERE lower(h.email) = lower(oauth_users.email)
+           AND h.deleted_at IS NULL
        )
        ${qSql}
        ORDER BY first_seen_at DESC
