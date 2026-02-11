@@ -97,8 +97,15 @@ export default function ManageClient() {
   }, [activeTab, queryString, authReady]);
 
   async function deleteHuman(human: HumanRow) {
-    if (human.is_provisional) return;
-    if (!confirm(`Soft-delete human ${human.email || human.id}?`)) return;
+    if (
+      !confirm(
+        human.is_provisional
+          ? `Delete oauth-only user ${human.email || human.id}?`
+          : `Soft-delete human ${human.email || human.id}?`
+      )
+    ) {
+      return;
+    }
     const res = await fetch("/api/admin/humans", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
@@ -242,7 +249,7 @@ export default function ManageClient() {
                 <button
                   type="button"
                   onClick={() => deleteHuman(h)}
-                  disabled={Boolean(h.deleted_at) || Boolean(h.is_provisional)}
+                  disabled={Boolean(h.deleted_at)}
                 >
                   Delete
                 </button>
