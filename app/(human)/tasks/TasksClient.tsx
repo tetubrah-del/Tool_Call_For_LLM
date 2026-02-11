@@ -121,13 +121,22 @@ export default function TasksClient() {
       setLoading(true);
       setError(null);
       try {
-        const params = new URLSearchParams();
-        params.set("lang", lang);
-        if (id) params.set("human_id", id);
-        const res = await fetch(`/api/tasks?${params.toString()}`);
-        if (!res.ok) {
-          throw new Error("failed to load");
+        const baseParams = new URLSearchParams();
+        baseParams.set("lang", lang);
+
+        const withHumanParams = new URLSearchParams(baseParams.toString());
+        if (id) withHumanParams.set("human_id", id);
+
+        let res = await fetch(`/api/tasks?${withHumanParams.toString()}`);
+        if (!res.ok && id) {
+          // Stale local human_id or incomplete profile can break human-scoped listing.
+          // Fall back to global open-task listing and clear stale local cache.
+          localStorage.removeItem("human_id");
+          const fallbackParams = new URLSearchParams(baseParams.toString());
+          res = await fetch(`/api/tasks?${fallbackParams.toString()}`);
         }
+        if (!res.ok) throw new Error("failed to load");
+
         const data = await res.json();
         setTasks(data.tasks || []);
       } catch (err: any) {
