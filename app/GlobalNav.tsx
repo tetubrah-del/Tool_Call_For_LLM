@@ -40,7 +40,6 @@ export default function GlobalNav() {
           {strings.appTitle}
         </a>
         <div className="nav-links">
-          <a href={`/?${query}`}>{strings.home}</a>
           <a href={`/for-agents?${query}`}>{strings.forAgents}</a>
           <a href={`/tasks?${query}`}>{strings.tasks}</a>
           <a href={`/ai/connect?lang=${lang}`}>{strings.aiConnect}</a>
