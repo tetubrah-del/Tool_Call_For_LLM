@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import type { UiLang } from "@/lib/i18n";
 import { UI_STRINGS } from "@/lib/i18n";
 
@@ -69,6 +70,7 @@ function formatDate(value: string | null) {
 }
 
 export default function PaymentsPanel({ lang }: { lang: UiLang }) {
+  const searchParams = useSearchParams();
   const strings = UI_STRINGS[lang];
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -78,7 +80,6 @@ export default function PaymentsPanel({ lang }: { lang: UiLang }) {
   const [stripeReady, setStripeReady] = useState<boolean>(false);
   const [stripeReason, setStripeReason] = useState<string | null>(null);
   const [stripeStarting, setStripeStarting] = useState(false);
-  const [stripeOpenedHint, setStripeOpenedHint] = useState(false);
   const [summary, setSummary] = useState({
     pending_total: 0,
     approved_total: 0,
@@ -149,55 +150,22 @@ export default function PaymentsPanel({ lang }: { lang: UiLang }) {
     };
   }, [strings.stripeConnectStatusError]);
 
-  async function startStripeOnboarding() {
+  async function startStripeOnboarding(event?: React.MouseEvent<HTMLButtonElement>) {
+    event?.preventDefault();
+    event?.stopPropagation();
     if (stripeStarting) return;
     setStripeStarting(true);
     setStripeError(null);
-    setStripeOpenedHint(false);
-
-    try {
-      // Open a blank tab synchronously to avoid popup blockers, then navigate after we fetch the onboarding URL.
-      const popup = window.open("about:blank", "_blank", "noopener,noreferrer");
-
-      const origin = window.location.origin;
-      const returnUrl = `${origin}/me?lang=${lang}&tab=payments`;
-      const refreshUrl = returnUrl;
-
-      const res = await fetch("/api/connect/onboarding/start", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refresh_url: refreshUrl, return_url: returnUrl })
-      });
-      const data = (await res.json().catch(() => ({}))) as StripeConnectOnboardingStartResponse;
-      if (!res.ok || (data as any)?.status === "error") {
-        throw new Error((data as any)?.message || (data as any)?.reason || "onboarding_failed");
-      }
-      if ("status" in (data as any) && (data as any).status === "unauthorized") {
-        throw new Error("unauthorized");
-      }
-      const url =
-        "status" in (data as any) && (data as any).status === "ok"
-          ? (data as Extract<StripeConnectOnboardingStartResponse, { status: "ok" }>).onboarding_url
-          : null;
-      if (typeof url !== "string" || !url) {
-        throw new Error("missing_onboarding_url");
-      }
-      if (popup && !popup.closed) {
-        try {
-          popup.location.href = url;
-          setStripeOpenedHint(true);
-          setStripeStarting(false);
-          return;
-        } catch {
-          // Fall back to same-window navigation if the popup cannot be navigated.
-        }
-      }
-      window.location.href = url;
-    } catch (err: any) {
-      setStripeError(err?.message || strings.stripeConnectStatusError);
-      setStripeStarting(false);
-    }
+    const url = `/api/connect/onboarding/redirect?lang=${lang}`;
+    window.location.assign(url);
   }
+
+  useEffect(() => {
+    const connectError = (searchParams.get("connect_error") || "").trim();
+    if (!connectError) return;
+    setStripeError(connectError);
+    setStripeStarting(false);
+  }, [searchParams]);
 
   const selected = useMemo(
     () => payments.find((item) => item.task_id === selectedTaskId) || null,
@@ -247,7 +215,6 @@ export default function PaymentsPanel({ lang }: { lang: UiLang }) {
         </div>
         {stripeLoading && <p className="muted" style={{ marginTop: 10 }}>{strings.stripeConnectStatusLoading}</p>}
         {stripeStarting && <p className="muted" style={{ marginTop: 10 }}>{strings.stripeConnectStarting}</p>}
-        {stripeOpenedHint && <p className="muted" style={{ marginTop: 10 }}>{strings.stripeConnectOpenedHint}</p>}
         {stripeError && <p className="muted" style={{ marginTop: 10 }}>{stripeError}</p>}
         {!stripeLoading && !stripeError && stripeAccountId && (
           <p className="muted" style={{ marginTop: 10 }}>
