@@ -77,18 +77,42 @@ export async function DELETE(request: Request) {
   const payload: any = await request.json().catch(() => ({}));
   const id = normalizeText(payload?.id);
   const email = normalizeText(payload?.email).toLowerCase();
+  const oauthEmail = id.startsWith("oauth:") ? id.slice("oauth:".length).trim().toLowerCase() : "";
+  const targetEmail = email || oauthEmail;
   if (!id && !email) {
     return NextResponse.json({ status: "error", reason: "invalid_request" }, { status: 400 });
   }
 
   const db = getDb();
+  if (targetEmail) {
+    const activeHuman = await db
+      .prepare(
+        `SELECT id FROM humans
+         WHERE lower(email) = ? AND deleted_at IS NULL
+         ORDER BY created_at DESC
+         LIMIT 1`
+      )
+      .get<{ id: string }>(targetEmail);
+    if (!activeHuman?.id) {
+      const oauthUser = await db
+        .prepare(`SELECT email FROM oauth_users WHERE lower(email) = ? LIMIT 1`)
+        .get<{ email: string }>(targetEmail);
+      if (!oauthUser?.email) {
+        return NextResponse.json({ status: "not_found" }, { status: 404 });
+      }
+      await db.prepare(`DELETE FROM oauth_users WHERE lower(email) = ?`).run(targetEmail);
+      return NextResponse.json({ status: "deleted_provisional", email: targetEmail });
+    }
+  }
+
+  const humanId = id.startsWith("oauth:") ? "" : id;
   const human = await db
     .prepare(
-      id
+      humanId
         ? `SELECT id, status FROM humans WHERE id = ? AND deleted_at IS NULL`
         : `SELECT id, status FROM humans WHERE lower(email) = ? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1`
     )
-    .get(id ? id : email);
+    .get(humanId ? humanId : targetEmail);
   if (!human?.id) {
     return NextResponse.json({ status: "not_found" }, { status: 404 });
   }
