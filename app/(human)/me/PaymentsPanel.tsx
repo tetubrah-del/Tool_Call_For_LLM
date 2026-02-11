@@ -78,6 +78,7 @@ export default function PaymentsPanel({ lang }: { lang: UiLang }) {
   const [stripeReady, setStripeReady] = useState<boolean>(false);
   const [stripeReason, setStripeReason] = useState<string | null>(null);
   const [stripeStarting, setStripeStarting] = useState(false);
+  const [stripeOpenedHint, setStripeOpenedHint] = useState(false);
   const [summary, setSummary] = useState({
     pending_total: 0,
     approved_total: 0,
@@ -123,7 +124,7 @@ export default function PaymentsPanel({ lang }: { lang: UiLang }) {
         const data = (await res.json().catch(() => ({}))) as StripeConnectStatusResponse;
         if (!alive) return;
         if (!res.ok || (data as any)?.status === "error") {
-          throw new Error((data as any)?.reason || "stripe_status_failed");
+          throw new Error((data as any)?.message || (data as any)?.reason || "stripe_status_failed");
         }
         if ("status" in (data as any) && (data as any).status === "unauthorized") {
           // MyPage itself requires auth; treat this as error to avoid hiding issues.
@@ -152,8 +153,12 @@ export default function PaymentsPanel({ lang }: { lang: UiLang }) {
     if (stripeStarting) return;
     setStripeStarting(true);
     setStripeError(null);
+    setStripeOpenedHint(false);
 
     try {
+      // Open a blank tab synchronously to avoid popup blockers, then navigate after we fetch the onboarding URL.
+      const popup = window.open("about:blank", "_blank", "noopener,noreferrer");
+
       const origin = window.location.origin;
       const returnUrl = `${origin}/me?lang=${lang}&tab=payments`;
       const refreshUrl = returnUrl;
@@ -165,7 +170,7 @@ export default function PaymentsPanel({ lang }: { lang: UiLang }) {
       });
       const data = (await res.json().catch(() => ({}))) as StripeConnectOnboardingStartResponse;
       if (!res.ok || (data as any)?.status === "error") {
-        throw new Error((data as any)?.reason || "onboarding_failed");
+        throw new Error((data as any)?.message || (data as any)?.reason || "onboarding_failed");
       }
       if ("status" in (data as any) && (data as any).status === "unauthorized") {
         throw new Error("unauthorized");
@@ -176,6 +181,16 @@ export default function PaymentsPanel({ lang }: { lang: UiLang }) {
           : null;
       if (typeof url !== "string" || !url) {
         throw new Error("missing_onboarding_url");
+      }
+      if (popup && !popup.closed) {
+        try {
+          popup.location.href = url;
+          setStripeOpenedHint(true);
+          setStripeStarting(false);
+          return;
+        } catch {
+          // Fall back to same-window navigation if the popup cannot be navigated.
+        }
       }
       window.location.href = url;
     } catch (err: any) {
@@ -222,11 +237,17 @@ export default function PaymentsPanel({ lang }: { lang: UiLang }) {
               onClick={startStripeOnboarding}
               disabled={stripeStarting}
             >
-              {stripeAccountId ? strings.stripeConnectCtaContinue : strings.stripeConnectCta}
+              {stripeStarting
+                ? strings.stripeConnectStarting
+                : stripeAccountId
+                  ? strings.stripeConnectCtaContinue
+                  : strings.stripeConnectCta}
             </button>
           </div>
         </div>
         {stripeLoading && <p className="muted" style={{ marginTop: 10 }}>{strings.stripeConnectStatusLoading}</p>}
+        {stripeStarting && <p className="muted" style={{ marginTop: 10 }}>{strings.stripeConnectStarting}</p>}
+        {stripeOpenedHint && <p className="muted" style={{ marginTop: 10 }}>{strings.stripeConnectOpenedHint}</p>}
         {stripeError && <p className="muted" style={{ marginTop: 10 }}>{stripeError}</p>}
         {!stripeLoading && !stripeError && stripeAccountId && (
           <p className="muted" style={{ marginTop: 10 }}>
