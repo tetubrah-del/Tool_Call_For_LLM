@@ -70,14 +70,59 @@ export function assertNonNegativeInt(value: unknown, field: string) {
   return n;
 }
 
-export function computePlatformFeeJpyFloor(totalAmountJpy: number) {
-  // floor(total * 20 / 100) in integer math
-  if (!Number.isInteger(totalAmountJpy) || totalAmountJpy < 0) {
-    const err = new Error("total_amount_jpy must be a non-negative integer");
+export type Currency = "jpy" | "usd";
+
+export function currencyFromCountry2(country: Country2): Currency {
+  // MVP scope: JP/US only.
+  return country === "JP" ? "jpy" : "usd";
+}
+
+export function computePlatformFeeMinorFloor(totalAmountMinor: number) {
+  // floor(total * 20 / 100) in integer math (minor units)
+  if (!Number.isInteger(totalAmountMinor) || totalAmountMinor < 0) {
+    const err = new Error("total_amount_minor must be a non-negative integer");
     (err as any).statusCode = 400;
     throw err;
   }
-  return Math.floor((totalAmountJpy * 20) / 100);
+  return Math.floor((totalAmountMinor * 20) / 100);
+}
+
+// Back-compat helper: legacy name used throughout the codebase.
+export function computePlatformFeeJpyFloor(totalAmountJpy: number) {
+  return computePlatformFeeMinorFloor(totalAmountJpy);
+}
+
+function getEnvInt(name: string, fallback: number) {
+  const raw = getEnv(name);
+  if (!raw) return fallback;
+  const n = Number(raw);
+  return Number.isInteger(n) ? n : fallback;
+}
+
+export function computeIntlSurchargeMinor(
+  subtotalMinor: number,
+  currency: Currency,
+  isInternational: boolean
+) {
+  if (!isInternational) return 0;
+  if (!Number.isInteger(subtotalMinor) || subtotalMinor < 0) {
+    const err = new Error("subtotal_minor must be a non-negative integer");
+    (err as any).statusCode = 400;
+    throw err;
+  }
+
+  // Defaults: conservative buffer for cross-border + risk. Override via env.
+  // - INTL_SURCHARGE_BPS: surcharge in basis points applied to subtotal.
+  // - INTL_SURCHARGE_MIN_JPY: minimum surcharge when currency=jpy (minor unit = yen).
+  // - INTL_SURCHARGE_MIN_USD_CENTS: minimum surcharge when currency=usd (minor unit = cents).
+  const bps = getEnvInt("INTL_SURCHARGE_BPS", 300); // 3.00%
+  const min =
+    currency === "jpy"
+      ? getEnvInt("INTL_SURCHARGE_MIN_JPY", 100)
+      : getEnvInt("INTL_SURCHARGE_MIN_USD_CENTS", 100);
+
+  const pct = Math.floor((subtotalMinor * bps) / 10000);
+  return Math.max(pct, min);
 }
 
 export function computeIsInternational(payer: Country2, payee: Country2) {
@@ -136,4 +181,3 @@ export function ensureDestinationChargePreconditions(
   }
   return true;
 }
-

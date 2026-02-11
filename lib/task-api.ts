@@ -32,7 +32,7 @@ export type NormalizedTask = {
   paid_status: PaymentStatus;
   approved_at: string | null;
   paid_at: string | null;
-  paid_method: "paypal" | null;
+  paid_method: "paypal" | "stripe" | null;
   fee_rate: number | null;
   fee_amount: number | null;
   payout_amount: number | null;

@@ -359,6 +359,57 @@ or
 - Minimum budget is `$5`.
 - Admin panel shows payer (`payer_paypal_email`) and payee (`payee_paypal_email`) for manual settlement.
 
+## Stripe (Orders / Checkout)
+
+This repo includes a Stripe Checkout-based payment flow for AI operators.
+
+- `POST /api/stripe/orders` creates an `orders` row (AI-auth required).
+- `POST /api/stripe/orders/:orderId/checkout` returns a `checkout_url` (AI-auth required).
+- `POST /webhooks/stripe` receives verified Stripe events and stores them to DB quickly.
+- `npm run stripe:webhook-worker` processes stored events and reconciles `orders`:
+  - When an order becomes `paid`, it also updates the linked `tasks` row:
+    - `paid_status='paid'`
+    - `paid_at` set
+    - `paid_method='stripe'`
+  - If Stripe reports cancellation/failure/mismatch, it marks the linked task as:
+    - `paid_status='failed'`
+    - `payment_error_message` set
+
+### Currency policy (JP/US only)
+
+- Charges are created in the payee (human) currency:
+  - `payee_country=JP` => `jpy`
+  - `payee_country=US` => `usd`
+- Amount fields are treated as minor units for the chosen currency.
+
+### International surcharge
+
+If `payer_country != payee_country`, an additional surcharge is added on top of the subtotal.
+This surcharge is captured by the platform (included in `application_fee_amount`) to cover cross-border cost + risk buffer.
+
+Env vars (optional, defaults exist):
+
+- `INTL_SURCHARGE_BPS` (basis points, default `300` = 3.00%)
+- `INTL_SURCHARGE_MIN_JPY` (default `100`)
+- `INTL_SURCHARGE_MIN_USD_CENTS` (default `100`)
+
+### Required env vars / ops
+
+- `STRIPE_SECRET_KEY` (sk_...)
+- `STRIPE_WEBHOOK_SECRET`
+- `APP_BASE_URL` (used to validate checkout success/cancel redirect URLs)
+
+Stripe dashboard:
+
+- Set webhook endpoint to `/webhooks/stripe` and include the event types used by the worker:
+  - `checkout.session.completed`
+  - `checkout.session.expired`
+  - `payment_intent.succeeded`
+  - `payment_intent.payment_failed`
+  - `payment_intent.canceled`
+  - `charge.succeeded`
+  - `charge.failed`
+
 ### Admin payments (manual)
 
 1. Open `/payments` (admin UI).

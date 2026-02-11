@@ -213,6 +213,35 @@ async function markOrderCanceled(db, orderId, version, providerError) {
   );
 }
 
+async function markTaskPaidByStripe(db, taskId) {
+  if (!taskId) return;
+  await db.run(
+    `UPDATE tasks
+     SET paid_status = 'paid',
+         paid_at = ?,
+         paid_method = 'stripe',
+         payment_error_message = NULL
+     WHERE id = ?
+       AND deleted_at IS NULL
+       AND status = 'completed'`,
+    [nowIso(), taskId]
+  );
+}
+
+async function markTaskPaymentFailedByStripe(db, taskId, errorMessage) {
+  if (!taskId) return;
+  await db.run(
+    `UPDATE tasks
+     SET paid_status = 'failed',
+         payment_error_message = ?
+     WHERE id = ?
+       AND deleted_at IS NULL
+       AND status = 'completed'
+       AND COALESCE(paid_status, 'pending') != 'paid'`,
+    [errorMessage || null, taskId]
+  );
+}
+
 async function markOrderPaid(db, orderId, version, updates) {
   const {
     paymentIntentId,
@@ -379,6 +408,9 @@ async function handleCheckoutSessionExpired(db, event) {
 
   await updateOrderCheckoutCreated(db, key.orderId, key.version, session.id, session.payment_intent || null);
   await markOrderCanceled(db, key.orderId, key.version, "checkout_session_expired");
+  if (order.task_id) {
+    await markTaskPaymentFailedByStripe(db, String(order.task_id), "checkout_session_expired");
+  }
 }
 
 async function handlePaymentIntentSucceeded(db, event) {
@@ -404,14 +436,21 @@ async function handlePaymentIntentSucceeded(db, event) {
   }
 
   const mismatches = [];
-  if (String(pi.currency || "").toLowerCase() !== "jpy") {
-    mismatches.push({ field: "currency", db: "jpy", stripe: pi.currency });
+  const dbCurrency = String(order.currency || "").toLowerCase();
+  if (String(pi.currency || "").toLowerCase() !== dbCurrency) {
+    mismatches.push({ field: "currency", db: dbCurrency, stripe: pi.currency });
   }
   if (Number(pi.amount) !== Number(order.total_amount_jpy)) {
     mismatches.push({ field: "amount", db: order.total_amount_jpy, stripe: pi.amount });
   }
-  if (Number(pi.application_fee_amount || 0) !== Number(order.platform_fee_jpy)) {
-    mismatches.push({ field: "application_fee_amount", db: order.platform_fee_jpy, stripe: pi.application_fee_amount || 0 });
+  const surcharge = Number(order.intl_surcharge_minor || 0);
+  const expectedAppFee = Number(order.platform_fee_jpy) + (Number.isFinite(surcharge) ? surcharge : 0);
+  if (Number(pi.application_fee_amount || 0) !== Number(expectedAppFee)) {
+    mismatches.push({
+      field: "application_fee_amount",
+      db: expectedAppFee,
+      stripe: pi.application_fee_amount || 0
+    });
   }
   const dest = pi.transfer_data?.destination || null;
   if (String(dest || "") !== String(order.destination_account_id || "")) {
@@ -420,6 +459,9 @@ async function handlePaymentIntentSucceeded(db, event) {
 
   if (mismatches.length) {
     await markOrderMismatch(db, order.id, Number(order.version), computeMismatchReason(mismatches));
+    if (order.task_id) {
+      await markTaskPaymentFailedByStripe(db, String(order.task_id), "stripe_mismatch");
+    }
     return;
   }
 
@@ -428,6 +470,9 @@ async function handlePaymentIntentSucceeded(db, event) {
     checkoutSessionId: order.checkout_session_id || null,
     chargeId: order.charge_id || null
   });
+  if (order.task_id) {
+    await markTaskPaidByStripe(db, String(order.task_id));
+  }
 }
 
 async function handlePaymentIntentPaymentFailed(db, event) {
@@ -448,18 +493,17 @@ async function handlePaymentIntentPaymentFailed(db, event) {
 
   // SoT check (same as succeeded)
   const mismatches = [];
-  if (String(pi.currency || "").toLowerCase() !== "jpy") {
-    mismatches.push({ field: "currency", db: "jpy", stripe: pi.currency });
+  const dbCurrency = String(order.currency || "").toLowerCase();
+  if (String(pi.currency || "").toLowerCase() !== dbCurrency) {
+    mismatches.push({ field: "currency", db: dbCurrency, stripe: pi.currency });
   }
   if (Number(pi.amount) !== Number(order.total_amount_jpy)) {
     mismatches.push({ field: "amount", db: order.total_amount_jpy, stripe: pi.amount });
   }
-  if (Number(pi.application_fee_amount || 0) !== Number(order.platform_fee_jpy)) {
-    mismatches.push({
-      field: "application_fee_amount",
-      db: order.platform_fee_jpy,
-      stripe: pi.application_fee_amount || 0
-    });
+  const surcharge = Number(order.intl_surcharge_minor || 0);
+  const expectedAppFee = Number(order.platform_fee_jpy) + (Number.isFinite(surcharge) ? surcharge : 0);
+  if (Number(pi.application_fee_amount || 0) !== Number(expectedAppFee)) {
+    mismatches.push({ field: "application_fee_amount", db: expectedAppFee, stripe: pi.application_fee_amount || 0 });
   }
   const dest = pi.transfer_data?.destination || null;
   if (String(dest || "") !== String(order.destination_account_id || "")) {
@@ -467,6 +511,9 @@ async function handlePaymentIntentPaymentFailed(db, event) {
   }
   if (mismatches.length) {
     await markOrderMismatch(db, order.id, Number(order.version), computeMismatchReason(mismatches));
+    if (order.task_id) {
+      await markTaskPaymentFailedByStripe(db, String(order.task_id), "stripe_mismatch");
+    }
     return;
   }
 
@@ -475,6 +522,9 @@ async function handlePaymentIntentPaymentFailed(db, event) {
     pi.last_payment_error?.code ||
     "payment_intent_payment_failed";
   await markOrderProviderFailed(db, order.id, Number(order.version), String(providerError));
+  if (order.task_id) {
+    await markTaskPaymentFailedByStripe(db, String(order.task_id), String(providerError));
+  }
 }
 
 async function handlePaymentIntentCanceled(db, event) {
@@ -490,6 +540,9 @@ async function handlePaymentIntentCanceled(db, event) {
   if (!order) throw new Error("order_not_found");
   if (order.status === "paid" || order.status === "failed_mismatch") return;
   await markOrderCanceled(db, order.id, Number(order.version), "payment_intent_canceled");
+  if (order.task_id) {
+    await markTaskPaymentFailedByStripe(db, String(order.task_id), "payment_intent_canceled");
+  }
 }
 
 async function handleChargeSucceeded(db, event) {
@@ -547,6 +600,9 @@ async function handleChargeFailed(db, event) {
   await updateOrderCharge(db, order.id, Number(order.version), charge.id, piId);
   const providerError = charge.failure_message || charge.failure_code || "charge_failed";
   await markOrderProviderFailed(db, order.id, Number(order.version), String(providerError));
+  if (order.task_id) {
+    await markTaskPaymentFailedByStripe(db, String(order.task_id), String(providerError));
+  }
 }
 
 async function processStripeEvent(db, event) {
