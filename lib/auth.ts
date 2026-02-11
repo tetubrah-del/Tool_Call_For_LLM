@@ -22,6 +22,10 @@ async function upsertOauthUser(params: {
   );
 }
 
+function normalizeEmail(value: unknown): string {
+  return typeof value === "string" ? value.trim().toLowerCase() : "";
+}
+
 export const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
@@ -32,7 +36,7 @@ export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt" },
   callbacks: {
     async signIn({ user, account }) {
-      const email = typeof user?.email === "string" ? user.email.trim().toLowerCase() : "";
+      const email = normalizeEmail(user?.email);
       if (!email) return true;
       try {
         await upsertOauthUser({
@@ -45,6 +49,42 @@ export const authOptions: NextAuthOptions = {
         console.error("oauth_user_upsert_failed", error);
       }
       return true;
+    },
+    async jwt({ token, user, account }) {
+      const email = normalizeEmail(user?.email || token?.email);
+      if (!email) return token;
+      try {
+        await upsertOauthUser({
+          email,
+          name:
+            typeof user?.name === "string"
+              ? user.name
+              : typeof token?.name === "string"
+                ? token.name
+                : null,
+          image:
+            typeof user?.image === "string"
+              ? user.image
+              : typeof token?.picture === "string"
+                ? token.picture
+                : null,
+          provider:
+            typeof account?.provider === "string"
+              ? account.provider
+              : typeof token?.provider === "string"
+                ? token.provider
+                : "google"
+        });
+        token.provider =
+          typeof account?.provider === "string"
+            ? account.provider
+            : typeof token?.provider === "string"
+              ? token.provider
+              : "google";
+      } catch (error) {
+        console.error("oauth_user_upsert_jwt_failed", error);
+      }
+      return token;
     }
   },
   pages: {
