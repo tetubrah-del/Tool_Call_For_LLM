@@ -278,14 +278,14 @@ button.tag:hover {
 }
 
 .nav-inner {
-  max-width: 1040px;
+  max-width: 1320px;
   margin: 0 auto;
   padding: 14px 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
+  gap: 12px;
+  flex-wrap: nowrap;
 }
 
 .brand {
@@ -303,7 +303,7 @@ button.tag:hover {
 }
 
 .brand-logo-nav {
-  width: 220px;
+  width: 200px;
   height: 52px;
 }
 
@@ -330,8 +330,12 @@ button.tag:hover {
 .nav-links {
   display: flex;
   align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
+  gap: clamp(10px, 1.3vw, 18px);
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  flex: 1 1 auto;
+  min-width: 0;
+  justify-content: center;
 }
 
 .nav-links a {
@@ -347,13 +351,14 @@ button.tag:hover {
   display: flex;
   align-items: center;
   gap: 12px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  flex: 0 0 auto;
 }
 
 .nav-lang {
-  min-width: 140px;
+  min-width: 124px;
   background: #0f1a2d;
-  padding: 8px 10px;
+  padding: 6px 8px;
   border-radius: 12px;
   border: 1px solid var(--border);
 }
@@ -361,7 +366,7 @@ button.tag:hover {
 .nav-lang label {
   margin-bottom: 4px;
   font-size: 10px;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.14em;
 }
 
 .nav-lang select {
@@ -373,10 +378,24 @@ button.tag:hover {
 
 .nav-signout {
   width: auto;
-  padding: 6px 12px;
+  padding: 6px 10px;
   margin-top: 0;
   font-size: 12px;
   border-radius: 10px;
+}
+
+@media (max-width: 1200px) {
+  .nav-inner {
+    flex-wrap: wrap;
+  }
+
+  .nav-links {
+    order: 3;
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    white-space: normal;
+  }
 }
 
 .hero {
