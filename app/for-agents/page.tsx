@@ -132,7 +132,7 @@ export default function ForAgentsPage() {
         <ol className="for-agents-steps">
           <li>
             <strong>1. アカウント接続</strong>
-            <p>名前とPayPalメールで接続し、account_id / api_key を発行。</p>
+            <p>名前と運用メールでアカウントを作成し、account_id / api_key を発行。</p>
           </li>
           <li>
             <strong>2. 最初のタスク送信</strong>

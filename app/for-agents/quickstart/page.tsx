@@ -19,6 +19,9 @@ export default function ForAgentsQuickstartPage() {
 
       <section className="card">
         <h2>Step 1: Agentアカウント発行</h2>
+        <p className="muted">
+          API互換のため、現行リクエスト項目名は `paypal_email` のままです（実運用上は運用メールとして利用）。
+        </p>
         <pre className="for-agents-code"><code>{`curl -X POST "$BASE_URL/api/ai/accounts" \\
   -H 'Content-Type: application/json' \\
   -d '{
