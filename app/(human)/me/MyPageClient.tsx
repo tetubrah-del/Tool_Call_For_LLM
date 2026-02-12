@@ -7,7 +7,7 @@ import RegisterClient from "../register/RegisterClient";
 import MessagesPanel from "./MessagesPanel";
 import PaymentsPanel from "./PaymentsPanel";
 
-type TabKey = "profile" | "payments" | "messages" | "api";
+type TabKey = "profile" | "payments" | "messages";
 
 export default function MyPageClient() {
   const searchParams = useSearchParams();
@@ -15,7 +15,7 @@ export default function MyPageClient() {
   const strings = UI_STRINGS[lang];
   const initialTab = useMemo((): TabKey => {
     const raw = (searchParams.get("tab") || "").toLowerCase();
-    if (raw === "payments" || raw === "messages" || raw === "api" || raw === "profile") {
+    if (raw === "payments" || raw === "messages" || raw === "profile") {
       return raw as TabKey;
     }
     return "profile";
@@ -26,8 +26,7 @@ export default function MyPageClient() {
   const tabs: Array<{ key: TabKey; label: string }> = [
     { key: "profile", label: strings.tabProfile },
     { key: "payments", label: strings.tabPayments },
-    { key: "messages", label: strings.tabMessages },
-    { key: "api", label: strings.tabApi }
+    { key: "messages", label: strings.tabMessages }
   ];
 
   useEffect(() => {
@@ -84,9 +83,6 @@ export default function MyPageClient() {
         )}
         {activeTab === "payments" && <PaymentsPanel lang={lang} />}
         {activeTab === "messages" && <MessagesPanel lang={lang} />}
-        {activeTab === "api" && (
-          <div className="card empty-state">{strings.comingSoon}</div>
-        )}
       </section>
     </div>
   );
