@@ -25,6 +25,35 @@ export default function GlobalNav() {
     params.set("lang", lang);
     return params.toString();
   }, [lang]);
+  const navItems = useMemo(
+    () => [
+      {
+        key: "for-agents",
+        label: strings.forAgents,
+        href: `/for-agents?${query}`,
+        isActive: pathname.startsWith("/for-agents")
+      },
+      {
+        key: "tasks",
+        label: strings.tasks,
+        href: `/tasks?${query}`,
+        isActive: pathname.startsWith("/tasks")
+      },
+      {
+        key: "ai-connect",
+        label: strings.aiConnect,
+        href: `/ai/connect?${query}`,
+        isActive: pathname.startsWith("/ai/connect")
+      },
+      {
+        key: "account",
+        label: session?.user ? strings.myPage : strings.register,
+        href: session?.user ? `/me?${query}` : `/auth?${query}`,
+        isActive: session?.user ? pathname.startsWith("/me") : pathname.startsWith("/auth")
+      }
+    ],
+    [pathname, query, session?.user, strings.aiConnect, strings.forAgents, strings.myPage, strings.register, strings.tasks]
+  );
 
   function onLangChange(next: UiLang) {
     setLang(next);
@@ -41,14 +70,11 @@ export default function GlobalNav() {
           <BrandLogo lang={lang} size="nav" />
         </a>
         <div className="nav-links">
-          <a href={`/for-agents?${query}`}>{strings.forAgents}</a>
-          <a href={`/tasks?${query}`}>{strings.tasks}</a>
-          <a href={`/ai/connect?lang=${lang}`}>{strings.aiConnect}</a>
-          {session?.user ? (
-            <a href={`/me?lang=${lang}`}>{strings.myPage}</a>
-          ) : (
-            <a href={`/auth?lang=${lang}`}>{strings.register}</a>
-          )}
+          {navItems.map((item) => (
+            <a key={item.key} href={item.href} className={item.isActive ? "active" : undefined}>
+              {item.label}
+            </a>
+          ))}
         </div>
         <div className="nav-actions">
           <div className="nav-lang">
@@ -72,6 +98,13 @@ export default function GlobalNav() {
             </button>
           )}
         </div>
+      </div>
+      <div className="mobile-bottom-nav" role="navigation" aria-label="Global navigation">
+        {navItems.map((item) => (
+          <a key={`mobile-${item.key}`} href={item.href} className={item.isActive ? "active" : undefined}>
+            {item.label}
+          </a>
+        ))}
       </div>
     </nav>
   );
