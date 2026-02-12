@@ -30,6 +30,7 @@ export default function BrandLogo({ lang, size = "nav" }: BrandLogoProps) {
       className={`brand-logo brand-logo-${size}`}
       width={imageSize.width}
       height={imageSize.height}
+      unoptimized
       onError={() => setLoadFailed(true)}
     />
   );

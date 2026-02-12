@@ -298,19 +298,18 @@ button.tag:hover {
 
 .brand-logo {
   display: block;
-  object-fit: contain;
+  object-fit: cover;
+  object-position: center;
 }
 
 .brand-logo-nav {
-  height: 34px;
-  width: auto;
-  max-width: 220px;
+  width: 220px;
+  height: 52px;
 }
 
 .brand-logo-hero {
-  height: 72px;
-  width: auto;
-  max-width: min(70vw, 420px);
+  width: min(70vw, 420px);
+  height: min(20vw, 120px);
 }
 
 .brand-logo-fallback {
