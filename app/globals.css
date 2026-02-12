@@ -347,6 +347,10 @@ button.tag:hover {
   color: var(--accent-strong);
 }
 
+.nav-links a.active {
+  color: var(--ink);
+}
+
 .nav-actions {
   display: flex;
   align-items: center;
@@ -382,6 +386,10 @@ button.tag:hover {
   margin-top: 0;
   font-size: 12px;
   border-radius: 10px;
+}
+
+.mobile-bottom-nav {
+  display: none;
 }
 
 @media (max-width: 1200px) {
@@ -1669,7 +1677,7 @@ button.tag:hover {
 
 @media (max-width: 720px) {
   main {
-    padding: 32px 18px 60px;
+    padding: 32px 18px 110px;
   }
 
   .hero {
@@ -1682,5 +1690,40 @@ button.tag:hover {
 
   .nav-inner {
     padding: 12px 18px;
+  }
+
+  .nav-links {
+    display: none;
+  }
+
+  .mobile-bottom-nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 4px;
+    padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+    background: rgba(7, 11, 20, 0.96);
+    border-top: 1px solid rgba(38, 56, 88, 0.75);
+    backdrop-filter: blur(12px);
+  }
+
+  .mobile-bottom-nav a {
+    display: block;
+    padding: 10px 6px;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    border-radius: 10px;
+    line-height: 1.2;
+  }
+
+  .mobile-bottom-nav a.active {
+    color: var(--ink);
+    background: rgba(255, 255, 255, 0.08);
   }
 }
