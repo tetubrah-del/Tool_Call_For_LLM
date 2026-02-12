@@ -11,7 +11,7 @@ type Task = {
   budget_usd: number;
   payer_paypal_email?: string | null;
   payee_paypal_email?: string | null;
-  status: "open" | "accepted" | "completed" | "failed";
+  status: "open" | "accepted" | "review_pending" | "completed" | "failed";
   human_id: string | null;
   created_at: string;
   paid_status?: PaymentStatus | null;
@@ -33,6 +33,10 @@ export default function PaymentsClient() {
   const [failureMessages, setFailureMessages] = useState<Record<string, string>>({});
   const [authReady, setAuthReady] = useState(false);
 
+  const requesterReviewTasks = useMemo(
+    () => tasks.filter((task) => task.status === "review_pending"),
+    [tasks]
+  );
   const pendingTasks = useMemo(
     () => tasks.filter((task) => task.status === "completed" && task.paid_status === "pending"),
     [tasks]
@@ -166,6 +170,20 @@ export default function PaymentsClient() {
         </button>
       </div>
       {error && <p className="muted">Error: {error}</p>}
+
+      <h2>Awaiting Requester Approval</h2>
+      {requesterReviewTasks.length === 0 && <p className="muted">No review pending tasks.</p>}
+      {requesterReviewTasks.map((task) => (
+        <div key={task.id} className="card">
+          <h3>{task.task}</h3>
+          <p className="muted">
+            Status: review_pending | Budget: ${task.budget_usd} | Human: {task.human_id || "-"}
+          </p>
+          <p className="muted">
+            Requester (AI) approval is required before payment approval can start.
+          </p>
+        </div>
+      ))}
 
       <h2>Pending Review</h2>
       {pendingTasks.length === 0 && <p className="muted">No pending tasks.</p>}

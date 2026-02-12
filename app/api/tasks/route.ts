@@ -65,7 +65,7 @@ export async function GET(request: Request) {
     const assignedWhere: string[] = [
       "deleted_at IS NULL",
       "human_id = ?",
-      "status IN ('accepted', 'completed')"
+      "status IN ('accepted', 'review_pending', 'completed')"
     ];
     const assignedParams: Array<string | number | null> = [humanId];
     if (filterTaskLabel) {

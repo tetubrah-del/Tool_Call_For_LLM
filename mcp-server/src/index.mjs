@@ -155,6 +155,23 @@ server.tool(
 );
 
 server.tool(
+  "approve_bounty_completion",
+  "Finalize a submitted task by requester approval (review_pending -> completed).",
+  {
+    task_id: z.string().min(1),
+    ai_account_id: z.string().optional(),
+    ai_api_key: z.string().optional()
+  },
+  async (input) => {
+    const credentials = readCredentials(input);
+    const data = await callApi("POST", `/api/tasks/${input.task_id}/approve`, {
+      body: credentials
+    });
+    return toToolResult(data);
+  }
+);
+
+server.tool(
   "list_bounties",
   "List tasks for monitoring and filtering.",
   {

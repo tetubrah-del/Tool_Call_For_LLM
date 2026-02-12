@@ -11,7 +11,7 @@ type TaskPreview = {
   task: string;
   task_display?: string;
   lang?: UiLang;
-  status?: "open" | "accepted" | "completed" | "failed";
+  status?: "open" | "accepted" | "review_pending" | "completed" | "failed";
   location: string | null;
   budget_usd: number;
   task_label: TaskLabel | null;

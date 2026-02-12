@@ -51,10 +51,10 @@ export async function GET() {
          paid_at,
          payment_error_message,
          payout_batch_id,
-         created_at
+       created_at
        FROM tasks
        WHERE human_id = ?
-         AND status = 'completed'
+         AND status IN ('review_pending', 'completed')
        ORDER BY created_at DESC`
     )
     .all<PaymentRow>(humanId);

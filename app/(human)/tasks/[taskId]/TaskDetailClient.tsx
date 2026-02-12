@@ -15,7 +15,7 @@ type Task = {
   acceptance_criteria: string | null;
   not_allowed: string | null;
   deliverable: "photo" | "video" | "text" | null;
-  status: "open" | "accepted" | "completed" | "failed";
+  status: "open" | "accepted" | "review_pending" | "completed" | "failed";
   failure_reason?: string | null;
   budget_usd: number;
   is_international_payout?: boolean;
@@ -170,7 +170,13 @@ export default function TaskDetailClient() {
 
   async function loadContact() {
     if (!task) return;
-    if (task.status !== "accepted" && task.status !== "completed") return;
+    if (
+      task.status !== "accepted" &&
+      task.status !== "review_pending" &&
+      task.status !== "completed"
+    ) {
+      return;
+    }
     setContactLoading(true);
     setContactError(null);
     try {
@@ -378,6 +384,16 @@ export default function TaskDetailClient() {
   const isAssignedToMe = Boolean(task.human_id && humanId && task.human_id === humanId);
   const canActAsHuman = isLoggedIn || Boolean(humanId && humanTestToken);
   const canApply = canActAsHuman && task.status === "open" && Boolean(humanId);
+  const statusLabel =
+    task.status === "open"
+      ? strings.statusOpen
+      : task.status === "accepted"
+        ? strings.statusAccepted
+        : task.status === "review_pending"
+          ? strings.statusReviewPending
+          : task.status === "completed"
+            ? strings.statusCompleted
+            : strings.statusFailed;
 
   return (
     <div className="task-detail-grid">
@@ -401,7 +417,7 @@ export default function TaskDetailClient() {
                 </span>
               )}
             </div>
-            <span className="status-pill">{task.status}</span>
+            <span className="status-pill">{statusLabel}</span>
           </div>
 
           <h1 className="task-detail-title">{task.task_display || task.task}</h1>
@@ -495,7 +511,11 @@ export default function TaskDetailClient() {
           </div>
         </div>
 
-        {canActAsHuman && isAssignedToMe && (task.status === "accepted" || task.status === "completed") && (
+        {canActAsHuman &&
+          isAssignedToMe &&
+          (task.status === "accepted" ||
+            task.status === "review_pending" ||
+            task.status === "completed") && (
           <div className="card task-detail-section">
             <h3>{strings.contactChannelsTitle}</h3>
             {contactLoading && <p className="muted">{strings.loading}</p>}
@@ -583,7 +603,7 @@ export default function TaskDetailClient() {
 
         <div className="card task-side-card">
           <h3>{strings.status}</h3>
-          <p className="muted">{task.status}</p>
+          <p className="muted">{statusLabel}</p>
         </div>
 
         <div className="card task-side-card">

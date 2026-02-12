@@ -3,7 +3,6 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { saveUpload } from "@/lib/storage";
 import { getNormalizedTask } from "@/lib/task-api";
-import { dispatchTaskEvent } from "@/lib/webhooks";
 import { closeContactChannel } from "@/lib/contact-channel";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -158,7 +157,9 @@ export async function POST(request: Request) {
      VALUES (?, ?, ?, ?, ?, ?)`
   ).run(submissionId, taskId, type, contentUrl, text, createdAt);
 
-  await db.prepare(`UPDATE tasks SET status = 'completed', submission_id = ? WHERE id = ?`).run(
+  await db
+    .prepare(`UPDATE tasks SET status = 'review_pending', submission_id = ? WHERE id = ?`)
+    .run(
     submissionId,
     taskId
   );
@@ -168,7 +169,6 @@ export async function POST(request: Request) {
       .run(task.human_id);
   }
   await closeContactChannel(db, taskId);
-  void dispatchTaskEvent(db, { eventType: "task.completed", taskId }).catch(() => {});
 
   return NextResponse.json({ status: "stored", submission_id: submissionId });
 }

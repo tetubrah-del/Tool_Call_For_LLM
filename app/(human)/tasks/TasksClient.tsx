@@ -24,7 +24,7 @@ type Task = {
   is_international_payout?: boolean;
   deliverable: "photo" | "video" | "text" | null;
   deadline_at?: string | null;
-  status: "open" | "accepted" | "completed" | "failed";
+  status: "open" | "accepted" | "review_pending" | "completed" | "failed";
   failure_reason?: string | null;
   human_id: string | null;
   created_at: string;
@@ -56,6 +56,7 @@ export default function TasksClient() {
   const statusLabels: Record<Task["status"], string> = {
     open: strings.statusOpen,
     accepted: strings.statusAccepted,
+    review_pending: strings.statusReviewPending,
     completed: strings.statusCompleted,
     failed: strings.statusFailed
   };
@@ -278,6 +279,7 @@ export default function TasksClient() {
             <option value="all">{strings.allStatuses}</option>
             <option value="open">{strings.statusOpen}</option>
             <option value="accepted">{strings.statusAccepted}</option>
+            <option value="review_pending">{strings.statusReviewPending}</option>
             <option value="completed">{strings.statusCompleted}</option>
             <option value="failed">{strings.statusFailed}</option>
           </select>

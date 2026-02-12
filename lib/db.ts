@@ -879,7 +879,7 @@ export type StripeWebhookEventRow = {
 };
 
 // Task lifecycle:
-// open -> accepted -> completed
+// open -> accepted -> review_pending -> completed
 // open -> failed
 // accepted -> failed
 export type FailureReason =
@@ -911,7 +911,7 @@ export type Task = {
   deliverable: "photo" | "video" | "text" | null;
   deadline_minutes: number | null;
   deadline_at: string | null;
-  status: "open" | "accepted" | "completed" | "failed";
+  status: "open" | "accepted" | "review_pending" | "completed" | "failed";
   failure_reason: FailureReason | null;
   human_id: string | null;
   submission_id: string | null;

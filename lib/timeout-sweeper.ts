@@ -7,7 +7,7 @@ type TaskRow = {
   deadline_at: string | null;
   deadline_minutes: number | null;
   created_at: string;
-  status: "open" | "accepted" | "completed" | "failed";
+  status: "open" | "accepted" | "review_pending" | "completed" | "failed";
   human_id: string | null;
 };
 

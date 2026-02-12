@@ -24,7 +24,7 @@ export type NormalizedTask = {
   payee_paypal_email: string | null;
   deliverable: "photo" | "video" | "text";
   deadline_at: string | null;
-  status: "open" | "accepted" | "completed" | "failed";
+  status: "open" | "accepted" | "review_pending" | "completed" | "failed";
   failure_reason: FailureReason | null;
   human_id: string | null;
   created_at: string;
@@ -42,7 +42,7 @@ export type NormalizedTask = {
 };
 
 // Task lifecycle:
-// open -> accepted -> completed
+// open -> accepted -> review_pending -> completed
 // open -> failed
 // accepted -> failed
 const FAILURE_REASONS = new Set<FailureReason>([
@@ -107,7 +107,13 @@ async function applyTimeoutIfNeeded(
   deadlineAt: string | null
 ): Promise<Task> {
   if (!deadlineAt) return task;
-  if (task.status === "completed" || task.status === "failed") return task;
+  if (
+    task.status === "review_pending" ||
+    task.status === "completed" ||
+    task.status === "failed"
+  ) {
+    return task;
+  }
 
   const deadlineMs = Date.parse(deadlineAt);
   if (!Number.isFinite(deadlineMs)) return task;
