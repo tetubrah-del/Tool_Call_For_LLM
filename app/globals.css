@@ -292,6 +292,40 @@ button.tag:hover {
   font-weight: 700;
   letter-spacing: 0.02em;
   color: var(--ink);
+  display: inline-flex;
+  align-items: center;
+}
+
+.brand-logo {
+  display: block;
+  object-fit: contain;
+}
+
+.brand-logo-nav {
+  height: 34px;
+  width: auto;
+  max-width: 220px;
+}
+
+.brand-logo-hero {
+  height: 72px;
+  width: auto;
+  max-width: min(70vw, 420px);
+}
+
+.brand-logo-fallback {
+  color: var(--ink);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.brand-logo-fallback-nav {
+  font-size: 20px;
+}
+
+.brand-logo-fallback-hero {
+  font-size: clamp(32px, 6vw, 56px);
+  line-height: 1.05;
 }
 
 .nav-links {
@@ -359,6 +393,10 @@ button.tag:hover {
   justify-content: space-between;
   gap: 24px;
   flex-wrap: wrap;
+}
+
+.hero-brand-title {
+  margin: 6px 0 8px;
 }
 
 .hero h1 {

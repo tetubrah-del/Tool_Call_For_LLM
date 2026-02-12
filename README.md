@@ -1,4 +1,4 @@
-# Call Human MVP
+# Sinkai
 
 Minimal MVP where an AI agent tool_call can hire a registered human for a real‑world task and receive a submission (photo/video/text).
 

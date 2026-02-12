@@ -5,8 +5,8 @@ import { Suspense } from "react";
 import TitleSync from "./TitleSync";
 
 export const metadata = {
-  title: "Call Human MVP",
-  description: "AI agent calls a human for real-world tasks"
+  title: "Sinkai",
+  description: "AI agent calls a human for real-world tasks on Sinkai"
 };
 
 export default function RootLayout({

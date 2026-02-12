@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { normalizeLang, UI_STRINGS, type UiLang } from "@/lib/i18n";
 import { TASK_LABEL_TEXT, type TaskLabel } from "@/lib/task-labels";
+import BrandLogo from "./BrandLogo";
 
 type TaskPreview = {
   id: string;
@@ -111,7 +112,9 @@ export default function HomeClient() {
         <div className="hero-top">
           <div>
             <p className="eyebrow">{strings.heroEyebrow}</p>
-            <h1>{strings.appTitle}</h1>
+            <h1 className="hero-brand-title">
+              <BrandLogo lang={lang} size="hero" />
+            </h1>
             <p className="subtitle">{strings.heroSubtitle}</p>
           </div>
         </div>
