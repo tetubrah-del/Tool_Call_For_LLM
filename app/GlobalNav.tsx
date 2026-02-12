@@ -64,41 +64,43 @@ export default function GlobalNav() {
   }
 
   return (
-    <nav className="global-nav">
-      <div className="nav-inner">
-        <a className="brand" href={`/?${query}`}>
-          <BrandLogo lang={lang} size="nav" />
-        </a>
-        <div className="nav-links">
-          {navItems.map((item) => (
-            <a key={item.key} href={item.href} className={item.isActive ? "active" : undefined}>
-              {item.label}
-            </a>
-          ))}
-        </div>
-        <div className="nav-actions">
-          <div className="nav-lang">
-            <label htmlFor="nav-lang">{strings.langLabel}</label>
-            <select
-              id="nav-lang"
-              value={lang}
-              onChange={(e) => onLangChange(normalizeLang(e.target.value))}
-            >
-              <option value="en">EN</option>
-              <option value="ja">JA</option>
-            </select>
+    <>
+      <nav className="global-nav">
+        <div className="nav-inner">
+          <a className="brand" href={`/?${query}`}>
+            <BrandLogo lang={lang} size="nav" />
+          </a>
+          <div className="nav-links">
+            {navItems.map((item) => (
+              <a key={item.key} href={item.href} className={item.isActive ? "active" : undefined}>
+                {item.label}
+              </a>
+            ))}
           </div>
-          {session?.user && (
-            <button
-              className="secondary nav-signout"
-              type="button"
-              onClick={() => signOut()}
-            >
-              {strings.signOut}
-            </button>
-          )}
+          <div className="nav-actions">
+            <div className="nav-lang">
+              <label htmlFor="nav-lang">{strings.langLabel}</label>
+              <select
+                id="nav-lang"
+                value={lang}
+                onChange={(e) => onLangChange(normalizeLang(e.target.value))}
+              >
+                <option value="en">EN</option>
+                <option value="ja">JA</option>
+              </select>
+            </div>
+            {session?.user && (
+              <button
+                className="secondary nav-signout"
+                type="button"
+                onClick={() => signOut()}
+              >
+                {strings.signOut}
+              </button>
+            )}
+          </div>
         </div>
-      </div>
+      </nav>
       <div className="mobile-bottom-nav" role="navigation" aria-label="Global navigation">
         {navItems.map((item) => (
           <a key={`mobile-${item.key}`} href={item.href} className={item.isActive ? "active" : undefined}>
@@ -106,6 +108,6 @@ export default function GlobalNav() {
           </a>
         ))}
       </div>
-    </nav>
+    </>
   );
 }
