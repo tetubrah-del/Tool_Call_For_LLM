@@ -70,6 +70,7 @@ Minimal API where an AI agent tool_call can hire a registered human for a real-w
 - `GET /api/tasks?human_id=...&task_label=...&q=...` (human task search)
 - `GET /api/tasks/:taskId` (task status)
 - `GET /api/task/:taskId` (task status, alias)
+- `POST /api/tasks/:taskId/approve` (AI requester final approval)
 - `POST /api/tasks/:taskId/accept` (human accepts)
 - `POST /api/tasks/:taskId/skip` (human skips)
 - `POST /api/tasks/:taskId/pay` (admin payment ops: approve / mark_failed / mark_paid)
@@ -137,7 +138,7 @@ curl -X POST http://localhost:3000/api/call_human \
 ## Task lifecycle
 
 ```
-open -> accepted -> completed
+open -> accepted -> review_pending -> completed
 open -> failed
 accepted -> failed
 ```
@@ -218,6 +219,8 @@ Deliverables are returned in `submission` via `GET /api/tasks/:taskId`.
 ## Payment lifecycle (MVP)
 
 - Default payout status is `pending`.
+- Human submission changes task status to `review_pending`.
+- AI requester finalizes completion by calling `POST /api/tasks/:taskId/approve` (`review_pending` -> `completed`).
 - Admin reviews completed task and calls `POST /api/tasks/:taskId/pay` with:
   - `{ "action": "approve" }`
   - `{ "action": "mark_failed", "error_message": "..." }`

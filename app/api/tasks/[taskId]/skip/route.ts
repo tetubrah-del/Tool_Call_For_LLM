@@ -31,7 +31,7 @@ export async function POST(
     return NextResponse.json({ status: "not_found" }, { status: 404 });
   }
 
-  if (task.status === "completed") {
+  if (task.status === "review_pending" || task.status === "completed") {
     return NextResponse.json({ status: "error", reason: "already_completed" }, { status: 409 });
   }
 

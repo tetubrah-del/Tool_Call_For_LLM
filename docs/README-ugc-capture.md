@@ -88,7 +88,7 @@ Failure reasons are returned as enums.
 ## Task lifecycle
 
 ```
-open -> accepted -> completed
+open -> accepted -> review_pending -> completed
 open -> failed
 accepted -> failed
 ```

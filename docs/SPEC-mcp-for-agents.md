@@ -26,6 +26,7 @@ Current backend already supports these flows via REST.
 - `create_bounty`
 - `call_human_fast`
 - `get_bounty`
+- `approve_bounty_completion`
 - `list_bounties`
 
 ## v1 (requires backend extension)
@@ -179,7 +180,7 @@ Output:
 {
   "task": {
     "id": "string",
-    "status": "open | accepted | completed | failed",
+    "status": "open | accepted | review_pending | completed | failed",
     "failure_reason": "string | null",
     "submission": {
       "id": "string",
@@ -223,6 +224,34 @@ Output:
       "created_at": "string"
     }
   ]
+}
+```
+
+---
+
+## 4.6 `approve_bounty_completion`
+
+Finalize a submitted task after requester review.
+
+Input:
+
+```json
+{
+  "task_id": "string",
+  "ai_account_id": "string (optional if server default exists)",
+  "ai_api_key": "string (optional if server default exists)"
+}
+```
+
+Backend mapping:
+- `POST /api/tasks/{task_id}/approve`
+
+Output:
+
+```json
+{
+  "status": "completed",
+  "task_id": "string"
 }
 ```
 
