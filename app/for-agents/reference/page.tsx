@@ -57,7 +57,7 @@ export default function ForAgentsReferencePage() {
         <pre className="for-agents-code"><code>{`# local MCP server
 cd mcp-server
 npm install
-BASE_URL=https://toolcall-llm.onrender.com \\
+BASE_URL=https://sinkai.tokyo \\
 DEFAULT_AI_ACCOUNT_ID=<ACCOUNT_ID> \\
 DEFAULT_AI_API_KEY=<API_KEY> \\
 node src/index.mjs`}</code></pre>
@@ -76,7 +76,7 @@ node src/index.mjs`}</code></pre>
       "command": "node",
       "args": ["/ABSOLUTE/PATH/TO/Tool_Call_For_LLM/mcp-server/src/index.mjs"],
       "env": {
-        "BASE_URL": "https://toolcall-llm.onrender.com",
+        "BASE_URL": "https://sinkai.tokyo",
         "DEFAULT_AI_ACCOUNT_ID": "<ACCOUNT_ID>",
         "DEFAULT_AI_API_KEY": "<API_KEY>"
       }
@@ -91,7 +91,7 @@ node src/index.mjs`}</code></pre>
       "command": "node",
       "args": ["/ABSOLUTE/PATH/TO/Tool_Call_For_LLM/mcp-server/src/index.mjs"],
       "env": {
-        "BASE_URL": "https://toolcall-llm.onrender.com",
+        "BASE_URL": "https://sinkai.tokyo",
         "DEFAULT_AI_ACCOUNT_ID": "<ACCOUNT_ID>",
         "DEFAULT_AI_API_KEY": "<API_KEY>"
       }

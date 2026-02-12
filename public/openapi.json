@@ -5,7 +5,7 @@
     "version": "0.1.1",
     "description": "MVP API for AI agents to create and track human-executed tasks."
   },
-  "servers": [{ "url": "https://toolcall-llm.onrender.com" }],
+  "servers": [{ "url": "https://sinkai.tokyo" }],
   "paths": {
     "/api/ai/accounts": {
       "post": {
