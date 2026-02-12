@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { normalizeLang, UI_STRINGS, type UiLang } from "@/lib/i18n";
+import BrandLogo from "./BrandLogo";
 
 export default function GlobalNav() {
   const searchParams = useSearchParams();
@@ -37,7 +38,7 @@ export default function GlobalNav() {
     <nav className="global-nav">
       <div className="nav-inner">
         <a className="brand" href={`/?${query}`}>
-          {strings.appTitle}
+          <BrandLogo lang={lang} size="nav" />
         </a>
         <div className="nav-links">
           <a href={`/for-agents?${query}`}>{strings.forAgents}</a>

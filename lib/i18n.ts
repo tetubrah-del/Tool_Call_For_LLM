@@ -6,7 +6,7 @@ export function normalizeLang(value: string | null | undefined): UiLang {
 
 export const UI_STRINGS: Record<UiLang, Record<string, string>> = {
   en: {
-    appTitle: "Call Human MVP",
+    appTitle: "Sinkai",
     heroEyebrow: "Human-in-the-loop marketplace",
     heroSubtitle: "Offer availability, take on tasks, and deliver real-world outcomes with human expertise.",
     humanUiOnly: "Human UI only. AI calls the API directly.",
@@ -250,7 +250,7 @@ export const UI_STRINGS: Record<UiLang, Record<string, string>> = {
     taskNotFound: "Task not found."
   },
   ja: {
-    appTitle: "ネクストワークス",
+    appTitle: "シンカイ",
     heroEyebrow: "AIと人間の参加型クラウドワーキングプレイス",
     heroSubtitle:
       "AIの思考とヒトの物理作業を融合したひとつのワーキングプラットフォームで提供しています。",
