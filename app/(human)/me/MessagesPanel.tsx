@@ -34,6 +34,19 @@ type Channel = {
   message_count: number;
 };
 
+type TaskDetail = {
+  id: string;
+  status: "open" | "accepted" | "review_pending" | "completed" | "failed";
+  deliverable: "photo" | "video" | "text" | null;
+  submission: {
+    id: string;
+    type: string;
+    content_url: string | null;
+    text: string | null;
+    created_at: string;
+  } | null;
+};
+
 type ContactMessage = {
   id: string;
   task_id: string;
@@ -56,11 +69,16 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
   const preferredTaskId = (searchParams.get("task_id") || "").trim() || null;
   const [channels, setChannels] = useState<Channel[]>([]);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [selectedTask, setSelectedTask] = useState<TaskDetail | null>(null);
   const [threadMessages, setThreadMessages] = useState<ContactMessage[]>([]);
   const [threadLoading, setThreadLoading] = useState(false);
   const [composeBody, setComposeBody] = useState("");
   const [composeFile, setComposeFile] = useState<File | null>(null);
   const [sendingMessage, setSendingMessage] = useState(false);
+  const [submissionText, setSubmissionText] = useState("");
+  const [submissionFile, setSubmissionFile] = useState<File | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submissionSuccess, setSubmissionSuccess] = useState<string | null>(null);
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [templateTitle, setTemplateTitle] = useState("");
@@ -107,14 +125,27 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
     async function loadThread() {
       if (!selectedTaskId) {
         setThreadMessages([]);
+        setSelectedTask(null);
         return;
       }
       setThreadLoading(true);
       try {
-        const res = await fetch(`/api/tasks/${selectedTaskId}/contact/messages`);
-        if (!res.ok) throw new Error("failed");
-        const data = await res.json();
-        setThreadMessages(data.messages || []);
+        const [messagesRes, taskRes] = await Promise.all([
+          fetch(`/api/tasks/${selectedTaskId}/contact/messages`),
+          fetch(`/api/tasks?task_id=${encodeURIComponent(selectedTaskId)}`)
+        ]);
+
+        if (!messagesRes.ok) throw new Error("failed");
+        const messagesData = await messagesRes.json();
+        setThreadMessages(messagesData.messages || []);
+
+        if (taskRes.ok) {
+          const taskData = await taskRes.json();
+          setSelectedTask(taskData.task || null);
+        } else {
+          setSelectedTask(null);
+        }
+
         await fetch(`/api/tasks/${selectedTaskId}/contact/read`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -132,6 +163,12 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
       }
     }
     loadThread();
+  }, [selectedTaskId]);
+
+  useEffect(() => {
+    setSubmissionSuccess(null);
+    setSubmissionText("");
+    setSubmissionFile(null);
   }, [selectedTaskId]);
 
   function startEdit(template: Template) {
@@ -252,9 +289,66 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
     }
   }
 
+  async function submitTaskDeliverable(event: React.FormEvent) {
+    event.preventDefault();
+    if (!selectedTask) return;
+    if (selectedTask.status !== "accepted") return;
+
+    const type = selectedTask.deliverable || "text";
+    if (type === "text" && !submissionText.trim()) {
+      setError(strings.missingText);
+      return;
+    }
+    if ((type === "photo" || type === "video") && !submissionFile) {
+      setError(strings.missingFile);
+      return;
+    }
+
+    setError(null);
+    setSubmissionSuccess(null);
+    setSubmitting(true);
+    try {
+      const formData = new FormData();
+      formData.append("task_id", selectedTask.id);
+      formData.append("type", type);
+      if (type === "text") {
+        formData.append("text", submissionText.trim());
+      } else if (submissionFile) {
+        formData.append("file", submissionFile);
+      }
+
+      const res = await fetch("/api/submissions", {
+        method: "POST",
+        body: formData
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.reason || "failed");
+      }
+
+      setSubmissionSuccess(strings.submitted);
+      setSubmissionText("");
+      setSubmissionFile(null);
+      await loadMessages();
+      setSelectedTask((prev) =>
+        prev ? { ...prev, status: "review_pending" } : prev
+      );
+    } catch (err: any) {
+      setError(err.message || "failed");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   function applyTemplateToCompose(body: string) {
     setComposeBody(body);
   }
+
+  const selectedChannel = channels.find((channel) => channel.task_id === selectedTaskId) || null;
+  const canSendMessage =
+    Boolean(selectedChannel) && selectedChannel?.status === "open" && selectedTask?.status === "accepted";
+  const deliverable = selectedTask?.deliverable || "text";
+  const showSubmissionForm = selectedTask?.status === "accepted";
 
   return (
     <div className="messages-panel">
@@ -312,6 +406,60 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
                     </article>
                   ))}
                 </div>
+                {selectedTask && (
+                  <div className="card">
+                    <h4>{strings.deliverTask}</h4>
+                    <p className="muted">
+                      {strings.status}: {selectedTask.status} / {strings.deliverable}: {deliverable}
+                    </p>
+                    {selectedTask.status === "review_pending" && (
+                      <p className="muted">{strings.statusReviewPending}</p>
+                    )}
+                    {selectedTask.status === "completed" && (
+                      <p className="muted">{strings.statusCompleted}</p>
+                    )}
+                    {selectedTask.status === "failed" && (
+                      <p className="muted">{strings.statusFailed}</p>
+                    )}
+                    {showSubmissionForm && (
+                      <form className="thread-compose" onSubmit={submitTaskDeliverable}>
+                        {deliverable === "text" && (
+                          <label>
+                            {strings.text}
+                            <textarea
+                              value={submissionText}
+                              onChange={(e) => setSubmissionText(e.target.value)}
+                              rows={3}
+                            />
+                          </label>
+                        )}
+                        {(deliverable === "photo" || deliverable === "video") && (
+                          <label>
+                            {strings.upload}
+                            <input
+                              type="file"
+                              accept={deliverable === "photo" ? "image/*" : "video/*"}
+                              onChange={(e) => setSubmissionFile(e.target.files?.[0] || null)}
+                            />
+                          </label>
+                        )}
+                        {submissionFile && <p className="muted">{submissionFile.name}</p>}
+                        <button
+                          type="submit"
+                          disabled={
+                            submitting ||
+                            (deliverable === "text"
+                              ? !submissionText.trim()
+                              : !submissionFile)
+                          }
+                        >
+                          {submitting ? strings.saving : strings.submit}
+                        </button>
+                        {submissionSuccess && <p className="muted">{submissionSuccess}</p>}
+                      </form>
+                    )}
+                  </div>
+                )}
                 <form className="thread-compose" onSubmit={sendThreadMessage}>
                   <label>
                     {strings.inquiryBody}
@@ -343,10 +491,15 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
                   )}
                   <button
                     type="submit"
-                    disabled={sendingMessage || (!composeBody.trim() && !composeFile)}
+                    disabled={
+                      sendingMessage || !canSendMessage || (!composeBody.trim() && !composeFile)
+                    }
                   >
                     {sendingMessage ? strings.saving : strings.sendMessage}
                   </button>
+                  {!canSendMessage && (
+                    <p className="muted">{strings.channelNotOpenHint}</p>
+                  )}
                 </form>
               </>
             )}
