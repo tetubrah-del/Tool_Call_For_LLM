@@ -32,6 +32,19 @@ type TaskRow = {
   ai_account_id: string | null;
   created_at: string;
   deleted_at: string | null;
+  review_guard?: {
+    recognized_message_id: string | null;
+    recognized_submission_id: string | null;
+    has_attachment: boolean;
+    attachment_checked: boolean;
+    acceptance_checked: boolean;
+    final_confirmed: boolean;
+    review_note: string | null;
+  } | null;
+  latest_human_message?: {
+    id: string;
+    created_at: string;
+  } | null;
 };
 
 type TabKey = "humans" | "ai" | "tasks";
@@ -47,6 +60,14 @@ export default function ManageClient() {
   const [humans, setHumans] = useState<HumanRow[]>([]);
   const [accounts, setAccounts] = useState<AiAccountRow[]>([]);
   const [tasks, setTasks] = useState<TaskRow[]>([]);
+  const [aiAccountIdInput, setAiAccountIdInput] = useState("");
+  const [aiApiKeyInput, setAiApiKeyInput] = useState("");
+  const [reviewLoadingTaskId, setReviewLoadingTaskId] = useState<string | null>(null);
+  const [reviewMessageIdByTask, setReviewMessageIdByTask] = useState<Record<string, string>>({});
+  const [reviewNoteByTask, setReviewNoteByTask] = useState<Record<string, string>>({});
+  const [attachmentCheckedByTask, setAttachmentCheckedByTask] = useState<Record<string, boolean>>({});
+  const [acceptanceCheckedByTask, setAcceptanceCheckedByTask] = useState<Record<string, boolean>>({});
+  const [finalConfirmedByTask, setFinalConfirmedByTask] = useState<Record<string, boolean>>({});
 
   const canLoad = authReady;
 
@@ -198,6 +219,87 @@ export default function ManageClient() {
     await load();
   }
 
+  function requireAiAuthInputs() {
+    if (!aiAccountIdInput.trim() || !aiApiKeyInput.trim()) {
+      setError("Set AI Account ID and AI API Key first.");
+      return null;
+    }
+    return { ai_account_id: aiAccountIdInput.trim(), ai_api_key: aiApiKeyInput.trim() };
+  }
+
+  async function recognizeSubmission(task: TaskRow) {
+    const authPayload = requireAiAuthInputs();
+    if (!authPayload) return;
+    setReviewLoadingTaskId(task.id);
+    setError(null);
+    try {
+      const messageId = (reviewMessageIdByTask[task.id] || "").trim();
+      const res = await fetch(`/api/tasks/${task.id}/review/recognize`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...authPayload,
+          message_id: messageId || undefined
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.reason || "failed");
+      await load();
+    } catch (err: any) {
+      setError(err.message || "failed");
+    } finally {
+      setReviewLoadingTaskId(null);
+    }
+  }
+
+  async function saveReviewChecks(task: TaskRow) {
+    const authPayload = requireAiAuthInputs();
+    if (!authPayload) return;
+    setReviewLoadingTaskId(task.id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/tasks/${task.id}/review/confirm`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...authPayload,
+          attachment_checked: Boolean(attachmentCheckedByTask[task.id]),
+          acceptance_checked: Boolean(acceptanceCheckedByTask[task.id]),
+          final_confirmed: Boolean(finalConfirmedByTask[task.id]),
+          review_note: reviewNoteByTask[task.id] || ""
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.reason || "failed");
+      await load();
+    } catch (err: any) {
+      setError(err.message || "failed");
+    } finally {
+      setReviewLoadingTaskId(null);
+    }
+  }
+
+  async function approveTaskAsAi(task: TaskRow) {
+    const authPayload = requireAiAuthInputs();
+    if (!authPayload) return;
+    setReviewLoadingTaskId(task.id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/tasks/${task.id}/approve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(authPayload)
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.reason || "failed");
+      await load();
+    } catch (err: any) {
+      setError(err.message || "failed");
+    } finally {
+      setReviewLoadingTaskId(null);
+    }
+  }
+
   return (
     <div>
       <h1>Admin: Manage</h1>
@@ -290,12 +392,127 @@ export default function ManageClient() {
 
       {activeTab === "tasks" && (
         <>
+          <div className="card">
+            <p><strong>AI Review Controls</strong></p>
+            <div className="row">
+              <label>
+                AI Account ID
+                <input
+                  value={aiAccountIdInput}
+                  onChange={(e) => setAiAccountIdInput(e.target.value)}
+                  placeholder="ai_..."
+                />
+              </label>
+              <label>
+                AI API Key
+                <input
+                  value={aiApiKeyInput}
+                  onChange={(e) => setAiApiKeyInput(e.target.value)}
+                  placeholder="sk_..."
+                />
+              </label>
+            </div>
+            <p className="muted">
+              Set once, then use each task card: Recognize Submission → Save Checks → Approve.
+            </p>
+          </div>
           {tasks.length === 0 && <p className="muted">No tasks.</p>}
           {tasks.map((t) => (
             <div key={t.id} className="card">
               <p><strong>{t.task_display || t.task}</strong></p>
               <p className="muted">status: {t.status} | human: {t.human_id || "-"} | ai: {t.ai_account_id || "-"}</p>
               <p className="muted">id: {t.id} | created: {t.created_at} | deleted: {t.deleted_at || "-"}</p>
+              <p className="muted">
+                latest human message: {t.latest_human_message?.id || "-"}
+                {t.latest_human_message?.created_at ? ` (${t.latest_human_message.created_at})` : ""}
+              </p>
+              <p className="muted">
+                guard:
+                {" recognized="}{t.review_guard?.recognized_message_id || t.review_guard?.recognized_submission_id || "-"}
+                {" | has_attachment="}{String(Boolean(t.review_guard?.has_attachment))}
+                {" | attachment_checked="}{String(Boolean(t.review_guard?.attachment_checked))}
+                {" | acceptance_checked="}{String(Boolean(t.review_guard?.acceptance_checked))}
+                {" | final_confirmed="}{String(Boolean(t.review_guard?.final_confirmed))}
+              </p>
+              <div className="row">
+                <label>
+                  message_id (optional)
+                  <input
+                    value={reviewMessageIdByTask[t.id] ?? t.latest_human_message?.id ?? ""}
+                    onChange={(e) =>
+                      setReviewMessageIdByTask((prev) => ({ ...prev, [t.id]: e.target.value }))
+                    }
+                    placeholder="message id"
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => recognizeSubmission(t)}
+                  disabled={Boolean(t.deleted_at) || reviewLoadingTaskId === t.id}
+                >
+                  {reviewLoadingTaskId === t.id ? "Working..." : "Recognize Submission"}
+                </button>
+              </div>
+              <div className="row">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={attachmentCheckedByTask[t.id] ?? Boolean(t.review_guard?.attachment_checked)}
+                    onChange={(e) =>
+                      setAttachmentCheckedByTask((prev) => ({ ...prev, [t.id]: e.target.checked }))
+                    }
+                  />
+                  attachment checked
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={acceptanceCheckedByTask[t.id] ?? Boolean(t.review_guard?.acceptance_checked)}
+                    onChange={(e) =>
+                      setAcceptanceCheckedByTask((prev) => ({ ...prev, [t.id]: e.target.checked }))
+                    }
+                  />
+                  acceptance checked
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={finalConfirmedByTask[t.id] ?? Boolean(t.review_guard?.final_confirmed)}
+                    onChange={(e) =>
+                      setFinalConfirmedByTask((prev) => ({ ...prev, [t.id]: e.target.checked }))
+                    }
+                  />
+                  final confirmed
+                </label>
+              </div>
+              <label>
+                review note
+                <textarea
+                  value={reviewNoteByTask[t.id] ?? t.review_guard?.review_note ?? ""}
+                  onChange={(e) =>
+                    setReviewNoteByTask((prev) => ({ ...prev, [t.id]: e.target.value }))
+                  }
+                  rows={2}
+                />
+              </label>
+              <div className="row">
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => saveReviewChecks(t)}
+                  disabled={Boolean(t.deleted_at) || reviewLoadingTaskId === t.id}
+                >
+                  {reviewLoadingTaskId === t.id ? "Working..." : "Save Review Checks"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => approveTaskAsAi(t)}
+                  disabled={Boolean(t.deleted_at) || reviewLoadingTaskId === t.id}
+                >
+                  {reviewLoadingTaskId === t.id ? "Working..." : "Approve (AI)"}
+                </button>
+              </div>
               <div className="row">
                 <button type="button" onClick={() => deleteTask(t)} disabled={Boolean(t.deleted_at)}>
                   Delete

@@ -39,6 +39,30 @@ export async function GET(request: Request) {
   const normalized = [];
   for (const task of tasks) {
     const display = await getTaskDisplay(db, task, lang);
+    const reviewGuard = await db
+      .prepare(
+        `SELECT recognized_message_id, recognized_submission_id, has_attachment, attachment_checked, acceptance_checked, final_confirmed, review_note
+         FROM task_review_guards
+         WHERE task_id = ?`
+      )
+      .get<{
+        recognized_message_id: string | null;
+        recognized_submission_id: string | null;
+        has_attachment: number;
+        attachment_checked: number;
+        acceptance_checked: number;
+        final_confirmed: number;
+        review_note: string | null;
+      }>(task.id);
+    const latestHumanMessage = await db
+      .prepare(
+        `SELECT id, created_at
+         FROM contact_messages
+         WHERE task_id = ? AND sender_type = 'human'
+         ORDER BY created_at DESC
+         LIMIT 1`
+      )
+      .get<{ id: string; created_at: string }>(task.id);
     if (!task.deliverable) {
       await db
         .prepare(`UPDATE tasks SET deliverable = 'text' WHERE id = ?`)
@@ -50,7 +74,24 @@ export async function GET(request: Request) {
       deliverable: task.deliverable || "text",
       task_display: display.display,
       lang: display.lang,
-      paid_status: normalizePaymentStatus(task.paid_status)
+      paid_status: normalizePaymentStatus(task.paid_status),
+      review_guard: reviewGuard
+        ? {
+            recognized_message_id: reviewGuard.recognized_message_id,
+            recognized_submission_id: reviewGuard.recognized_submission_id,
+            has_attachment: Boolean(reviewGuard.has_attachment),
+            attachment_checked: Boolean(reviewGuard.attachment_checked),
+            acceptance_checked: Boolean(reviewGuard.acceptance_checked),
+            final_confirmed: Boolean(reviewGuard.final_confirmed),
+            review_note: reviewGuard.review_note || null
+          }
+        : null,
+      latest_human_message: latestHumanMessage
+        ? {
+            id: latestHumanMessage.id,
+            created_at: latestHumanMessage.created_at
+          }
+        : null
     });
   }
   return NextResponse.json({ tasks: normalized });
