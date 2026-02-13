@@ -1,25 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { UI_STRINGS, type UiLang } from "@/lib/i18n";
-
-type Inquiry = {
-  id: string;
-  from_name: string | null;
-  from_email: string | null;
-  subject: string;
-  body: string;
-  is_read: 0 | 1;
-  created_at: string;
-};
-
-type Template = {
-  id: string;
-  title: string;
-  body: string;
-  updated_at: string;
-};
 
 type Channel = {
   task_id: string;
@@ -38,6 +21,8 @@ type TaskDetail = {
   id: string;
   status: "open" | "accepted" | "review_pending" | "completed" | "failed";
   deliverable: "photo" | "video" | "text" | null;
+  created_at: string;
+  approved_at: string | null;
   submission: {
     id: string;
     type: string;
@@ -59,6 +44,13 @@ type ContactMessage = {
   read_by_human: 0 | 1;
 };
 
+type ProgressEvent = {
+  key: string;
+  created_at: string;
+  title: string;
+  detail?: string;
+};
+
 type MessagesPanelProps = {
   lang: UiLang;
 };
@@ -67,6 +59,7 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
   const strings = UI_STRINGS[lang];
   const searchParams = useSearchParams();
   const preferredTaskId = (searchParams.get("task_id") || "").trim() || null;
+
   const [channels, setChannels] = useState<Channel[]>([]);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<TaskDetail | null>(null);
@@ -76,14 +69,7 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
   const [composeFile, setComposeFile] = useState<File | null>(null);
   const [sending, setSending] = useState(false);
   const [sendSuccess, setSendSuccess] = useState<string | null>(null);
-  const [inquiries, setInquiries] = useState<Inquiry[]>([]);
-  const [templates, setTemplates] = useState<Template[]>([]);
-  const [templateTitle, setTemplateTitle] = useState("");
-  const [templateBody, setTemplateBody] = useState("");
-  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [copiedTemplateId, setCopiedTemplateId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function loadMessages() {
@@ -93,8 +79,6 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
       const res = await fetch("/api/me/messages");
       if (!res.ok) throw new Error("failed");
       const data = await res.json();
-      setInquiries(data.inquiries || []);
-      setTemplates(data.templates || []);
       const nextChannels = data.channels || [];
       setChannels(nextChannels);
       setSelectedTaskId((current) => {
@@ -168,87 +152,6 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
     setComposeFile(null);
   }, [selectedTaskId]);
 
-  function startEdit(template: Template) {
-    setEditingTemplateId(template.id);
-    setTemplateTitle(template.title);
-    setTemplateBody(template.body);
-  }
-
-  function resetEditor() {
-    setEditingTemplateId(null);
-    setTemplateTitle("");
-    setTemplateBody("");
-  }
-
-  async function saveTemplate(event: React.FormEvent) {
-    event.preventDefault();
-    setSaving(true);
-    setError(null);
-    try {
-      const url = editingTemplateId
-        ? `/api/me/message-templates/${editingTemplateId}`
-        : "/api/me/message-templates";
-      const method = editingTemplateId ? "PATCH" : "POST";
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: templateTitle, body: templateBody })
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data?.reason || "failed");
-      }
-      resetEditor();
-      await loadMessages();
-    } catch (err: any) {
-      setError(err.message || "failed");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function deleteTemplate(templateId: string) {
-    setError(null);
-    const current = templates;
-    setTemplates((prev) => prev.filter((template) => template.id !== templateId));
-    const res = await fetch(`/api/me/message-templates/${templateId}`, { method: "DELETE" });
-    if (!res.ok) {
-      setError(strings.failed);
-      setTemplates(current);
-    }
-  }
-
-  async function toggleInquiryRead(inquiryId: string, nextRead: boolean) {
-    setError(null);
-    const current = inquiries;
-    setInquiries((prev) =>
-      prev.map((inquiry) =>
-        inquiry.id === inquiryId ? { ...inquiry, is_read: nextRead ? 1 : 0 } : inquiry
-      )
-    );
-    const res = await fetch(`/api/me/messages/${inquiryId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ is_read: nextRead })
-    });
-    if (!res.ok) {
-      setError(strings.failed);
-      setInquiries(current);
-    }
-  }
-
-  async function copyTemplateBody(templateId: string, body: string) {
-    try {
-      await navigator.clipboard.writeText(body);
-      setCopiedTemplateId(templateId);
-      setTimeout(() => {
-        setCopiedTemplateId((current) => (current === templateId ? null : current));
-      }, 1200);
-    } catch {
-      setError(strings.failed);
-    }
-  }
-
   async function sendUnified(event: React.FormEvent) {
     event.preventDefault();
     if (!selectedTaskId) return;
@@ -302,15 +205,79 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
     }
   }
 
-  function applyTemplateToCompose(body: string) {
-    setComposeBody(body);
-  }
-
   const selectedChannel = channels.find((channel) => channel.task_id === selectedTaskId) || null;
   const canSendMessage =
     Boolean(selectedChannel) && selectedChannel?.status === "open" && selectedTask?.status === "accepted";
   const deliverable = selectedTask?.deliverable || "text";
   const fileAccept = "image/*";
+
+  const progressEvents = useMemo<ProgressEvent[]>(() => {
+    if (!selectedTaskId) return [];
+    const events: ProgressEvent[] = [];
+
+    if (selectedTask?.created_at) {
+      events.push({
+        key: `task-created-${selectedTask.id}`,
+        created_at: selectedTask.created_at,
+        title: strings.progressTaskCreated,
+        detail: `${strings.status}: ${selectedTask.status}`
+      });
+    }
+
+    if (selectedChannel?.opened_at) {
+      events.push({
+        key: `channel-opened-${selectedTaskId}`,
+        created_at: selectedChannel.opened_at,
+        title: strings.progressChannelOpened
+      });
+    }
+
+    if (selectedTask?.submission?.created_at) {
+      events.push({
+        key: `submission-${selectedTask.submission.id}`,
+        created_at: selectedTask.submission.created_at,
+        title: strings.progressSubmissionStored,
+        detail: selectedTask.submission.content_url
+          ? strings.progressWithAttachment
+          : selectedTask.submission.text || undefined
+      });
+    }
+
+    for (const message of threadMessages) {
+      events.push({
+        key: `msg-${message.id}`,
+        created_at: message.created_at,
+        title:
+          message.sender_type === "human"
+            ? strings.progressMessageHuman
+            : strings.progressMessageAi,
+        detail: message.attachment_url
+          ? `${message.body ? `${message.body} / ` : ""}${strings.progressWithAttachment}`
+          : message.body || undefined
+      });
+    }
+
+    if (selectedTask?.approved_at) {
+      events.push({
+        key: `approved-${selectedTask.id}`,
+        created_at: selectedTask.approved_at,
+        title: strings.progressTaskApproved,
+        detail: `${strings.status}: ${selectedTask.status}`
+      });
+    }
+
+    if (selectedChannel?.closed_at) {
+      events.push({
+        key: `channel-closed-${selectedTaskId}`,
+        created_at: selectedChannel.closed_at,
+        title: strings.progressChannelClosed
+      });
+    }
+
+    return events
+      .filter((event) => Boolean(event.created_at))
+      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+  }, [selectedTaskId, selectedTask, selectedChannel, threadMessages, strings]);
 
   return (
     <div className="messages-panel">
@@ -376,15 +343,6 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
                     </p>
                     <p className="muted">{strings.messageSectionHint}</p>
                     <p className="muted">{strings.aiMarksSubmissionHint}</p>
-                    {selectedTask.status === "review_pending" && (
-                      <p className="muted">{strings.statusReviewPending}</p>
-                    )}
-                    {selectedTask.status === "completed" && (
-                      <p className="muted">{strings.statusCompleted}</p>
-                    )}
-                    {selectedTask.status === "failed" && (
-                      <p className="muted">{strings.statusFailed}</p>
-                    )}
 
                     <form className="thread-compose" onSubmit={sendUnified}>
                       <label>
@@ -432,125 +390,37 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
                     </form>
                   </div>
                 )}
+
+                <div className="card messages-history-card">
+                  <div className="photo-list-head">
+                    <h3>{strings.progressTitle}</h3>
+                    <button type="button" className="secondary" onClick={loadMessages} disabled={loading}>
+                      {loading ? strings.loading : strings.refresh}
+                    </button>
+                  </div>
+                  {error && (
+                    <p className="muted">
+                      {strings.failed}: {error}
+                    </p>
+                  )}
+                  {progressEvents.length === 0 && !loading && (
+                    <p className="muted">{strings.noProgressYet}</p>
+                  )}
+                  <div className="inquiry-list">
+                    {progressEvents.map((event) => (
+                      <article key={event.key} className="inquiry-item">
+                        <div className="inquiry-head">
+                          <p className="inquiry-subject">{event.title}</p>
+                        </div>
+                        {event.detail && <p>{event.detail}</p>}
+                        <p className="muted">{new Date(event.created_at).toLocaleString(lang)}</p>
+                      </article>
+                    ))}
+                  </div>
+                </div>
               </>
             )}
           </div>
-        </div>
-      </div>
-
-      <div className="card messages-history-card">
-        <div className="photo-list-head">
-          <h3>{strings.inquiriesTitle}</h3>
-          <button type="button" className="secondary" onClick={loadMessages} disabled={loading}>
-            {loading ? strings.loading : strings.refresh}
-          </button>
-        </div>
-        {error && (
-          <p className="muted">
-            {strings.failed}: {error}
-          </p>
-        )}
-        {inquiries.length === 0 && !loading && <p className="muted">{strings.noInquiries}</p>}
-        <div className="inquiry-list">
-          {inquiries.map((inquiry) => (
-            <article key={inquiry.id} className="inquiry-item">
-              <div className="inquiry-head">
-                <p className="inquiry-subject">{inquiry.subject}</p>
-                <span className={inquiry.is_read === 1 ? "read-chip" : "unread-chip"}>
-                  {inquiry.is_read === 1 ? strings.read : strings.unread}
-                </span>
-              </div>
-              <p className="muted">
-                {inquiry.from_name || "-"} / {inquiry.from_email || "-"}
-              </p>
-              <p>{inquiry.body}</p>
-              <p className="muted">{new Date(inquiry.created_at).toLocaleString(lang)}</p>
-              <div className="template-actions">
-                <button
-                  type="button"
-                  className="secondary"
-                  onClick={() => toggleInquiryRead(inquiry.id, inquiry.is_read !== 1)}
-                >
-                  {inquiry.is_read === 1 ? strings.markUnread : strings.markRead}
-                </button>
-              </div>
-            </article>
-          ))}
-        </div>
-      </div>
-
-      <div className="card message-template-card">
-        <h3>{strings.templatesTitle}</h3>
-        <form onSubmit={saveTemplate}>
-          <label>
-            {strings.templateTitle}
-            <input
-              value={templateTitle}
-              onChange={(e) => setTemplateTitle(e.target.value)}
-              required
-            />
-          </label>
-          <label>
-            {strings.templateBody}
-            <textarea
-              value={templateBody}
-              onChange={(e) => setTemplateBody(e.target.value)}
-              rows={5}
-              required
-            />
-          </label>
-          <div className="template-form-actions">
-            <button type="submit" disabled={saving}>
-              {saving
-                ? strings.saving
-                : editingTemplateId
-                  ? strings.templateUpdate
-                  : strings.templateSave}
-            </button>
-            {editingTemplateId && (
-              <button type="button" className="secondary" onClick={resetEditor}>
-                {strings.cancel}
-              </button>
-            )}
-          </div>
-        </form>
-
-        {templates.length === 0 && !loading && <p className="muted">{strings.noTemplates}</p>}
-        <div className="template-list">
-          {templates.map((template) => (
-            <article key={template.id} className="template-item">
-              <p className="inquiry-subject">{template.title}</p>
-              <p>{template.body}</p>
-              <p className="muted">{new Date(template.updated_at).toLocaleString(lang)}</p>
-              <div className="template-actions">
-                <button
-                  type="button"
-                  className="secondary"
-                  onClick={() => copyTemplateBody(template.id, template.body)}
-                >
-                  {copiedTemplateId === template.id ? strings.copied : strings.templateCopy}
-                </button>
-                <button type="button" className="secondary" onClick={() => startEdit(template)}>
-                  {strings.templateEdit}
-                </button>
-                <button
-                  type="button"
-                  className="secondary"
-                  onClick={() => applyTemplateToCompose(template.body)}
-                  disabled={!selectedTaskId}
-                >
-                  {strings.templateUse}
-                </button>
-                <button
-                  type="button"
-                  className="danger-text-button"
-                  onClick={() => deleteTemplate(template.id)}
-                >
-                  {strings.templateDelete}
-                </button>
-              </div>
-            </article>
-          ))}
         </div>
       </div>
     </div>

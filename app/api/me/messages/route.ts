@@ -17,22 +17,6 @@ export async function GET() {
   }
 
   const db = getDb();
-  const inquiries = await db
-    .prepare(
-      `SELECT id, human_id, from_name, from_email, subject, body, COALESCE(is_read, 0) AS is_read, created_at
-       FROM human_inquiries
-       WHERE human_id = ?
-       ORDER BY created_at DESC`
-    )
-    .all(humanId);
-  const templates = await db
-    .prepare(
-      `SELECT id, human_id, title, body, created_at, updated_at
-       FROM message_templates
-       WHERE human_id = ?
-       ORDER BY updated_at DESC`
-    )
-    .all(humanId);
   const channels = await db
     .prepare(
       `SELECT
@@ -63,8 +47,6 @@ export async function GET() {
 
   return NextResponse.json({
     human_id: humanId,
-    inquiries,
-    templates,
     channels
   });
 }
