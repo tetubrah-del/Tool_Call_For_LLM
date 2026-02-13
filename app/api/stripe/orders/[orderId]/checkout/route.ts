@@ -94,12 +94,16 @@ export async function POST(
     const base = requireAppBaseUrl();
     const successUrl = validateRedirectUrl(
       base,
-      typeof payload?.success_url === "string" ? payload.success_url : `${base}/payments?status=success`,
+      typeof payload?.success_url === "string"
+        ? payload.success_url
+        : `${base}/for-agents?status=success`,
       "success_url"
     );
     const cancelUrl = validateRedirectUrl(
       base,
-      typeof payload?.cancel_url === "string" ? payload.cancel_url : `${base}/payments?status=cancel`,
+      typeof payload?.cancel_url === "string"
+        ? payload.cancel_url
+        : `${base}/for-agents?status=cancel`,
       "cancel_url"
     );
 

@@ -73,7 +73,6 @@ Minimal API where an AI agent tool_call can hire a registered human for a real-w
 - `POST /api/tasks/:taskId/approve` (AI requester final approval)
 - `POST /api/tasks/:taskId/accept` (human accepts)
 - `POST /api/tasks/:taskId/skip` (human skips)
-- `POST /api/tasks/:taskId/pay` (admin payment ops: approve / mark_failed / mark_paid)
 - `POST /api/submissions` (deliver; requires auth as assigned human or task's AI)
 - `GET /api/me/photos` (my-page photo list)
 - `POST /api/me/photos` (my-page photo upload)
@@ -221,11 +220,6 @@ Deliverables are returned in `submission` via `GET /api/tasks/:taskId`.
 - Default payout status is `pending`.
 - Human submission changes task status to `review_pending`.
 - AI requester finalizes completion by calling `POST /api/tasks/:taskId/approve` (`review_pending` -> `completed`).
-- Admin reviews completed task and calls `POST /api/tasks/:taskId/pay` with:
-  - `{ "action": "approve" }`
-  - `{ "action": "mark_failed", "error_message": "..." }`
-  - `{ "action": "mark_paid", "paypal_fee_usd": 0.5, "payout_batch_id": "..." }`
-- `mark_paid` is accepted only from `approved`.
 - Human dashboard `GET /api/me/payments` shows:
   - summary totals (`pending_total`, `approved_total`, `paid_total`)
   - per-task payout breakdown (`gross_amount`, `platform_fee`, `paypal_fee`, `net_amount`, `status`)
@@ -412,26 +406,6 @@ Stripe dashboard:
   - `payment_intent.canceled`
   - `charge.succeeded`
   - `charge.failed`
-
-### Admin payments (manual)
-
-1. Open `/payments` (admin UI).
-1. Set `ADMIN_EMAILS` (comma-separated list of admin emails) in the environment. Admin pages/API require a logged-in session whose email is in this allowlist.
-2. Find completed tasks under **Unpaid**.
-3. Enter PayPal fee (USD). Use `0` for domestic.
-4. Click **Mark Paid** after sending payout.
-5. Export CSV from **Export CSV** for bookkeeping.
-
-### Mark paid (admin)
-
-```json
-POST /api/tasks/:taskId/pay
-{
-  "paypal_fee_usd": 0
-}
-```
-
-Response includes `fee_amount` (20% ceiling), `payout_amount`, and `paid_at`.
 
 ---
 
