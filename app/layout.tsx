@@ -25,6 +25,18 @@ export default function RootLayout({
             <TitleSync />
           </Suspense>
           <main>{children}</main>
+          <footer className="site-footer">
+            <div className="site-footer-inner">
+              <a href="/terms">利用規約</a>
+              <a
+                href="https://core-logic-studio.onrender.com"
+                target="_blank"
+                rel="noreferrer noopener"
+              >
+                運営会社
+              </a>
+            </div>
+          </footer>
         </AuthSessionProvider>
       </body>
     </html>
