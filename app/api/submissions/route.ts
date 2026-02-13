@@ -4,6 +4,7 @@ import { getDb } from "@/lib/db";
 import { saveUpload } from "@/lib/storage";
 import { getNormalizedTask } from "@/lib/task-api";
 import { closeContactChannel } from "@/lib/contact-channel";
+import { computeReviewPendingDeadline } from "@/lib/review-pending";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getCurrentHumanIdByEmail } from "@/lib/human-session";
@@ -151,6 +152,7 @@ export async function POST(request: Request) {
 
   const submissionId = crypto.randomUUID();
   const createdAt = new Date().toISOString();
+  const reviewPendingDeadlineAt = computeReviewPendingDeadline(createdAt);
 
   await db.prepare(
     `INSERT INTO submissions (id, task_id, type, content_url, text, created_at)
@@ -158,11 +160,18 @@ export async function POST(request: Request) {
   ).run(submissionId, taskId, type, contentUrl, text, createdAt);
 
   await db
-    .prepare(`UPDATE tasks SET status = 'review_pending', submission_id = ? WHERE id = ?`)
+    .prepare(
+      `UPDATE tasks
+       SET status = 'review_pending',
+           submission_id = ?,
+           review_pending_deadline_at = ?
+       WHERE id = ?`
+    )
     .run(
-    submissionId,
-    taskId
-  );
+      submissionId,
+      reviewPendingDeadlineAt,
+      taskId
+    );
   if (task.human_id) {
     await db
       .prepare(`UPDATE humans SET status = 'available' WHERE id = ?`)

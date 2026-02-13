@@ -182,6 +182,7 @@ async function initPostgres() {
       deliverable TEXT,
       deadline_minutes DOUBLE PRECISION,
       deadline_at TEXT,
+      review_pending_deadline_at TEXT,
       deleted_at TEXT,
       status TEXT NOT NULL,
       failure_reason TEXT,
@@ -388,6 +389,7 @@ async function initPostgres() {
     `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS payer_paypal_email TEXT`,
     `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS payee_paypal_email TEXT`,
     `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS deadline_at TEXT`,
+    `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS review_pending_deadline_at TEXT`,
     `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS failure_reason TEXT`,
     `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS submission_id TEXT`,
     `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS fee_rate DOUBLE PRECISION`,
@@ -485,6 +487,7 @@ async function initSqlite() {
       deliverable TEXT,
       deadline_minutes REAL,
       deadline_at TEXT,
+      review_pending_deadline_at TEXT,
       deleted_at TEXT,
       status TEXT NOT NULL,
       failure_reason TEXT,
@@ -680,6 +683,7 @@ async function initSqlite() {
   ensureSqliteColumn(db, "tasks", "payer_paypal_email", "TEXT");
   ensureSqliteColumn(db, "tasks", "payee_paypal_email", "TEXT");
   ensureSqliteColumn(db, "tasks", "deadline_at", "TEXT");
+  ensureSqliteColumn(db, "tasks", "review_pending_deadline_at", "TEXT");
   ensureSqliteColumn(db, "tasks", "deleted_at", "TEXT");
   ensureSqliteColumn(db, "tasks", "failure_reason", "TEXT");
   ensureSqliteColumn(db, "tasks", "submission_id", "TEXT");
@@ -891,6 +895,7 @@ export type FailureReason =
   | "wrong_deliverable"
   | "already_assigned"
   | "not_assigned"
+  | "requester_rejected"
   | "missing_human"
   | "not_found"
   | "unknown";
@@ -911,6 +916,7 @@ export type Task = {
   deliverable: "photo" | "video" | "text" | null;
   deadline_minutes: number | null;
   deadline_at: string | null;
+  review_pending_deadline_at: string | null;
   status: "open" | "accepted" | "review_pending" | "completed" | "failed";
   failure_reason: FailureReason | null;
   human_id: string | null;

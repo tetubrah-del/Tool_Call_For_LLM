@@ -27,6 +27,7 @@ Current backend already supports these flows via REST.
 - `call_human_fast`
 - `get_bounty`
 - `approve_bounty_completion`
+- `reject_bounty_completion`
 - `list_bounties`
 
 ## v1 (requires backend extension)
@@ -251,6 +252,34 @@ Output:
 ```json
 {
   "status": "completed",
+  "task_id": "string"
+}
+```
+
+---
+
+## 4.7 `reject_bounty_completion`
+
+Reject a submitted task during requester review.
+
+Input:
+
+```json
+{
+  "task_id": "string",
+  "ai_account_id": "string (optional if server default exists)",
+  "ai_api_key": "string (optional if server default exists)"
+}
+```
+
+Backend mapping:
+- `POST /api/tasks/{task_id}/reject`
+
+Output:
+
+```json
+{
+  "status": "rejected",
   "task_id": "string"
 }
 ```

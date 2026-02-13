@@ -24,6 +24,7 @@ export type NormalizedTask = {
   payee_paypal_email: string | null;
   deliverable: "photo" | "video" | "text";
   deadline_at: string | null;
+  review_pending_deadline_at: string | null;
   status: "open" | "accepted" | "review_pending" | "completed" | "failed";
   failure_reason: FailureReason | null;
   human_id: string | null;
@@ -54,6 +55,7 @@ const FAILURE_REASONS = new Set<FailureReason>([
   "wrong_deliverable",
   "already_assigned",
   "not_assigned",
+  "requester_rejected",
   "missing_human",
   "not_found",
   "unknown"
@@ -224,6 +226,7 @@ export async function getNormalizedTask(
     payee_paypal_email: finalTask.payee_paypal_email ?? null,
     deliverable: normalizedDeliverable,
     deadline_at: deadlineAt,
+    review_pending_deadline_at: finalTask.review_pending_deadline_at ?? null,
     status: finalTask.status,
     failure_reason: failureReason,
     human_id: finalTask.human_id,

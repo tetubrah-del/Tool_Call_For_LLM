@@ -305,6 +305,69 @@
         }
       }
     },
+    "/api/tasks/{taskId}/reject": {
+      "post": {
+        "summary": "Requester rejects submitted task within review window",
+        "parameters": [
+          {
+            "name": "taskId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ApproveTaskPayload" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Task rejected",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/RejectTaskResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "404": {
+            "description": "Task not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "409": {
+            "description": "Task not in review_pending state",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/webhooks": {
       "post": {
         "summary": "Register webhook endpoint",
@@ -383,6 +446,7 @@
           "wrong_deliverable",
           "already_assigned",
           "not_assigned",
+          "requester_rejected",
           "not_review_pending",
           "missing_submission",
           "missing_human",
@@ -404,6 +468,7 @@
           "wrong_deliverable",
           "already_assigned",
           "not_assigned",
+          "requester_rejected",
           "missing_human",
           "not_found",
           "unknown"
@@ -498,6 +563,14 @@
           "task_id": { "type": "string" }
         }
       },
+      "RejectTaskResponse": {
+        "type": "object",
+        "required": ["status", "task_id"],
+        "properties": {
+          "status": { "type": "string", "enum": ["rejected"] },
+          "task_id": { "type": "string" }
+        }
+      },
       "CreateTaskResponse": {
         "type": "object",
         "required": ["id", "status"],
@@ -536,6 +609,7 @@
           "payee_paypal_email",
           "deliverable",
           "deadline_at",
+          "review_pending_deadline_at",
           "status",
           "failure_reason",
           "human_id",
@@ -565,6 +639,7 @@
           "payee_paypal_email": { "type": ["string", "null"] },
           "deliverable": { "$ref": "#/components/schemas/Deliverable" },
           "deadline_at": { "type": ["string", "null"], "format": "date-time" },
+          "review_pending_deadline_at": { "type": ["string", "null"], "format": "date-time" },
           "status": { "$ref": "#/components/schemas/TaskStatus" },
           "failure_reason": {
             "anyOf": [
@@ -582,7 +657,7 @@
           },
           "paid_status": { "anyOf": [{ "$ref": "#/components/schemas/PaidStatus" }, { "type": "null" }] },
           "paid_at": { "type": ["string", "null"], "format": "date-time" },
-          "paid_method": { "type": ["string", "null"], "enum": ["paypal", null] },
+          "paid_method": { "type": ["string", "null"], "enum": ["paypal", "stripe", null] },
           "fee_rate": { "type": ["number", "null"] },
           "fee_amount": { "type": ["number", "null"] },
           "payout_amount": { "type": ["number", "null"] },

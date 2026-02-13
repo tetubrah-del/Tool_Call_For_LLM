@@ -172,6 +172,23 @@ server.tool(
 );
 
 server.tool(
+  "reject_bounty_completion",
+  "Reject a submitted task within review window (review_pending -> failed).",
+  {
+    task_id: z.string().min(1),
+    ai_account_id: z.string().optional(),
+    ai_api_key: z.string().optional()
+  },
+  async (input) => {
+    const credentials = readCredentials(input);
+    const data = await callApi("POST", `/api/tasks/${input.task_id}/reject`, {
+      body: credentials
+    });
+    return toToolResult(data);
+  }
+);
+
+server.tool(
   "list_bounties",
   "List tasks for monitoring and filtering.",
   {
