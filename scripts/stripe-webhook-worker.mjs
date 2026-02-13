@@ -184,7 +184,7 @@ async function markOrderMismatch(db, orderId, version, reason) {
          provider_error = NULL,
          updated_at = ?
      WHERE id = ? AND version = ?
-       AND status NOT IN ('paid', 'canceled')`,
+       AND status NOT IN ('paid', 'partially_refunded', 'refunded', 'canceled')`,
     [reason, nowIso(), orderId, version]
   );
 }
@@ -350,7 +350,13 @@ async function handleCheckoutSessionCompleted(db, event) {
   }
 
   // Terminal states: do not mutate (except we may still record linkage elsewhere).
-  if (order.status === "failed_mismatch" || order.status === "failed_provider" || order.status === "canceled") {
+  if (
+    order.status === "failed_mismatch" ||
+    order.status === "failed_provider" ||
+    order.status === "partially_refunded" ||
+    order.status === "refunded" ||
+    order.status === "canceled"
+  ) {
     return;
   }
 
@@ -393,7 +399,14 @@ async function handleCheckoutSessionExpired(db, event) {
 
   const order = await findOrderByKey(db, key.orderId, key.version);
   if (!order) throw new Error("order_not_found");
-  if (order.status === "paid" || order.status === "failed_mismatch") return;
+  if (
+    order.status === "paid" ||
+    order.status === "partially_refunded" ||
+    order.status === "refunded" ||
+    order.status === "failed_mismatch"
+  ) {
+    return;
+  }
 
   // Link session id if missing, then mark canceled.
   if (order.checkout_session_id && order.checkout_session_id !== session.id) {
@@ -431,7 +444,13 @@ async function handlePaymentIntentSucceeded(db, event) {
   }
   if (!order) throw new Error("order_not_found");
 
-  if (order.status === "failed_mismatch" || order.status === "failed_provider" || order.status === "canceled") {
+  if (
+    order.status === "failed_mismatch" ||
+    order.status === "failed_provider" ||
+    order.status === "partially_refunded" ||
+    order.status === "refunded" ||
+    order.status === "canceled"
+  ) {
     return;
   }
 
@@ -489,7 +508,15 @@ async function handlePaymentIntentPaymentFailed(db, event) {
   if (!key) throw new Error("missing_order_key_in_payment_intent");
   const order = await findOrderByKey(db, key.orderId, key.version);
   if (!order) throw new Error("order_not_found");
-  if (order.status === "paid" || order.status === "failed_mismatch" || order.status === "canceled") return;
+  if (
+    order.status === "paid" ||
+    order.status === "partially_refunded" ||
+    order.status === "refunded" ||
+    order.status === "failed_mismatch" ||
+    order.status === "canceled"
+  ) {
+    return;
+  }
 
   // SoT check (same as succeeded)
   const mismatches = [];
@@ -538,7 +565,14 @@ async function handlePaymentIntentCanceled(db, event) {
   if (!key) throw new Error("missing_order_key_in_payment_intent");
   const order = await findOrderByKey(db, key.orderId, key.version);
   if (!order) throw new Error("order_not_found");
-  if (order.status === "paid" || order.status === "failed_mismatch") return;
+  if (
+    order.status === "paid" ||
+    order.status === "partially_refunded" ||
+    order.status === "refunded" ||
+    order.status === "failed_mismatch"
+  ) {
+    return;
+  }
   await markOrderCanceled(db, order.id, Number(order.version), "payment_intent_canceled");
   if (order.task_id) {
     await markTaskPaymentFailedByStripe(db, String(order.task_id), "payment_intent_canceled");
@@ -569,7 +603,13 @@ async function handleChargeSucceeded(db, event) {
     throw new Error("order_not_found");
   }
 
-  if (order.status === "failed_mismatch" || order.status === "failed_provider" || order.status === "canceled") {
+  if (
+    order.status === "failed_mismatch" ||
+    order.status === "failed_provider" ||
+    order.status === "partially_refunded" ||
+    order.status === "refunded" ||
+    order.status === "canceled"
+  ) {
     return;
   }
 
@@ -595,7 +635,15 @@ async function handleChargeFailed(db, event) {
     if (key) order = await findOrderByKey(db, key.orderId, key.version);
   }
   if (!order) throw new Error("order_not_found");
-  if (order.status === "paid" || order.status === "failed_mismatch" || order.status === "canceled") return;
+  if (
+    order.status === "paid" ||
+    order.status === "partially_refunded" ||
+    order.status === "refunded" ||
+    order.status === "failed_mismatch" ||
+    order.status === "canceled"
+  ) {
+    return;
+  }
 
   await updateOrderCharge(db, order.id, Number(order.version), charge.id, piId);
   const providerError = charge.failure_message || charge.failure_code || "charge_failed";

@@ -92,6 +92,7 @@ Minimal API where an AI agent tool_call can hire a registered human for a real-w
 - `PATCH /api/tasks/:taskId/contact/read` (task contact mark read)
 - `POST /api/webhooks` (AI webhook registration)
 - `GET /api/webhooks?ai_account_id=...&ai_api_key=...` (AI webhook list)
+- `POST /api/stripe/orders/:orderId/refund` (admin refund for Stripe order)
 
 ---
 
@@ -357,10 +358,9 @@ or
 
 ## Payments (MVP)
 
-- Payment is mocked in `app/api/call_human/route.ts`.
-- AI only supplies `budget_usd` and never sees payment processing.
+- AI only supplies `budget_usd` and never directly executes payout.
 - Minimum budget is `$5`.
-- Admin panel shows payer (`payer_paypal_email`) and payee (`payee_paypal_email`) for manual settlement.
+- Stripe order lifecycle is tracked in `orders`.
 
 ## Stripe (Orders / Checkout)
 
@@ -368,6 +368,7 @@ This repo includes a Stripe Checkout-based payment flow for AI operators.
 
 - `POST /api/stripe/orders` creates an `orders` row (AI-auth required).
 - `POST /api/stripe/orders/:orderId/checkout` returns a `checkout_url` (AI-auth required).
+- `POST /api/stripe/orders/:orderId/refund` executes admin refund on Stripe (admin-only).
 - `POST /webhooks/stripe` receives verified Stripe events and stores them to DB quickly.
 - `npm run stripe:webhook-worker` processes stored events and reconciles `orders`:
   - When an order becomes `paid`, it also updates the linked `tasks` row:
@@ -377,6 +378,29 @@ This repo includes a Stripe Checkout-based payment flow for AI operators.
   - If Stripe reports cancellation/failure/mismatch, it marks the linked task as:
     - `paid_status='failed'`
     - `payment_error_message` set
+
+### Refund (admin)
+
+- Refund API is admin-only (`ADMIN_EMAILS` allowlist + same-origin check).
+- Request body:
+
+```json
+{
+  "version": 1,
+  "amount_minor": 500,
+  "reason": "requested_by_customer"
+}
+```
+
+- `amount_minor` omitted => full remaining refund.
+- Accepted `reason`: `duplicate`, `fraudulent`, `requested_by_customer`.
+- Order state tracks:
+  - `refund_status` (`none`/`pending`/`partial`/`full`/`failed`)
+  - `refund_amount_minor`
+  - `refund_reason`
+  - `refund_id`
+  - `refunded_at`
+  - `refund_error_message`
 
 ### Currency policy (JP/US only)
 
