@@ -6,7 +6,7 @@ import { normalizeCountry } from "@/lib/country";
 import { normalizeTaskLabel } from "@/lib/task-labels";
 import { finishIdempotency, startIdempotency } from "@/lib/idempotency";
 import { dispatchTaskEvent } from "@/lib/webhooks";
-import { ensurePendingContactChannel } from "@/lib/contact-channel";
+import { openContactChannel } from "@/lib/contact-channel";
 
 type FieldError = {
   field: string;
@@ -202,7 +202,7 @@ export async function POST(request: Request) {
     taskId
   );
   await db.prepare(`UPDATE humans SET status = 'busy' WHERE id = ?`).run(human.id);
-  await ensurePendingContactChannel(db, taskId);
+  await openContactChannel(db, taskId);
   // Payment is mocked for MVP; integrate Stripe here later if needed.
   void dispatchTaskEvent(db, { eventType: "task.accepted", taskId }).catch(() => {});
 

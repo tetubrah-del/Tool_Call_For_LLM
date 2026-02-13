@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { dispatchTaskEvent } from "@/lib/webhooks";
-import { ensurePendingContactChannel } from "@/lib/contact-channel";
+import { openContactChannel } from "@/lib/contact-channel";
 
 function normalizeText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -74,8 +74,8 @@ export async function POST(
     .run(selectedHumanId, human.paypal_email, params.taskId);
   await db.prepare(`UPDATE humans SET status = 'busy' WHERE id = ?`).run(selectedHumanId);
 
-  // Ensure the channel exists as pending. AI must explicitly "allow" to open.
-  await ensurePendingContactChannel(db, params.taskId);
+  // Open contact channel immediately once assignment is accepted.
+  await openContactChannel(db, params.taskId);
 
   // For future: store selected application_id on task; v0 does not persist selection metadata.
   void dispatchTaskEvent(db, { eventType: "task.accepted", taskId: params.taskId }).catch(
