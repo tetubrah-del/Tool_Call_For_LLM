@@ -74,11 +74,9 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
   const [threadLoading, setThreadLoading] = useState(false);
   const [composeBody, setComposeBody] = useState("");
   const [composeFile, setComposeFile] = useState<File | null>(null);
-  const [sendingMessage, setSendingMessage] = useState(false);
-  const [submissionText, setSubmissionText] = useState("");
-  const [submissionFile, setSubmissionFile] = useState<File | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [submissionSuccess, setSubmissionSuccess] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+  const [sendMode, setSendMode] = useState<"message" | "submission">("message");
+  const [sendSuccess, setSendSuccess] = useState<string | null>(null);
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [templateTitle, setTemplateTitle] = useState("");
@@ -166,9 +164,10 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
   }, [selectedTaskId]);
 
   useEffect(() => {
-    setSubmissionSuccess(null);
-    setSubmissionText("");
-    setSubmissionFile(null);
+    setSendSuccess(null);
+    setComposeBody("");
+    setComposeFile(null);
+    setSendMode("message");
   }, [selectedTaskId]);
 
   function startEdit(template: Template) {
@@ -252,91 +251,93 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
     }
   }
 
-  async function sendThreadMessage(event: React.FormEvent) {
+  async function sendUnified(event: React.FormEvent) {
     event.preventDefault();
-    if (!selectedTaskId || (!composeBody.trim() && !composeFile)) return;
-    setError(null);
-    setSendingMessage(true);
-    try {
-      const formData = new FormData();
-      formData.append("body", composeBody);
-      if (composeFile) {
-        formData.append("file", composeFile);
-      }
-      const res = await fetch(`/api/tasks/${selectedTaskId}/contact/messages`, {
-        method: "POST",
-        body: formData
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data?.reason || "failed");
-      }
-      setComposeBody("");
-      setComposeFile(null);
-      const data = await res.json();
-      setThreadMessages((prev) => [...prev, data.message]);
-      setChannels((prev) =>
-        prev.map((channel) =>
-          channel.task_id === selectedTaskId
-            ? { ...channel, message_count: channel.message_count + 1 }
-            : channel
-        )
-      );
-    } catch (err: any) {
-      setError(err.message || "failed");
-    } finally {
-      setSendingMessage(false);
-    }
-  }
-
-  async function submitTaskDeliverable(event: React.FormEvent) {
-    event.preventDefault();
+    if (!selectedTaskId) return;
     if (!selectedTask) return;
-    if (selectedTask.status !== "accepted") return;
+    if (!composeBody.trim() && !composeFile) return;
 
-    const type = selectedTask.deliverable || "text";
-    if (type === "text" && !submissionText.trim()) {
-      setError(strings.missingText);
-      return;
-    }
-    if ((type === "photo" || type === "video") && !submissionFile) {
-      setError(strings.missingFile);
-      return;
-    }
+    const selectedChannel = channels.find((channel) => channel.task_id === selectedTaskId) || null;
+    const canSendMessage =
+      Boolean(selectedChannel) &&
+      selectedChannel?.status === "open" &&
+      selectedTask.status === "accepted";
+    const canSubmitDeliverable = selectedTask.status === "accepted";
 
     setError(null);
-    setSubmissionSuccess(null);
-    setSubmitting(true);
+    setSendSuccess(null);
+    setSending(true);
     try {
-      const formData = new FormData();
-      formData.append("task_id", selectedTask.id);
-      formData.append("type", type);
-      if (type === "text") {
-        formData.append("text", submissionText.trim());
-      } else if (submissionFile) {
-        formData.append("file", submissionFile);
-      }
+      if (sendMode === "submission") {
+        if (!canSubmitDeliverable) {
+          throw new Error("not_available");
+        }
+        const type = selectedTask.deliverable || "text";
+        if (type === "text" && !composeBody.trim()) {
+          throw new Error(strings.missingText);
+        }
+        if ((type === "photo" || type === "video") && !composeFile) {
+          throw new Error(strings.missingFile);
+        }
 
-      const res = await fetch("/api/submissions", {
-        method: "POST",
-        body: formData
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data?.reason || "failed");
-      }
+        const formData = new FormData();
+        formData.append("task_id", selectedTask.id);
+        formData.append("type", type);
+        if (type === "text") {
+          formData.append("text", composeBody.trim());
+        }
+        if (composeFile) {
+          formData.append("file", composeFile);
+        }
 
-      setSubmissionSuccess(strings.submitted);
-      setSubmissionText("");
-      setSubmissionFile(null);
-      await loadMessages();
-      setSelectedTask((prev) =>
-        prev ? { ...prev, status: "review_pending" } : prev
-      );
+        const res = await fetch("/api/submissions", {
+          method: "POST",
+          body: formData
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(data?.reason || "failed");
+        }
+        setSendSuccess(strings.submitted);
+        setComposeBody("");
+        setComposeFile(null);
+        await loadMessages();
+        setSelectedTask((prev) => (prev ? { ...prev, status: "review_pending" } : prev));
+      } else {
+        if (!canSendMessage) {
+          throw new Error(strings.channelNotOpenHint);
+        }
+        const formData = new FormData();
+        if (composeBody.trim()) {
+          formData.append("body", composeBody.trim());
+        }
+        if (composeFile) {
+          formData.append("file", composeFile);
+        }
+        const res = await fetch(`/api/tasks/${selectedTaskId}/contact/messages`, {
+          method: "POST",
+          body: formData
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data?.reason || "failed");
+        }
+        const data = await res.json();
+        setComposeBody("");
+        setComposeFile(null);
+        setThreadMessages((prev) => [...prev, data.message]);
+        setChannels((prev) =>
+          prev.map((channel) =>
+            channel.task_id === selectedTaskId
+              ? { ...channel, message_count: channel.message_count + 1 }
+              : channel
+          )
+        );
+      }
     } catch (err: any) {
       setError(err.message || "failed");
     } finally {
-      setSubmitting(false);
+      setSending(false);
     }
   }
 
@@ -347,8 +348,10 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
   const selectedChannel = channels.find((channel) => channel.task_id === selectedTaskId) || null;
   const canSendMessage =
     Boolean(selectedChannel) && selectedChannel?.status === "open" && selectedTask?.status === "accepted";
+  const canSubmitDeliverable = selectedTask?.status === "accepted";
   const deliverable = selectedTask?.deliverable || "text";
-  const showSubmissionForm = selectedTask?.status === "accepted";
+  const fileAccept =
+    sendMode === "submission" && deliverable === "video" ? "video/*" : "image/*";
 
   return (
     <div className="messages-panel">
@@ -408,11 +411,37 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
                 </div>
                 {selectedTask && (
                   <div className="card">
-                    <h4>{strings.submissionSectionTitle}</h4>
+                    <h4>{strings.unifiedSendTitle}</h4>
                     <p className="muted">
                       {strings.status}: {selectedTask.status} / {strings.deliverable}: {deliverable}
                     </p>
-                    <p className="muted">{strings.submissionSectionHint}</p>
+                    <div className="row">
+                      {canSubmitDeliverable && (
+                        <label>
+                          <input
+                            type="radio"
+                            name="send_mode"
+                            checked={sendMode === "submission"}
+                            onChange={() => setSendMode("submission")}
+                          />{" "}
+                          {strings.submitDeliverable}
+                        </label>
+                      )}
+                      <label>
+                        <input
+                          type="radio"
+                          name="send_mode"
+                          checked={sendMode === "message"}
+                          onChange={() => setSendMode("message")}
+                        />{" "}
+                        {strings.sendChannelMessage}
+                      </label>
+                    </div>
+                    <p className="muted">
+                      {sendMode === "submission"
+                        ? strings.submissionSectionHint
+                        : strings.messageSectionHint}
+                    </p>
                     {selectedTask.status === "review_pending" && (
                       <p className="muted">{strings.statusReviewPending}</p>
                     )}
@@ -422,98 +451,64 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
                     {selectedTask.status === "failed" && (
                       <p className="muted">{strings.statusFailed}</p>
                     )}
-                    {showSubmissionForm && (
-                      <form className="thread-compose" onSubmit={submitTaskDeliverable}>
-                        {deliverable === "text" && (
-                          <>
-                            <label>
-                              {strings.text}
-                              <textarea
-                                value={submissionText}
-                                onChange={(e) => setSubmissionText(e.target.value)}
-                                rows={3}
-                              />
-                            </label>
-                            <label>
-                              {strings.attachmentImage}
-                              <input
-                                type="file"
-                                accept="image/*"
-                                onChange={(e) => setSubmissionFile(e.target.files?.[0] || null)}
-                              />
-                            </label>
-                          </>
-                        )}
-                        {(deliverable === "photo" || deliverable === "video") && (
-                          <label>
-                            {strings.upload}
-                            <input
-                              type="file"
-                              accept={deliverable === "photo" ? "image/*" : "video/*"}
-                              onChange={(e) => setSubmissionFile(e.target.files?.[0] || null)}
-                            />
-                          </label>
-                        )}
-                        {submissionFile && <p className="muted">{submissionFile.name}</p>}
-                        <button
-                          type="submit"
-                          disabled={
-                            submitting ||
-                            (deliverable === "text"
-                              ? !submissionText.trim()
-                              : !submissionFile)
-                          }
-                        >
-                          {submitting ? strings.saving : strings.submitDeliverable}
-                        </button>
-                        {submissionSuccess && <p className="muted">{submissionSuccess}</p>}
-                      </form>
-                    )}
+
+                    <form className="thread-compose" onSubmit={sendUnified}>
+                      {(sendMode === "message" || deliverable === "text") && (
+                        <label>
+                          {sendMode === "submission" ? strings.text : strings.inquiryBody}
+                          <textarea
+                            value={composeBody}
+                            onChange={(e) => setComposeBody(e.target.value)}
+                            rows={3}
+                          />
+                        </label>
+                      )}
+                      <label>
+                        {strings.attachmentImage}
+                        <input
+                          type="file"
+                          accept={fileAccept}
+                          onChange={(e) => setComposeFile(e.target.files?.[0] || null)}
+                        />
+                      </label>
+                      {composeFile && (
+                        <div className="template-actions">
+                          <p className="muted">{composeFile.name}</p>
+                          <button
+                            type="button"
+                            className="secondary"
+                            onClick={() => setComposeFile(null)}
+                          >
+                            {strings.removeAttachment}
+                          </button>
+                        </div>
+                      )}
+                      <button
+                        type="submit"
+                        disabled={
+                          sending ||
+                          (sendMode === "message" && !canSendMessage) ||
+                          (sendMode === "submission" &&
+                            (!canSubmitDeliverable ||
+                              (deliverable === "text"
+                                ? !composeBody.trim()
+                                : !composeFile))) ||
+                          (sendMode === "message" && !composeBody.trim() && !composeFile)
+                        }
+                      >
+                        {sending
+                          ? strings.saving
+                          : sendMode === "submission"
+                            ? strings.submitDeliverable
+                            : strings.sendChannelMessage}
+                      </button>
+                      {sendSuccess && <p className="muted">{sendSuccess}</p>}
+                      {sendMode === "message" && !canSendMessage && (
+                        <p className="muted">{strings.channelNotOpenHint}</p>
+                      )}
+                    </form>
                   </div>
                 )}
-                <form className="thread-compose" onSubmit={sendThreadMessage}>
-                  <h4>{strings.messageSectionTitle}</h4>
-                  <p className="muted">{strings.messageSectionHint}</p>
-                  <label>
-                    {strings.inquiryBody}
-                    <textarea
-                      value={composeBody}
-                      onChange={(e) => setComposeBody(e.target.value)}
-                      rows={3}
-                    />
-                  </label>
-                  <label>
-                    {strings.attachmentImage}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => setComposeFile(e.target.files?.[0] || null)}
-                    />
-                  </label>
-                  {composeFile && (
-                    <div className="template-actions">
-                      <p className="muted">{composeFile.name}</p>
-                      <button
-                        type="button"
-                        className="secondary"
-                        onClick={() => setComposeFile(null)}
-                      >
-                        {strings.removeAttachment}
-                      </button>
-                    </div>
-                  )}
-                  <button
-                    type="submit"
-                    disabled={
-                      sendingMessage || !canSendMessage || (!composeBody.trim() && !composeFile)
-                    }
-                  >
-                    {sendingMessage ? strings.saving : strings.sendChannelMessage}
-                  </button>
-                  {!canSendMessage && (
-                    <p className="muted">{strings.channelNotOpenHint}</p>
-                  )}
-                </form>
               </>
             )}
           </div>
