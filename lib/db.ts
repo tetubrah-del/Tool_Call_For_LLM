@@ -315,6 +315,19 @@ async function initPostgres() {
       read_by_ai INTEGER NOT NULL DEFAULT 0,
       read_by_human INTEGER NOT NULL DEFAULT 0
     )`,
+    `CREATE TABLE IF NOT EXISTS task_review_guards (
+      task_id TEXT PRIMARY KEY,
+      ai_account_id TEXT NOT NULL,
+      recognized_message_id TEXT,
+      recognized_submission_id TEXT,
+      has_attachment INTEGER NOT NULL DEFAULT 0,
+      attachment_checked INTEGER NOT NULL DEFAULT 0,
+      acceptance_checked INTEGER NOT NULL DEFAULT 0,
+      final_confirmed INTEGER NOT NULL DEFAULT 0,
+      review_note TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`,
     `CREATE TABLE IF NOT EXISTS task_applications (
       id TEXT PRIMARY KEY,
       task_id TEXT NOT NULL,
@@ -422,6 +435,28 @@ async function initPostgres() {
     `ALTER TABLE contact_messages ADD COLUMN IF NOT EXISTS attachment_url TEXT`,
     `ALTER TABLE contact_messages ADD COLUMN IF NOT EXISTS read_by_ai INTEGER`,
     `ALTER TABLE contact_messages ADD COLUMN IF NOT EXISTS read_by_human INTEGER`,
+    `CREATE TABLE IF NOT EXISTS task_review_guards (
+      task_id TEXT PRIMARY KEY,
+      ai_account_id TEXT NOT NULL,
+      recognized_message_id TEXT,
+      recognized_submission_id TEXT,
+      has_attachment INTEGER NOT NULL DEFAULT 0,
+      attachment_checked INTEGER NOT NULL DEFAULT 0,
+      acceptance_checked INTEGER NOT NULL DEFAULT 0,
+      final_confirmed INTEGER NOT NULL DEFAULT 0,
+      review_note TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`,
+    `ALTER TABLE task_review_guards ADD COLUMN IF NOT EXISTS recognized_message_id TEXT`,
+    `ALTER TABLE task_review_guards ADD COLUMN IF NOT EXISTS recognized_submission_id TEXT`,
+    `ALTER TABLE task_review_guards ADD COLUMN IF NOT EXISTS has_attachment INTEGER`,
+    `ALTER TABLE task_review_guards ADD COLUMN IF NOT EXISTS attachment_checked INTEGER`,
+    `ALTER TABLE task_review_guards ADD COLUMN IF NOT EXISTS acceptance_checked INTEGER`,
+    `ALTER TABLE task_review_guards ADD COLUMN IF NOT EXISTS final_confirmed INTEGER`,
+    `ALTER TABLE task_review_guards ADD COLUMN IF NOT EXISTS review_note TEXT`,
+    `ALTER TABLE task_review_guards ADD COLUMN IF NOT EXISTS created_at TEXT`,
+    `ALTER TABLE task_review_guards ADD COLUMN IF NOT EXISTS updated_at TEXT`,
     `ALTER TABLE idempotency_keys ADD COLUMN IF NOT EXISTS status_code INTEGER`,
     `ALTER TABLE idempotency_keys ADD COLUMN IF NOT EXISTS response_body TEXT`,
     `ALTER TABLE webhook_endpoints ADD COLUMN IF NOT EXISTS events TEXT`,
@@ -604,6 +639,20 @@ async function initSqlite() {
       read_by_human INTEGER NOT NULL DEFAULT 0
     );
 
+    CREATE TABLE IF NOT EXISTS task_review_guards (
+      task_id TEXT PRIMARY KEY,
+      ai_account_id TEXT NOT NULL,
+      recognized_message_id TEXT,
+      recognized_submission_id TEXT,
+      has_attachment INTEGER NOT NULL DEFAULT 0,
+      attachment_checked INTEGER NOT NULL DEFAULT 0,
+      acceptance_checked INTEGER NOT NULL DEFAULT 0,
+      final_confirmed INTEGER NOT NULL DEFAULT 0,
+      review_note TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS task_applications (
       id TEXT PRIMARY KEY,
       task_id TEXT NOT NULL,
@@ -766,6 +815,15 @@ async function initSqlite() {
   ensureSqliteColumn(db, "contact_messages", "attachment_url", "TEXT");
   ensureSqliteColumn(db, "contact_messages", "read_by_ai", "INTEGER");
   ensureSqliteColumn(db, "contact_messages", "read_by_human", "INTEGER");
+  ensureSqliteColumn(db, "task_review_guards", "recognized_message_id", "TEXT");
+  ensureSqliteColumn(db, "task_review_guards", "recognized_submission_id", "TEXT");
+  ensureSqliteColumn(db, "task_review_guards", "has_attachment", "INTEGER");
+  ensureSqliteColumn(db, "task_review_guards", "attachment_checked", "INTEGER");
+  ensureSqliteColumn(db, "task_review_guards", "acceptance_checked", "INTEGER");
+  ensureSqliteColumn(db, "task_review_guards", "final_confirmed", "INTEGER");
+  ensureSqliteColumn(db, "task_review_guards", "review_note", "TEXT");
+  ensureSqliteColumn(db, "task_review_guards", "created_at", "TEXT");
+  ensureSqliteColumn(db, "task_review_guards", "updated_at", "TEXT");
   ensureSqliteColumn(db, "orders", "provider_error", "TEXT");
   ensureSqliteColumn(db, "orders", "intl_surcharge_minor", "INTEGER");
   ensureSqliteColumn(db, "orders", "refund_status", "TEXT");
@@ -1047,4 +1105,18 @@ export type ContactMessage = {
   created_at: string;
   read_by_ai: 0 | 1;
   read_by_human: 0 | 1;
+};
+
+export type TaskReviewGuard = {
+  task_id: string;
+  ai_account_id: string;
+  recognized_message_id: string | null;
+  recognized_submission_id: string | null;
+  has_attachment: 0 | 1;
+  attachment_checked: 0 | 1;
+  acceptance_checked: 0 | 1;
+  final_confirmed: 0 | 1;
+  review_note: string | null;
+  created_at: string;
+  updated_at: string;
 };
