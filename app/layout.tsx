@@ -29,6 +29,20 @@ export default function RootLayout({
             <div className="site-footer-inner">
               <a href="/terms">利用規約</a>
               <a
+                href="https://core-logic-studio.onrender.com/tokusho"
+                target="_blank"
+                rel="noreferrer noopener"
+              >
+                特商法
+              </a>
+              <a
+                href="https://core-logic-studio.onrender.com/privacy"
+                target="_blank"
+                rel="noreferrer noopener"
+              >
+                プライバシーポリシー
+              </a>
+              <a
                 href="https://core-logic-studio.onrender.com"
                 target="_blank"
                 rel="noreferrer noopener"
