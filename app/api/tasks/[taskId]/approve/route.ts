@@ -25,8 +25,8 @@ export async function POST(
   }
 
   const task = await db
-    .prepare(`SELECT id, ai_account_id, status, submission_id FROM tasks WHERE id = ? AND deleted_at IS NULL`)
-    .get<{ id: string; ai_account_id: string | null; status: string; submission_id: string | null }>(
+    .prepare(`SELECT id, ai_account_id, status, submission_id, deliverable FROM tasks WHERE id = ? AND deleted_at IS NULL`)
+    .get<{ id: string; ai_account_id: string | null; status: string; submission_id: string | null; deliverable: string | null }>(
       params.taskId
     );
   if (!task?.id) {
@@ -44,9 +44,54 @@ export async function POST(
       { status: 409 }
     );
   }
-  if (!task.submission_id) {
+  const reviewGuard = await db
+    .prepare(
+      `SELECT task_id, recognized_message_id, recognized_submission_id, has_attachment, attachment_checked, acceptance_checked, final_confirmed
+       FROM task_review_guards
+       WHERE task_id = ?`
+    )
+    .get<{
+      task_id: string;
+      recognized_message_id: string | null;
+      recognized_submission_id: string | null;
+      has_attachment: number;
+      attachment_checked: number;
+      acceptance_checked: number;
+      final_confirmed: number;
+    }>(task.id);
+  if (!reviewGuard?.task_id) {
     return NextResponse.json(
-      { status: "error", reason: "missing_submission" },
+      { status: "error", reason: "review_guard_missing" },
+      { status: 409 }
+    );
+  }
+  if (!reviewGuard.attachment_checked) {
+    return NextResponse.json(
+      { status: "error", reason: "attachment_not_checked" },
+      { status: 409 }
+    );
+  }
+  if (!reviewGuard.acceptance_checked) {
+    return NextResponse.json(
+      { status: "error", reason: "acceptance_not_checked" },
+      { status: 409 }
+    );
+  }
+  if (!reviewGuard.final_confirmed) {
+    return NextResponse.json(
+      { status: "error", reason: "final_confirmation_missing" },
+      { status: 409 }
+    );
+  }
+  if ((task.deliverable === "photo" || task.deliverable === "video") && !reviewGuard.has_attachment) {
+    return NextResponse.json(
+      { status: "error", reason: "missing_required_attachment" },
+      { status: 409 }
+    );
+  }
+  if (!task.submission_id && !reviewGuard.recognized_message_id && !reviewGuard.recognized_submission_id) {
+    return NextResponse.json(
+      { status: "error", reason: "missing_submission_evidence" },
       { status: 409 }
     );
   }
