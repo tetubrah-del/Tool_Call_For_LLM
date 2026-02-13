@@ -62,6 +62,10 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
   const preferredTaskId = (searchParams.get("task_id") || "").trim() || null;
 
   const [channels, setChannels] = useState<Channel[]>([]);
+  const [channelKeyword, setChannelKeyword] = useState("");
+  const [channelStatusFilter, setChannelStatusFilter] = useState<"all" | "pending" | "open" | "closed">("all");
+  const [taskStatusFilter, setTaskStatusFilter] = useState<"all" | "open" | "accepted" | "review_pending" | "completed" | "failed">("all");
+  const [channelSort, setChannelSort] = useState<"recent_desc" | "recent_asc" | "unread_desc" | "messages_desc" | "name_asc">("recent_desc");
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<TaskDetail | null>(null);
   const [threadMessages, setThreadMessages] = useState<ContactMessage[]>([]);
@@ -146,6 +150,49 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
     }
     loadThread();
   }, [selectedTaskId]);
+
+  const filteredSortedChannels = useMemo(() => {
+    const keyword = channelKeyword.trim().toLowerCase();
+    const filtered = channels.filter((channel) => {
+      if (keyword) {
+        const haystack = `${channel.task} ${channel.task_en || ""} ${channel.task_id}`.toLowerCase();
+        if (!haystack.includes(keyword)) return false;
+      }
+      if (channelStatusFilter !== "all" && channel.status !== channelStatusFilter) return false;
+      if (taskStatusFilter !== "all" && channel.task_status !== taskStatusFilter) return false;
+      return true;
+    });
+
+    const sorted = [...filtered];
+    sorted.sort((a, b) => {
+      if (channelSort === "recent_desc") {
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      }
+      if (channelSort === "recent_asc") {
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      }
+      if (channelSort === "unread_desc") {
+        if (b.unread_count !== a.unread_count) return b.unread_count - a.unread_count;
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      }
+      if (channelSort === "messages_desc") {
+        if (b.message_count !== a.message_count) return b.message_count - a.message_count;
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      }
+      return a.task.localeCompare(b.task);
+    });
+    return sorted;
+  }, [channels, channelKeyword, channelSort, channelStatusFilter, taskStatusFilter]);
+
+  useEffect(() => {
+    if (!filteredSortedChannels.length) {
+      setSelectedTaskId(null);
+      return;
+    }
+    if (!selectedTaskId || !filteredSortedChannels.some((channel) => channel.task_id === selectedTaskId)) {
+      setSelectedTaskId(filteredSortedChannels[0].task_id);
+    }
+  }, [filteredSortedChannels, selectedTaskId]);
 
   useEffect(() => {
     setSendSuccess(null);
@@ -287,24 +334,93 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
         {channels.length === 0 && !loading && <p className="muted">{strings.noChannels}</p>}
         <div className="channel-grid">
           <div className="channel-list">
-            {channels.map((channel) => (
-              <button
-                key={channel.task_id}
-                type="button"
-                className={
-                  channel.task_id === selectedTaskId ? "channel-item active-channel" : "channel-item"
-                }
-                onClick={() => setSelectedTaskId(channel.task_id)}
-              >
-                <p className="inquiry-subject">{channel.task}</p>
-                <p className="muted">
-                  {strings.channelStatus}: {channel.status} / {strings.status}: {channel.task_status}
-                </p>
-                <p className="muted">
-                  {strings.unread}: {channel.unread_count} / {strings.messagesCount}: {channel.message_count}
-                </p>
-              </button>
-            ))}
+            <div className="channel-controls">
+              <label>
+                {strings.searchKeyword}
+                <input
+                  value={channelKeyword}
+                  onChange={(e) => setChannelKeyword(e.target.value)}
+                  placeholder={strings.channelSearchPlaceholder}
+                />
+              </label>
+              <label>
+                {strings.channelStatus}
+                <select
+                  value={channelStatusFilter}
+                  onChange={(e) =>
+                    setChannelStatusFilter(
+                      e.target.value as "all" | "pending" | "open" | "closed"
+                    )
+                  }
+                >
+                  <option value="all">{strings.allChannels}</option>
+                  <option value="open">{strings.statusOpen}</option>
+                  <option value="pending">{strings.channelPending}</option>
+                  <option value="closed">{strings.channelClosed}</option>
+                </select>
+              </label>
+              <label>
+                {strings.status}
+                <select
+                  value={taskStatusFilter}
+                  onChange={(e) =>
+                    setTaskStatusFilter(
+                      e.target.value as "all" | "open" | "accepted" | "review_pending" | "completed" | "failed"
+                    )
+                  }
+                >
+                  <option value="all">{strings.allStatuses}</option>
+                  <option value="open">{strings.statusOpen}</option>
+                  <option value="accepted">{strings.statusAccepted}</option>
+                  <option value="review_pending">{strings.statusReviewPending}</option>
+                  <option value="completed">{strings.statusCompleted}</option>
+                  <option value="failed">{strings.statusFailed}</option>
+                </select>
+              </label>
+              <label>
+                {strings.sortNew}
+                <select
+                  value={channelSort}
+                  onChange={(e) =>
+                    setChannelSort(
+                      e.target.value as "recent_desc" | "recent_asc" | "unread_desc" | "messages_desc" | "name_asc"
+                    )
+                  }
+                >
+                  <option value="recent_desc">{strings.channelSortRecent}</option>
+                  <option value="recent_asc">{strings.channelSortOldest}</option>
+                  <option value="unread_desc">{strings.channelSortUnread}</option>
+                  <option value="messages_desc">{strings.channelSortMessages}</option>
+                  <option value="name_asc">{strings.channelSortTitle}</option>
+                </select>
+              </label>
+            </div>
+            <p className="muted">
+              {strings.channelResults}: {filteredSortedChannels.length}
+            </p>
+            <div className="channel-list-scroll">
+              {filteredSortedChannels.map((channel) => (
+                <button
+                  key={channel.task_id}
+                  type="button"
+                  className={
+                    channel.task_id === selectedTaskId ? "channel-item active-channel" : "channel-item"
+                  }
+                  onClick={() => setSelectedTaskId(channel.task_id)}
+                >
+                  <p className="inquiry-subject">{channel.task}</p>
+                  <p className="muted">
+                    {strings.channelStatus}: {channel.status} / {strings.status}: {channel.task_status}
+                  </p>
+                  <p className="muted">
+                    {strings.unread}: {channel.unread_count} / {strings.messagesCount}: {channel.message_count}
+                  </p>
+                </button>
+              ))}
+              {filteredSortedChannels.length === 0 && channels.length > 0 && (
+                <p className="muted">{strings.noChannelsMatched}</p>
+              )}
+            </div>
           </div>
           <div className="thread-panel">
             {!selectedTaskId && <p className="muted">{strings.selectChannel}</p>}

@@ -821,6 +821,29 @@ button.tag:hover {
   display: grid;
   gap: 8px;
   align-content: start;
+  min-height: 0;
+}
+
+.channel-controls {
+  display: grid;
+  gap: 8px;
+}
+
+.channel-controls label {
+  margin-bottom: 0;
+}
+
+.channel-controls input,
+.channel-controls select {
+  margin-top: 4px;
+}
+
+.channel-list-scroll {
+  display: grid;
+  gap: 8px;
+  max-height: 72vh;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .channel-item {
