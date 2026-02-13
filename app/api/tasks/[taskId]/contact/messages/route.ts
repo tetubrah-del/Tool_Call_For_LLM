@@ -85,10 +85,30 @@ export async function GET(
 
   const messages = await db
     .prepare(
-      `SELECT id, task_id, sender_type, sender_id, body, attachment_url, created_at, read_by_ai, read_by_human
-       FROM contact_messages
+      `SELECT
+         cm.id,
+         cm.task_id,
+         cm.sender_type,
+         cm.sender_id,
+         cm.body,
+         cm.attachment_url,
+         cm.created_at,
+         cm.read_by_ai,
+         cm.read_by_human,
+         CASE
+           WHEN cm.sender_type = 'ai' THEN COALESCE(
+             (SELECT aa.name FROM ai_accounts aa WHERE aa.id = cm.sender_id),
+             cm.sender_id
+           )
+           WHEN cm.sender_type = 'human' THEN COALESCE(
+             (SELECT h.name FROM humans h WHERE h.id = cm.sender_id),
+             cm.sender_id
+           )
+           ELSE cm.sender_id
+         END AS sender_display
+       FROM contact_messages cm
        WHERE task_id = ?
-       ORDER BY created_at ASC`
+       ORDER BY cm.created_at ASC`
     )
     .all(task.id);
 
@@ -153,6 +173,18 @@ export async function POST(
   const createdAt = new Date().toISOString();
   const readByAi = actor.role === "ai" ? 1 : 0;
   const readByHuman = actor.role === "human" ? 1 : 0;
+  const senderDisplay =
+    actor.role === "ai"
+      ? (
+          await db
+            .prepare(`SELECT name FROM ai_accounts WHERE id = ?`)
+            .get<{ name: string | null }>(actor.id)
+        )?.name || actor.id
+      : (
+          await db
+            .prepare(`SELECT name FROM humans WHERE id = ?`)
+            .get<{ name: string | null }>(actor.id)
+        )?.name || actor.id;
   await db.prepare(
     `INSERT INTO contact_messages
      (id, task_id, sender_type, sender_id, body, attachment_url, created_at, read_by_ai, read_by_human)
@@ -176,6 +208,7 @@ export async function POST(
       task_id: task.id,
       sender_type: actor.role,
       sender_id: actor.id,
+      sender_display: senderDisplay,
       body: payload.body,
       attachment_url: attachmentUrl,
       created_at: createdAt,

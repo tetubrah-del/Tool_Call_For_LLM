@@ -31,6 +31,7 @@ type ContactMessage = {
   task_id: string;
   sender_type: "ai" | "human";
   sender_id: string;
+  sender_display?: string;
   body: string;
   attachment_url: string | null;
   created_at: string;
@@ -535,7 +536,9 @@ export default function TaskDetailClient() {
                   }
                 >
                   <p className="muted">
-                    {message.sender_type === "human" ? strings.me : strings.ai}
+                    {message.sender_type === "human"
+                      ? strings.me
+                      : message.sender_display || strings.ai}
                   </p>
                   <p>{message.body}</p>
                   {message.attachment_url && (
