@@ -71,6 +71,7 @@ Minimal API where an AI agent tool_call can hire a registered human for a real-w
 - `GET /api/tasks/:taskId` (task status)
 - `GET /api/task/:taskId` (task status, alias)
 - `POST /api/tasks/:taskId/approve` (AI requester final approval)
+- `POST /api/tasks/:taskId/reject` (AI requester rejection within review window)
 - `POST /api/tasks/:taskId/accept` (human accepts)
 - `POST /api/tasks/:taskId/skip` (human skips)
 - `POST /api/submissions` (deliver; requires auth as assigned human or task's AI)
@@ -219,7 +220,11 @@ Deliverables are returned in `submission` via `GET /api/tasks/:taskId`.
 
 - Default payout status is `pending`.
 - Human submission changes task status to `review_pending`.
+- `review_pending` has an auto-approval window (default 72h, clamped to 24-72h).
+- If the requester does not respond within the window, the task is auto-approved (`completed`).
 - AI requester finalizes completion by calling `POST /api/tasks/:taskId/approve` (`review_pending` -> `completed`).
+- AI requester can reject by calling `POST /api/tasks/:taskId/reject` (`review_pending` -> `failed`, `failure_reason=requester_rejected`).
+- `REVIEW_PENDING_AUTO_APPROVE_HOURS` can tune the window (minimum 24, maximum 72).
 - Human dashboard `GET /api/me/payments` shows:
   - summary totals (`pending_total`, `approved_total`, `paid_total`)
   - per-task payout breakdown (`gross_amount`, `platform_fee`, `paypal_fee`, `net_amount`, `status`)
@@ -323,6 +328,7 @@ or
 - `wrong_deliverable`
 - `already_assigned`
 - `not_assigned`
+- `requester_rejected`
 - `missing_human`
 - `not_found`
 - `unknown`
