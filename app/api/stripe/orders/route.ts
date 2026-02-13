@@ -18,6 +18,17 @@ function conflict(reason: string, detail?: any) {
   return NextResponse.json({ status: "error", reason, detail }, { status: 409 });
 }
 
+function isPayoutHoldActive(human: {
+  payout_hold_status: string | null;
+  payout_hold_until: string | null;
+}) {
+  if (human.payout_hold_status !== "active") return false;
+  if (!human.payout_hold_until) return true;
+  const until = Date.parse(human.payout_hold_until);
+  if (!Number.isFinite(until)) return true;
+  return until > Date.now();
+}
+
 async function requireAiCredentials(payload: any) {
   const aiAccountId =
     typeof payload?.ai_account_id === "string" ? payload.ai_account_id.trim() : "";
@@ -72,9 +83,37 @@ export async function POST(request: Request) {
     if (!task.human_id) return conflict("missing_human");
 
     const human = (await db.prepare(`SELECT * FROM humans WHERE id = ? AND deleted_at IS NULL`).get(task.human_id)) as
-      | { id: string; country: string | null; stripe_account_id: string | null }
+      | {
+          id: string;
+          country: string | null;
+          stripe_account_id: string | null;
+          payout_hold_status: string | null;
+          payout_hold_reason: string | null;
+          payout_hold_until: string | null;
+        }
       | undefined;
     if (!human) return conflict("missing_human");
+    if (isPayoutHoldActive(human)) {
+      return conflict("payout_hold_active", {
+        human_id: human.id,
+        reason: human.payout_hold_reason || "payout_hold_active",
+        hold_until: human.payout_hold_until
+      });
+    }
+    if (human.payout_hold_status === "active" && human.payout_hold_until) {
+      const holdUntil = Date.parse(human.payout_hold_until);
+      if (Number.isFinite(holdUntil) && holdUntil <= Date.now()) {
+        await db
+          .prepare(
+            `UPDATE humans
+             SET payout_hold_status = 'none',
+                 payout_hold_reason = NULL,
+                 payout_hold_until = NULL
+             WHERE id = ?`
+          )
+          .run(human.id);
+      }
+    }
 
     const payerCountry = normalizeCountry2(task.origin_country);
     if (!payerCountry) return conflict("unsupported_payer_country", { origin_country: task.origin_country });

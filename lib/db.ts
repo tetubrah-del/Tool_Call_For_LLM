@@ -153,6 +153,9 @@ async function initPostgres() {
       linkedin_url TEXT,
       website_url TEXT,
       youtube_url TEXT,
+      payout_hold_status TEXT,
+      payout_hold_reason TEXT,
+      payout_hold_until TEXT,
       deleted_at TEXT,
       status TEXT NOT NULL,
       created_at TEXT NOT NULL
@@ -383,6 +386,9 @@ async function initPostgres() {
     `ALTER TABLE humans ADD COLUMN IF NOT EXISTS linkedin_url TEXT`,
     `ALTER TABLE humans ADD COLUMN IF NOT EXISTS website_url TEXT`,
     `ALTER TABLE humans ADD COLUMN IF NOT EXISTS youtube_url TEXT`,
+    `ALTER TABLE humans ADD COLUMN IF NOT EXISTS payout_hold_status TEXT`,
+    `ALTER TABLE humans ADD COLUMN IF NOT EXISTS payout_hold_reason TEXT`,
+    `ALTER TABLE humans ADD COLUMN IF NOT EXISTS payout_hold_until TEXT`,
     `ALTER TABLE humans ADD COLUMN IF NOT EXISTS deleted_at TEXT`,
     `ALTER TABLE ai_accounts ADD COLUMN IF NOT EXISTS deleted_at TEXT`,
     `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS deleted_at TEXT`,
@@ -468,6 +474,9 @@ async function initSqlite() {
       linkedin_url TEXT,
       website_url TEXT,
       youtube_url TEXT,
+      payout_hold_status TEXT,
+      payout_hold_reason TEXT,
+      payout_hold_until TEXT,
       deleted_at TEXT,
       status TEXT NOT NULL,
       created_at TEXT NOT NULL
@@ -733,6 +742,9 @@ async function initSqlite() {
   ensureSqliteColumn(db, "humans", "linkedin_url", "TEXT");
   ensureSqliteColumn(db, "humans", "website_url", "TEXT");
   ensureSqliteColumn(db, "humans", "youtube_url", "TEXT");
+  ensureSqliteColumn(db, "humans", "payout_hold_status", "TEXT");
+  ensureSqliteColumn(db, "humans", "payout_hold_reason", "TEXT");
+  ensureSqliteColumn(db, "humans", "payout_hold_until", "TEXT");
   ensureSqliteColumn(db, "humans", "deleted_at", "TEXT");
   ensureSqliteColumn(db, "ai_accounts", "deleted_at", "TEXT");
   ensureSqliteColumn(db, "idempotency_keys", "status_code", "INTEGER");
@@ -858,6 +870,9 @@ export type Human = {
   stripe_account_id: string | null;
   location: string | null;
   country: string | null;
+  payout_hold_status: "none" | "active" | null;
+  payout_hold_reason: string | null;
+  payout_hold_until: string | null;
   min_budget_usd: number;
   status: "available" | "busy";
   created_at: string;

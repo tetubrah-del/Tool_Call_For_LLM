@@ -21,7 +21,7 @@ export function normalizePaymentStatus(value: string | null | undefined): Paymen
 
 export function calculateFeeAmount(budgetUsd: number) {
   const raw = budgetUsd * FEE_RATE * 100;
-  return Math.ceil(raw) / 100;
+  return Math.floor(raw) / 100;
 }
 
 export function calculatePayout(
