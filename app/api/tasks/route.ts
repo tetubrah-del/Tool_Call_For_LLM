@@ -38,18 +38,11 @@ export async function GET(request: Request) {
       );
     }
 
-    const restrictToDomestic = human.country !== OPERATOR_COUNTRY;
     const openWhere: string[] = [
       "deleted_at IS NULL",
-      "status = 'open'",
-      "budget_usd >= ?",
-      "(location IS NULL OR location = ?)"
+      "status = 'open'"
     ];
-    const openParams: Array<string | number | null> = [human.min_budget_usd, human.location];
-    if (restrictToDomestic) {
-      openWhere.push("origin_country = ?");
-      openParams.push(OPERATOR_COUNTRY);
-    }
+    const openParams: Array<string | number | null> = [];
     if (filterTaskLabel) {
       openWhere.push("task_label = ?");
       openParams.push(filterTaskLabel);
