@@ -6,7 +6,7 @@ export default function TermsPage() {
   return (
     <div className="home">
       <section className="card">
-        <h1>利用規約（最新ドラフト）</h1>
+        <h1>利用規約</h1>
 
         <h3>第1条（適用）</h3>
         <p>1. 本規約は、[サービス名]（以下「本サービス」）の利用条件を定めるものです。</p>
@@ -125,6 +125,8 @@ export default function TermsPage() {
 
         <h3>第19条（分離可能性）</h3>
         <p>本規約の一部が無効または執行不能と判断された場合でも、その他の規定は引き続き有効に存続します。</p>
+
+        <p className="muted">制定日：2026年2月13日</p>
       </section>
     </div>
   );
