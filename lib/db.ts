@@ -220,6 +220,12 @@ async function initPostgres() {
       checkout_session_id TEXT,
       payment_intent_id TEXT,
       charge_id TEXT,
+      refund_status TEXT,
+      refund_amount_minor INTEGER,
+      refund_reason TEXT,
+      refund_id TEXT,
+      refunded_at TEXT,
+      refund_error_message TEXT,
       mismatch_reason TEXT,
       provider_error TEXT,
       created_at TEXT NOT NULL,
@@ -418,6 +424,12 @@ async function initPostgres() {
     `ALTER TABLE webhook_deliveries ADD COLUMN IF NOT EXISTS error TEXT`,
     `ALTER TABLE orders ADD COLUMN IF NOT EXISTS provider_error TEXT`,
     `ALTER TABLE orders ADD COLUMN IF NOT EXISTS intl_surcharge_minor INTEGER`,
+    `ALTER TABLE orders ADD COLUMN IF NOT EXISTS refund_status TEXT`,
+    `ALTER TABLE orders ADD COLUMN IF NOT EXISTS refund_amount_minor INTEGER`,
+    `ALTER TABLE orders ADD COLUMN IF NOT EXISTS refund_reason TEXT`,
+    `ALTER TABLE orders ADD COLUMN IF NOT EXISTS refund_id TEXT`,
+    `ALTER TABLE orders ADD COLUMN IF NOT EXISTS refunded_at TEXT`,
+    `ALTER TABLE orders ADD COLUMN IF NOT EXISTS refund_error_message TEXT`,
     `ALTER TABLE oauth_users ADD COLUMN IF NOT EXISTS name TEXT`,
     `ALTER TABLE oauth_users ADD COLUMN IF NOT EXISTS image TEXT`,
     `ALTER TABLE oauth_users ADD COLUMN IF NOT EXISTS provider TEXT`,
@@ -654,6 +666,12 @@ async function initSqlite() {
       checkout_session_id TEXT,
       payment_intent_id TEXT,
       charge_id TEXT,
+      refund_status TEXT,
+      refund_amount_minor INTEGER,
+      refund_reason TEXT,
+      refund_id TEXT,
+      refunded_at TEXT,
+      refund_error_message TEXT,
       mismatch_reason TEXT,
       provider_error TEXT,
       created_at TEXT NOT NULL,
@@ -738,6 +756,12 @@ async function initSqlite() {
   ensureSqliteColumn(db, "contact_messages", "read_by_human", "INTEGER");
   ensureSqliteColumn(db, "orders", "provider_error", "TEXT");
   ensureSqliteColumn(db, "orders", "intl_surcharge_minor", "INTEGER");
+  ensureSqliteColumn(db, "orders", "refund_status", "TEXT");
+  ensureSqliteColumn(db, "orders", "refund_amount_minor", "INTEGER");
+  ensureSqliteColumn(db, "orders", "refund_reason", "TEXT");
+  ensureSqliteColumn(db, "orders", "refund_id", "TEXT");
+  ensureSqliteColumn(db, "orders", "refunded_at", "TEXT");
+  ensureSqliteColumn(db, "orders", "refund_error_message", "TEXT");
 }
 
 async function ensureInit() {
@@ -847,6 +871,8 @@ export type Order = {
     | "created"
     | "checkout_created"
     | "paid"
+    | "partially_refunded"
+    | "refunded"
     | "failed_mismatch"
     | "failed_provider"
     | "canceled";
@@ -864,6 +890,12 @@ export type Order = {
   checkout_session_id: string | null;
   payment_intent_id: string | null;
   charge_id: string | null;
+  refund_status: "none" | "partial" | "full" | "failed" | null;
+  refund_amount_minor: number | null;
+  refund_reason: "duplicate" | "fraudulent" | "requested_by_customer" | null;
+  refund_id: string | null;
+  refunded_at: string | null;
+  refund_error_message: string | null;
   mismatch_reason: string | null;
   provider_error: string | null;
   created_at: string;
