@@ -468,7 +468,7 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
                         <textarea
                           value={composeBody}
                           onChange={(e) => setComposeBody(e.target.value)}
-                          rows={3}
+                          rows={8}
                         />
                       </label>
                       <label>
