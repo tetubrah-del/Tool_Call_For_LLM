@@ -408,10 +408,11 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
                 </div>
                 {selectedTask && (
                   <div className="card">
-                    <h4>{strings.deliverTask}</h4>
+                    <h4>{strings.submissionSectionTitle}</h4>
                     <p className="muted">
                       {strings.status}: {selectedTask.status} / {strings.deliverable}: {deliverable}
                     </p>
+                    <p className="muted">{strings.submissionSectionHint}</p>
                     {selectedTask.status === "review_pending" && (
                       <p className="muted">{strings.statusReviewPending}</p>
                     )}
@@ -453,7 +454,7 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
                               : !submissionFile)
                           }
                         >
-                          {submitting ? strings.saving : strings.submit}
+                          {submitting ? strings.saving : strings.submitDeliverable}
                         </button>
                         {submissionSuccess && <p className="muted">{submissionSuccess}</p>}
                       </form>
@@ -461,6 +462,8 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
                   </div>
                 )}
                 <form className="thread-compose" onSubmit={sendThreadMessage}>
+                  <h4>{strings.messageSectionTitle}</h4>
+                  <p className="muted">{strings.messageSectionHint}</p>
                   <label>
                     {strings.inquiryBody}
                     <textarea
@@ -495,7 +498,7 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
                       sendingMessage || !canSendMessage || (!composeBody.trim() && !composeFile)
                     }
                   >
-                    {sendingMessage ? strings.saving : strings.sendMessage}
+                    {sendingMessage ? strings.saving : strings.sendChannelMessage}
                   </button>
                   {!canSendMessage && (
                     <p className="muted">{strings.channelNotOpenHint}</p>
