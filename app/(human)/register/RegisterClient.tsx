@@ -443,9 +443,14 @@ export default function RegisterClient({
         </div>
 
         {showSubmit && (
-          <button type="submit" disabled={status === "saving"} className={submitClassName}>
-            {status === "saving" ? strings.saving : submitLabel ?? strings.saveProfile}
-          </button>
+          <>
+            <p className="muted">
+              保存前に<a href={`/terms?lang=${lang}`}>利用規約</a>をご確認ください。
+            </p>
+            <button type="submit" disabled={status === "saving"} className={submitClassName}>
+              {status === "saving" ? strings.saving : submitLabel ?? strings.saveProfile}
+            </button>
+          </>
         )}
       </form>
 
