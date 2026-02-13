@@ -689,6 +689,7 @@ export default function TaskDetailClient() {
         {canActAsHuman && isAssignedToMe && task.status === "accepted" && (
           <div className="card task-side-card">
             <h3>{strings.deliverTask}</h3>
+            <p className="muted">{strings.deliverViaMessagesHint}</p>
             <a
               className="button-link"
               href={`/me?lang=${lang}&tab=messages&task_id=${encodeURIComponent(task.id)}`}
