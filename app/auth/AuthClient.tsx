@@ -22,6 +22,9 @@ export default function AuthClient() {
       <div className="card auth-card">
         <h1>{strings.authTitle}</h1>
         <p className="muted">{strings.authSubtitle}</p>
+        <p className="muted">
+          サインインを続行することで、<a href={`/terms?lang=${lang}`}>利用規約</a>に同意したものとみなされます。
+        </p>
         {status === "loading" && <p className="muted">{strings.loading}</p>}
         {status !== "loading" && !session && (
           <button
