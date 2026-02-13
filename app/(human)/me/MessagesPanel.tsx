@@ -425,14 +425,24 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
                     {showSubmissionForm && (
                       <form className="thread-compose" onSubmit={submitTaskDeliverable}>
                         {deliverable === "text" && (
-                          <label>
-                            {strings.text}
-                            <textarea
-                              value={submissionText}
-                              onChange={(e) => setSubmissionText(e.target.value)}
-                              rows={3}
-                            />
-                          </label>
+                          <>
+                            <label>
+                              {strings.text}
+                              <textarea
+                                value={submissionText}
+                                onChange={(e) => setSubmissionText(e.target.value)}
+                                rows={3}
+                              />
+                            </label>
+                            <label>
+                              {strings.attachmentImage}
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => setSubmissionFile(e.target.files?.[0] || null)}
+                              />
+                            </label>
+                          </>
                         )}
                         {(deliverable === "photo" || deliverable === "video") && (
                           <label>

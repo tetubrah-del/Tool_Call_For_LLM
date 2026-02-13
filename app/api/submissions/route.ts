@@ -143,6 +143,12 @@ export async function POST(request: Request) {
     if (!text) {
       return NextResponse.json({ status: "error", reason: "missing_text" }, { status: 400 });
     }
+    if (file) {
+      if (!file.type.startsWith("image/")) {
+        return NextResponse.json({ status: "error", reason: "invalid_file_type" }, { status: 400 });
+      }
+      contentUrl = await saveUpload(file);
+    }
   } else {
     if (!file) {
       return NextResponse.json({ status: "error", reason: "missing_file" }, { status: 400 });
