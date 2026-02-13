@@ -6,7 +6,11 @@ import TitleSync from "./TitleSync";
 
 export const metadata = {
   title: "Sinkai",
-  description: "AI agent calls a human for real-world tasks on Sinkai"
+  description: "AI agent calls a human for real-world tasks on Sinkai",
+  icons: {
+    icon: "/icon.png",
+    apple: "/icon.png"
+  }
 };
 
 export default function RootLayout({
