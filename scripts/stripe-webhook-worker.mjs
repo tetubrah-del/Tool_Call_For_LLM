@@ -7,6 +7,8 @@
  *   - checkout.session.completed
  *   - payment_intent.succeeded
  *   - charge.succeeded
+ *   - charge.dispute.created
+ *   - charge.dispute.closed
  * - Uses orders DB as source-of-truth and reconciles Stripe fields against DB.
  *
  * ENV:
@@ -296,6 +298,15 @@ async function findOrderByPaymentIntent(db, paymentIntentId) {
   return rows[0] || null;
 }
 
+async function findOrderByChargeId(db, chargeId) {
+  if (!chargeId) return null;
+  const rows = await db.all(
+    `SELECT * FROM orders WHERE charge_id = ? ORDER BY updated_at DESC LIMIT 1`,
+    [chargeId]
+  );
+  return rows[0] || null;
+}
+
 async function findOrderByCheckoutSession(db, sessionId) {
   if (!sessionId) return null;
   const rows = await db.all(
@@ -303,6 +314,32 @@ async function findOrderByCheckoutSession(db, sessionId) {
     [sessionId]
   );
   return rows[0] || null;
+}
+
+async function setHumanPayoutHold(db, humanId, reason, holdUntil = null) {
+  if (!humanId) return;
+  await db.run(
+    `UPDATE humans
+     SET payout_hold_status = 'active',
+         payout_hold_reason = ?,
+         payout_hold_until = ?
+     WHERE id = ?
+       AND deleted_at IS NULL`,
+    [reason || "stripe_dispute_created", holdUntil, humanId]
+  );
+}
+
+async function clearHumanPayoutHold(db, humanId) {
+  if (!humanId) return;
+  await db.run(
+    `UPDATE humans
+     SET payout_hold_status = 'none',
+         payout_hold_reason = NULL,
+         payout_hold_until = NULL
+     WHERE id = ?
+       AND deleted_at IS NULL`,
+    [humanId]
+  );
 }
 
 async function findOrderByKey(db, orderId, version) {
@@ -653,6 +690,84 @@ async function handleChargeFailed(db, event) {
   }
 }
 
+async function handleChargeDisputeCreated(db, event) {
+  const dispute = event.data.object;
+  const chargeId = typeof dispute.charge === "string" ? dispute.charge : null;
+  const paymentIntentId =
+    typeof dispute.payment_intent === "string" ? dispute.payment_intent : null;
+  console.log("charge.dispute.created", {
+    dispute_id: dispute.id,
+    charge_id: chargeId,
+    payment_intent_id: paymentIntentId,
+    status: dispute.status || null
+  });
+
+  let order = null;
+  if (chargeId) {
+    order = await findOrderByChargeId(db, chargeId);
+  }
+  if (!order && paymentIntentId) {
+    order = await findOrderByPaymentIntent(db, paymentIntentId);
+  }
+  if (!order?.human_id) {
+    console.warn("charge.dispute.created: order or human not found", {
+      dispute_id: dispute.id,
+      charge_id: chargeId,
+      payment_intent_id: paymentIntentId
+    });
+    return;
+  }
+
+  await setHumanPayoutHold(
+    db,
+    String(order.human_id),
+    `stripe_dispute_created:${event.id}`,
+    null
+  );
+}
+
+async function handleChargeDisputeClosed(db, event) {
+  const dispute = event.data.object;
+  const chargeId = typeof dispute.charge === "string" ? dispute.charge : null;
+  const paymentIntentId =
+    typeof dispute.payment_intent === "string" ? dispute.payment_intent : null;
+  const disputeStatus = String(dispute.status || "").toLowerCase();
+
+  console.log("charge.dispute.closed", {
+    dispute_id: dispute.id,
+    charge_id: chargeId,
+    payment_intent_id: paymentIntentId,
+    status: disputeStatus || null
+  });
+
+  let order = null;
+  if (chargeId) {
+    order = await findOrderByChargeId(db, chargeId);
+  }
+  if (!order && paymentIntentId) {
+    order = await findOrderByPaymentIntent(db, paymentIntentId);
+  }
+  if (!order?.human_id) {
+    console.warn("charge.dispute.closed: order or human not found", {
+      dispute_id: dispute.id,
+      charge_id: chargeId,
+      payment_intent_id: paymentIntentId
+    });
+    return;
+  }
+
+  if (disputeStatus === "won") {
+    await clearHumanPayoutHold(db, String(order.human_id));
+    return;
+  }
+  await setHumanPayoutHold(
+    db,
+    String(order.human_id),
+    `stripe_dispute_closed:${disputeStatus || "closed"}`,
+    null
+  );
+}
+
 async function processStripeEvent(db, event) {
   logCommon(event);
   switch (event.type) {
@@ -676,6 +791,12 @@ async function processStripeEvent(db, event) {
       return;
     case "charge.failed":
       await handleChargeFailed(db, event);
+      return;
+    case "charge.dispute.created":
+      await handleChargeDisputeCreated(db, event);
+      return;
+    case "charge.dispute.closed":
+      await handleChargeDisputeClosed(db, event);
       return;
     default:
       return;
