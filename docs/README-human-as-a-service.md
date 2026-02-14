@@ -191,6 +191,12 @@ Timeouts are enforced by a server-side sweeper while the process is running.
 - UI requests pass `lang=en|ja` and receive `task_display` plus `lang`.
 - Translations are cached in `task_translations` and reused.
 
+## Human Dashboard API入口（先行リリース）
+
+- `/me` のタブに `APIキー` 入口を追加済み（`プロフィール / 支払い / メッセージ / APIキー` の順）。
+- 現時点では仕様策定前のため、`/me?tab=api` は「準備中」表示のみを提供。
+- API仕様の確定後、このタブ配下に実運用機能を追加予定。
+
 ---
 
 ## Deliverables

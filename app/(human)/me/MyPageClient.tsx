@@ -4,10 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { normalizeLang, UI_STRINGS } from "@/lib/i18n";
 import RegisterClient from "../register/RegisterClient";
+import ApiPanel from "./ApiPanel";
 import MessagesPanel from "./MessagesPanel";
 import PaymentsPanel from "./PaymentsPanel";
 
-type TabKey = "profile" | "payments" | "messages";
+type TabKey = "profile" | "payments" | "messages" | "api";
 
 export default function MyPageClient() {
   const searchParams = useSearchParams();
@@ -15,7 +16,7 @@ export default function MyPageClient() {
   const strings = UI_STRINGS[lang];
   const initialTab = useMemo((): TabKey => {
     const raw = (searchParams.get("tab") || "").toLowerCase();
-    if (raw === "payments" || raw === "messages" || raw === "profile") {
+    if (raw === "payments" || raw === "messages" || raw === "profile" || raw === "api") {
       return raw as TabKey;
     }
     return "profile";
@@ -26,7 +27,8 @@ export default function MyPageClient() {
   const tabs: Array<{ key: TabKey; label: string }> = [
     { key: "profile", label: strings.tabProfile },
     { key: "payments", label: strings.tabPayments },
-    { key: "messages", label: strings.tabMessages }
+    { key: "messages", label: strings.tabMessages },
+    { key: "api", label: strings.tabApi }
   ];
 
   useEffect(() => {
@@ -83,6 +85,7 @@ export default function MyPageClient() {
         )}
         {activeTab === "payments" && <PaymentsPanel lang={lang} />}
         {activeTab === "messages" && <MessagesPanel lang={lang} />}
+        {activeTab === "api" && <ApiPanel lang={lang} />}
       </section>
     </div>
   );
