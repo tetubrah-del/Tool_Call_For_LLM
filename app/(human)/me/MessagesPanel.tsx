@@ -66,6 +66,7 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
   const [channelStatusFilter, setChannelStatusFilter] = useState<"all" | "pending" | "open" | "closed">("all");
   const [taskStatusFilter, setTaskStatusFilter] = useState<"all" | "open" | "accepted" | "review_pending" | "completed" | "failed">("all");
   const [channelSort, setChannelSort] = useState<"recent_desc" | "recent_asc" | "unread_desc" | "messages_desc" | "name_asc">("recent_desc");
+  const [showChannelFilters, setShowChannelFilters] = useState(true);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<TaskDetail | null>(null);
   const [threadMessages, setThreadMessages] = useState<ContactMessage[]>([]);
@@ -199,6 +200,12 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
     setComposeBody("");
     setComposeFile(null);
   }, [selectedTaskId]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.innerWidth <= 900) {
+      setShowChannelFilters(false);
+    }
+  }, []);
 
   async function sendUnified(event: React.FormEvent) {
     event.preventDefault();
@@ -334,70 +341,81 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
         {channels.length === 0 && !loading && <p className="muted">{strings.noChannels}</p>}
         <div className="channel-grid">
           <div className="channel-list">
-            <div className="channel-controls">
-              <label>
-                {strings.searchKeyword}
-                <input
-                  value={channelKeyword}
-                  onChange={(e) => setChannelKeyword(e.target.value)}
-                  placeholder={strings.channelSearchPlaceholder}
-                />
-              </label>
-              <label>
-                {strings.channelStatus}
-                <select
-                  value={channelStatusFilter}
-                  onChange={(e) =>
-                    setChannelStatusFilter(
-                      e.target.value as "all" | "pending" | "open" | "closed"
-                    )
-                  }
-                >
-                  <option value="all">{strings.allChannels}</option>
-                  <option value="open">{strings.statusOpen}</option>
-                  <option value="pending">{strings.channelPending}</option>
-                  <option value="closed">{strings.channelClosed}</option>
-                </select>
-              </label>
-              <label>
-                {strings.status}
-                <select
-                  value={taskStatusFilter}
-                  onChange={(e) =>
-                    setTaskStatusFilter(
-                      e.target.value as "all" | "open" | "accepted" | "review_pending" | "completed" | "failed"
-                    )
-                  }
-                >
-                  <option value="all">{strings.allStatuses}</option>
-                  <option value="open">{strings.statusOpen}</option>
-                  <option value="accepted">{strings.statusAccepted}</option>
-                  <option value="review_pending">{strings.statusReviewPending}</option>
-                  <option value="completed">{strings.statusCompleted}</option>
-                  <option value="failed">{strings.statusFailed}</option>
-                </select>
-              </label>
-              <label>
-                {strings.sortNew}
-                <select
-                  value={channelSort}
-                  onChange={(e) =>
-                    setChannelSort(
-                      e.target.value as "recent_desc" | "recent_asc" | "unread_desc" | "messages_desc" | "name_asc"
-                    )
-                  }
-                >
-                  <option value="recent_desc">{strings.channelSortRecent}</option>
-                  <option value="recent_asc">{strings.channelSortOldest}</option>
-                  <option value="unread_desc">{strings.channelSortUnread}</option>
-                  <option value="messages_desc">{strings.channelSortMessages}</option>
-                  <option value="name_asc">{strings.channelSortTitle}</option>
-                </select>
-              </label>
+            <div className="channel-controls-header">
+              <p className="muted">
+                {strings.channelResults}: {filteredSortedChannels.length}
+              </p>
+              <button
+                type="button"
+                className="secondary channel-controls-toggle"
+                onClick={() => setShowChannelFilters((prev) => !prev)}
+              >
+                {showChannelFilters ? strings.hideFilters : strings.showFilters}
+              </button>
             </div>
-            <p className="muted">
-              {strings.channelResults}: {filteredSortedChannels.length}
-            </p>
+            {showChannelFilters && (
+              <div className="channel-controls">
+                <label className="channel-control-keyword">
+                  {strings.searchKeyword}
+                  <input
+                    value={channelKeyword}
+                    onChange={(e) => setChannelKeyword(e.target.value)}
+                    placeholder={strings.channelSearchPlaceholder}
+                  />
+                </label>
+                <label>
+                  {strings.channelStatus}
+                  <select
+                    value={channelStatusFilter}
+                    onChange={(e) =>
+                      setChannelStatusFilter(
+                        e.target.value as "all" | "pending" | "open" | "closed"
+                      )
+                    }
+                  >
+                    <option value="all">{strings.allChannels}</option>
+                    <option value="open">{strings.statusOpen}</option>
+                    <option value="pending">{strings.channelPending}</option>
+                    <option value="closed">{strings.channelClosed}</option>
+                  </select>
+                </label>
+                <label>
+                  {strings.status}
+                  <select
+                    value={taskStatusFilter}
+                    onChange={(e) =>
+                      setTaskStatusFilter(
+                        e.target.value as "all" | "open" | "accepted" | "review_pending" | "completed" | "failed"
+                      )
+                    }
+                  >
+                    <option value="all">{strings.allStatuses}</option>
+                    <option value="open">{strings.statusOpen}</option>
+                    <option value="accepted">{strings.statusAccepted}</option>
+                    <option value="review_pending">{strings.statusReviewPending}</option>
+                    <option value="completed">{strings.statusCompleted}</option>
+                    <option value="failed">{strings.statusFailed}</option>
+                  </select>
+                </label>
+                <label>
+                  {strings.sortNew}
+                  <select
+                    value={channelSort}
+                    onChange={(e) =>
+                      setChannelSort(
+                        e.target.value as "recent_desc" | "recent_asc" | "unread_desc" | "messages_desc" | "name_asc"
+                      )
+                    }
+                  >
+                    <option value="recent_desc">{strings.channelSortRecent}</option>
+                    <option value="recent_asc">{strings.channelSortOldest}</option>
+                    <option value="unread_desc">{strings.channelSortUnread}</option>
+                    <option value="messages_desc">{strings.channelSortMessages}</option>
+                    <option value="name_asc">{strings.channelSortTitle}</option>
+                  </select>
+                </label>
+              </div>
+            )}
             <div className="channel-list-scroll">
               {filteredSortedChannels.map((channel) => (
                 <button

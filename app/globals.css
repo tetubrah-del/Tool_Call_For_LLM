@@ -829,13 +829,31 @@ button.tag:hover {
   gap: 8px;
 }
 
+.channel-controls-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.channel-controls-toggle {
+  width: auto;
+  margin-top: 0;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
 .channel-controls label {
   margin-bottom: 0;
+  font-size: 12px;
 }
 
 .channel-controls input,
 .channel-controls select {
   margin-top: 4px;
+  padding: 8px 10px;
+  min-height: 40px;
+  font-size: 14px;
 }
 
 .channel-list-scroll {
@@ -977,6 +995,15 @@ button.tag:hover {
 @media (max-width: 900px) {
   .channel-grid {
     grid-template-columns: 1fr;
+  }
+
+  .channel-controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px 8px;
+  }
+
+  .channel-controls .channel-control-keyword {
+    grid-column: 1 / -1;
   }
 }
 
