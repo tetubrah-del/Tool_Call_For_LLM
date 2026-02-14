@@ -859,8 +859,6 @@ button.tag:hover {
 .channel-list-scroll {
   display: grid;
   gap: 8px;
-  max-height: 72vh;
-  overflow-y: auto;
   padding-right: 4px;
 }
 

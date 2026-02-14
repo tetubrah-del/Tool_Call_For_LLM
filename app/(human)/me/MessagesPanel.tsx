@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { UI_STRINGS, type UiLang } from "@/lib/i18n";
 
@@ -67,6 +67,8 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
   const [taskStatusFilter, setTaskStatusFilter] = useState<"all" | "open" | "accepted" | "review_pending" | "completed" | "failed">("all");
   const [channelSort, setChannelSort] = useState<"recent_desc" | "recent_asc" | "unread_desc" | "messages_desc" | "name_asc">("recent_desc");
   const [showChannelFilters, setShowChannelFilters] = useState(false);
+  const [isMobileLayout, setIsMobileLayout] = useState(false);
+  const [channelListMaxHeight, setChannelListMaxHeight] = useState<number | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<TaskDetail | null>(null);
   const [threadMessages, setThreadMessages] = useState<ContactMessage[]>([]);
@@ -77,6 +79,7 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
   const [sendSuccess, setSendSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const channelListScrollRef = useRef<HTMLDivElement | null>(null);
 
   async function loadMessages() {
     setLoading(true);
@@ -200,6 +203,44 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
     setComposeBody("");
     setComposeFile(null);
   }, [selectedTaskId]);
+
+  useEffect(() => {
+    function syncLayoutMode() {
+      setIsMobileLayout(window.matchMedia("(max-width: 900px)").matches);
+    }
+    syncLayoutMode();
+    window.addEventListener("resize", syncLayoutMode);
+    return () => window.removeEventListener("resize", syncLayoutMode);
+  }, []);
+
+  useEffect(() => {
+    const threshold = isMobileLayout ? 5 : 20;
+    if (filteredSortedChannels.length <= threshold) {
+      setChannelListMaxHeight(null);
+      return;
+    }
+    const container = channelListScrollRef.current;
+    if (!container) return;
+
+    const handle = window.requestAnimationFrame(() => {
+      const items = Array.from(container.querySelectorAll<HTMLButtonElement>("button.channel-item"));
+      if (!items.length || items.length <= threshold) {
+        setChannelListMaxHeight(null);
+        return;
+      }
+      const first = items[0];
+      const thresholdItem = items[threshold - 1];
+      if (!first || !thresholdItem) {
+        setChannelListMaxHeight(null);
+        return;
+      }
+      const top = first.offsetTop;
+      const bottom = thresholdItem.offsetTop + thresholdItem.offsetHeight;
+      setChannelListMaxHeight(Math.max(220, bottom - top));
+    });
+
+    return () => window.cancelAnimationFrame(handle);
+  }, [filteredSortedChannels, isMobileLayout, showChannelFilters]);
 
   async function sendUnified(event: React.FormEvent) {
     event.preventDefault();
@@ -410,7 +451,14 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
                 </label>
               </div>
             )}
-            <div className="channel-list-scroll">
+            <div
+              ref={channelListScrollRef}
+              className="channel-list-scroll"
+              style={{
+                maxHeight: channelListMaxHeight ? `${channelListMaxHeight}px` : undefined,
+                overflowY: channelListMaxHeight ? "auto" : "visible"
+              }}
+            >
               {filteredSortedChannels.map((channel) => (
                 <button
                   key={channel.task_id}
