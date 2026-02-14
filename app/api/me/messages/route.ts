@@ -29,6 +29,11 @@ export async function GET() {
          t.status AS task_status,
          t.created_at,
          (
+           SELECT MAX(cm.created_at)
+           FROM contact_messages cm
+           WHERE cm.task_id = tc.task_id
+         ) AS last_message_at,
+         (
            SELECT COUNT(*)
            FROM contact_messages cm
            WHERE cm.task_id = tc.task_id AND cm.read_by_human = 0
@@ -41,7 +46,15 @@ export async function GET() {
        FROM task_contacts tc
        JOIN tasks t ON t.id = tc.task_id
        WHERE tc.human_id = ? AND t.deleted_at IS NULL
-       ORDER BY t.created_at DESC`
+       ORDER BY
+         COALESCE(
+           (
+             SELECT MAX(cm.created_at)
+             FROM contact_messages cm
+             WHERE cm.task_id = tc.task_id
+           ),
+           t.created_at
+         ) DESC`
     )
     .all(humanId);
 
