@@ -1,6 +1,11 @@
 import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
+import {
+  authenticateHumanRequest,
+  finalizeHumanAuthResponse,
+  type HumanAuthSuccess
+} from "@/lib/human-api-auth";
 import { saveUpload } from "@/lib/storage";
 import { resolveActorFromRequest } from "../_auth";
 
@@ -56,6 +61,7 @@ export async function GET(
   request: Request,
   { params }: { params: { taskId: string } }
 ) {
+  let humanAuth: HumanAuthSuccess | null = null;
   const db = getDb();
   const task = await db
     .prepare(`SELECT id, ai_account_id, human_id, status FROM tasks WHERE id = ? AND deleted_at IS NULL`)
@@ -66,9 +72,24 @@ export async function GET(
     return NextResponse.json({ status: "not_found" }, { status: 404 });
   }
 
-  const actor = await resolveActorFromRequest(db, task, request);
-  if (!actor) {
-    return NextResponse.json({ status: "unauthorized" }, { status: 401 });
+  const url = new URL(request.url);
+  const qAiId = (url.searchParams.get("ai_account_id") || "").trim();
+  const qAiKey = (url.searchParams.get("ai_api_key") || "").trim();
+  let actor: { role: "ai" | "human"; id: string } | null = null;
+  if (qAiId && qAiKey) {
+    actor = await resolveActorFromRequest(db, task, request);
+    if (!actor) {
+      return NextResponse.json({ status: "unauthorized" }, { status: 401 });
+    }
+  } else {
+    const auth = await authenticateHumanRequest(request, "messages:read");
+    if (auth.ok === false) return auth.response;
+    humanAuth = auth;
+    if (task.human_id !== auth.humanId) {
+      const unauthorized = NextResponse.json({ status: "unauthorized" }, { status: 401 });
+      return finalizeHumanAuthResponse(request, unauthorized, auth);
+    }
+    actor = { role: "human", id: auth.humanId };
   }
 
   const channel = await db
@@ -77,10 +98,12 @@ export async function GET(
     | { task_id: string; status: "pending" | "open" | "closed"; opened_at: string | null; closed_at: string | null }
     | undefined;
   if (!channel?.task_id) {
-    return NextResponse.json(
+    const response = NextResponse.json(
       { status: "error", reason: "contact_not_ready" },
       { status: 409 }
     );
+    if (!humanAuth) return response;
+    return finalizeHumanAuthResponse(request, response, humanAuth);
   }
 
   const messages = await db
@@ -112,7 +135,7 @@ export async function GET(
     )
     .all(task.id);
 
-  return NextResponse.json({
+  const response = NextResponse.json({
     channel: {
       task_id: channel.task_id,
       status: channel.status,
@@ -121,12 +144,15 @@ export async function GET(
     },
     messages
   });
+  if (!humanAuth) return response;
+  return finalizeHumanAuthResponse(request, response, humanAuth);
 }
 
 export async function POST(
   request: Request,
   { params }: { params: { taskId: string } }
 ) {
+  let humanAuth: HumanAuthSuccess | null = null;
   const payload = await parsePayload(request);
   const hasBody = payload.body.length > 0;
   const hasFile = payload.file instanceof File;
@@ -153,19 +179,40 @@ export async function POST(
     return NextResponse.json({ status: "not_found" }, { status: 404 });
   }
 
-  const actor = await resolveActorFromRequest(db, task, request, payload);
-  if (!actor) {
-    return NextResponse.json({ status: "unauthorized" }, { status: 401 });
+  const hasAiCredentials =
+    (typeof payload.ai_account_id === "string" && payload.ai_account_id.trim().length > 0) ||
+    (typeof payload.ai_api_key === "string" && payload.ai_api_key.trim().length > 0);
+  const hasHumanTestCredentials =
+    (typeof payload.human_id === "string" && payload.human_id.trim().length > 0) ||
+    (typeof payload.human_test_token === "string" && payload.human_test_token.trim().length > 0);
+
+  let actor: { role: "ai" | "human"; id: string } | null = null;
+  if (hasAiCredentials || hasHumanTestCredentials) {
+    actor = await resolveActorFromRequest(db, task, request, payload);
+    if (!actor) {
+      return NextResponse.json({ status: "unauthorized" }, { status: 401 });
+    }
+  } else {
+    const auth = await authenticateHumanRequest(request, "messages:write");
+    if (auth.ok === false) return auth.response;
+    humanAuth = auth;
+    if (task.human_id !== auth.humanId) {
+      const unauthorized = NextResponse.json({ status: "unauthorized" }, { status: 401 });
+      return finalizeHumanAuthResponse(request, unauthorized, auth);
+    }
+    actor = { role: "human", id: auth.humanId };
   }
 
   const channel = await db
     .prepare(`SELECT task_id, status FROM task_contacts WHERE task_id = ?`)
     .get(task.id) as { task_id: string; status: "pending" | "open" | "closed" } | undefined;
   if (!channel?.task_id || channel.status !== "open") {
-    return NextResponse.json(
+    const response = NextResponse.json(
       { status: "error", reason: "contact_not_open" },
       { status: 409 }
     );
+    if (!humanAuth) return response;
+    return finalizeHumanAuthResponse(request, response, humanAuth);
   }
 
   const attachmentUrl = hasFile ? await saveUpload(payload.file) : null;
@@ -201,7 +248,7 @@ export async function POST(
     readByHuman
   );
 
-  return NextResponse.json({
+  const response = NextResponse.json({
     status: "stored",
     message: {
       id,
@@ -216,4 +263,6 @@ export async function POST(
       read_by_human: readByHuman
     }
   });
+  if (!humanAuth) return response;
+  return finalizeHumanAuthResponse(request, response, humanAuth);
 }

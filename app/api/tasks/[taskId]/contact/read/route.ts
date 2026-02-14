@@ -1,11 +1,17 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
+import {
+  authenticateHumanRequest,
+  finalizeHumanAuthResponse,
+  type HumanAuthSuccess
+} from "@/lib/human-api-auth";
 import { resolveActorFromRequest } from "../_auth";
 
 export async function PATCH(
   request: Request,
   { params }: { params: { taskId: string } }
 ) {
+  let humanAuth: HumanAuthSuccess | null = null;
   const payload = await request.json().catch(() => null);
   const db = getDb();
   const task = await db
@@ -17,19 +23,37 @@ export async function PATCH(
     return NextResponse.json({ status: "not_found" }, { status: 404 });
   }
 
-  const actor = await resolveActorFromRequest(db, task, request, payload);
-  if (!actor) {
-    return NextResponse.json({ status: "unauthorized" }, { status: 401 });
+  const hasAiCredentials =
+    typeof payload?.ai_account_id === "string" || typeof payload?.ai_api_key === "string";
+  const hasHumanTestCredentials =
+    typeof payload?.human_id === "string" || typeof payload?.human_test_token === "string";
+  let actor: { role: "ai" | "human"; id: string } | null = null;
+  if (hasAiCredentials || hasHumanTestCredentials) {
+    actor = await resolveActorFromRequest(db, task, request, payload);
+    if (!actor) {
+      return NextResponse.json({ status: "unauthorized" }, { status: 401 });
+    }
+  } else {
+    const auth = await authenticateHumanRequest(request, "messages:write");
+    if (auth.ok === false) return auth.response;
+    humanAuth = auth;
+    if (task.human_id !== auth.humanId) {
+      const unauthorized = NextResponse.json({ status: "unauthorized" }, { status: 401 });
+      return finalizeHumanAuthResponse(request, unauthorized, auth);
+    }
+    actor = { role: "human", id: auth.humanId };
   }
 
   const channel = await db
     .prepare(`SELECT task_id, status FROM task_contacts WHERE task_id = ?`)
     .get(task.id) as { task_id: string; status: "pending" | "open" | "closed" } | undefined;
   if (!channel?.task_id) {
-    return NextResponse.json(
+    const response = NextResponse.json(
       { status: "error", reason: "contact_not_ready" },
       { status: 409 }
     );
+    if (!humanAuth) return response;
+    return finalizeHumanAuthResponse(request, response, humanAuth);
   }
 
   if (actor.role === "ai") {
@@ -42,5 +66,7 @@ export async function PATCH(
       .run(task.id);
   }
 
-  return NextResponse.json({ status: "updated", task_id: task.id });
+  const response = NextResponse.json({ status: "updated", task_id: task.id });
+  if (!humanAuth) return response;
+  return finalizeHumanAuthResponse(request, response, humanAuth);
 }

@@ -7,6 +7,12 @@ function normalizeText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function normalizeStatus(value: unknown): "active" | "disabled" | null {
+  const v = normalizeText(value).toLowerCase();
+  if (v === "active" || v === "disabled") return v;
+  return null;
+}
+
 export async function GET(request: Request) {
   const authError = await requireAdmin(request);
   if (authError) return authError;
@@ -28,7 +34,7 @@ export async function GET(request: Request) {
 
   const humans = await db
     .prepare(
-      `SELECT id, name, email, country, location, status, created_at, deleted_at
+      `SELECT id, name, email, country, location, status, created_at, deleted_at, api_access_status, api_monthly_limit
        FROM humans
        ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
        ORDER BY created_at DESC
@@ -151,6 +157,15 @@ export async function PATCH(request: Request) {
 
   const payload: any = await request.json().catch(() => ({}));
   const id = normalizeText(payload?.id);
+  const apiAccessStatus = normalizeStatus(payload?.api_access_status);
+  const monthlyLimitRaw =
+    payload?.api_monthly_limit === null || payload?.api_monthly_limit === undefined
+      ? null
+      : Number(payload.api_monthly_limit);
+  const monthlyLimit =
+    monthlyLimitRaw !== null && Number.isFinite(monthlyLimitRaw)
+      ? Math.max(1, Math.min(1000000, Math.floor(monthlyLimitRaw)))
+      : null;
   if (!id) {
     return NextResponse.json({ status: "error", reason: "invalid_request" }, { status: 400 });
   }
@@ -163,6 +178,30 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ status: "not_found" }, { status: 404 });
   }
 
-  await db.prepare(`UPDATE humans SET deleted_at = NULL WHERE id = ?`).run(id);
-  return NextResponse.json({ status: "restored", id });
+  const updates: string[] = [];
+  const params: Array<string | number | null> = [];
+
+  // Backward compatible behavior: PATCH id only restores the record.
+  if (!apiAccessStatus && monthlyLimit === null) {
+    updates.push("deleted_at = NULL");
+  }
+  if (apiAccessStatus) {
+    updates.push("api_access_status = ?");
+    params.push(apiAccessStatus);
+  }
+  if (monthlyLimit !== null) {
+    updates.push("api_monthly_limit = ?");
+    params.push(monthlyLimit);
+  }
+
+  if (updates.length === 0) {
+    return NextResponse.json({ status: "error", reason: "invalid_request" }, { status: 400 });
+  }
+
+  params.push(id);
+  await db
+    .prepare(`UPDATE humans SET ${updates.join(", ")} WHERE id = ?`)
+    .run(...params);
+
+  return NextResponse.json({ status: "updated", id });
 }
