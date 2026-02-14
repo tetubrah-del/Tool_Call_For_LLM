@@ -549,21 +549,16 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
                     </div>
                     {selectedTask && (
                       <div className="card">
-                        <h4>{strings.unifiedSendTitle}</h4>
-                        <p className="muted">
-                          {strings.status}: {selectedTask.status} / {strings.deliverable}: {deliverable}
-                        </p>
-                        <p className="muted">{strings.aiMarksSubmissionHint}</p>
+                        <p className="inquiry-subject">{strings.inquiryBody}</p>
+                        <p className="muted">※{strings.aiMarksSubmissionHint}</p>
 
                         <form className="thread-compose" onSubmit={sendUnified}>
-                          <label>
-                            {strings.inquiryBody}
-                            <textarea
-                              value={composeBody}
-                              onChange={(e) => setComposeBody(e.target.value)}
-                              rows={8}
-                            />
-                          </label>
+                          <textarea
+                            aria-label={strings.inquiryBody}
+                            value={composeBody}
+                            onChange={(e) => setComposeBody(e.target.value)}
+                            rows={8}
+                          />
                           <label>
                             {strings.attachmentImage}
                             <input
