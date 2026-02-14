@@ -6,6 +6,7 @@ import {
   finalizeHumanAuthResponse,
   type HumanAuthSuccess
 } from "@/lib/human-api-auth";
+import { authenticateAiApiRequest, applyAiRateLimitHeaders, type AiAuthSuccess } from "@/lib/ai-api-auth";
 import { saveUpload } from "@/lib/storage";
 import { resolveActorFromRequest } from "../_auth";
 
@@ -62,6 +63,7 @@ export async function GET(
   { params }: { params: { taskId: string } }
 ) {
   let humanAuth: HumanAuthSuccess | null = null;
+  let aiAuth: AiAuthSuccess | null = null;
   const db = getDb();
   const task = await db
     .prepare(`SELECT id, ai_account_id, human_id, status FROM tasks WHERE id = ? AND deleted_at IS NULL`)
@@ -77,10 +79,13 @@ export async function GET(
   const qAiKey = (url.searchParams.get("ai_api_key") || "").trim();
   let actor: { role: "ai" | "human"; id: string } | null = null;
   if (qAiId && qAiKey) {
-    actor = await resolveActorFromRequest(db, task, request);
-    if (!actor) {
+    const auth = await authenticateAiApiRequest(qAiId, qAiKey);
+    if (auth.ok === false) return auth.response;
+    aiAuth = auth;
+    if (!task.ai_account_id || task.ai_account_id !== auth.aiAccountId) {
       return NextResponse.json({ status: "unauthorized" }, { status: 401 });
     }
+    actor = { role: "ai", id: auth.aiAccountId };
   } else {
     const auth = await authenticateHumanRequest(request, "messages:read");
     if (auth.ok === false) return auth.response;
@@ -144,6 +149,7 @@ export async function GET(
     },
     messages
   });
+  if (aiAuth) return applyAiRateLimitHeaders(response, aiAuth);
   if (!humanAuth) return response;
   return finalizeHumanAuthResponse(request, response, humanAuth);
 }
@@ -153,6 +159,7 @@ export async function POST(
   { params }: { params: { taskId: string } }
 ) {
   let humanAuth: HumanAuthSuccess | null = null;
+  let aiAuth: AiAuthSuccess | null = null;
   const payload = await parsePayload(request);
   const hasBody = payload.body.length > 0;
   const hasFile = payload.file instanceof File;
@@ -187,7 +194,19 @@ export async function POST(
     (typeof payload.human_test_token === "string" && payload.human_test_token.trim().length > 0);
 
   let actor: { role: "ai" | "human"; id: string } | null = null;
-  if (hasAiCredentials || hasHumanTestCredentials) {
+  if (hasAiCredentials) {
+    const aiId =
+      typeof payload.ai_account_id === "string" ? payload.ai_account_id.trim() : "";
+    const aiKey =
+      typeof payload.ai_api_key === "string" ? payload.ai_api_key.trim() : "";
+    const auth = await authenticateAiApiRequest(aiId, aiKey);
+    if (auth.ok === false) return auth.response;
+    aiAuth = auth;
+    if (!task.ai_account_id || task.ai_account_id !== auth.aiAccountId) {
+      return NextResponse.json({ status: "unauthorized" }, { status: 401 });
+    }
+    actor = { role: "ai", id: auth.aiAccountId };
+  } else if (hasHumanTestCredentials) {
     actor = await resolveActorFromRequest(db, task, request, payload);
     if (!actor) {
       return NextResponse.json({ status: "unauthorized" }, { status: 401 });
@@ -263,6 +282,7 @@ export async function POST(
       read_by_human: readByHuman
     }
   });
+  if (aiAuth) return applyAiRateLimitHeaders(response, aiAuth);
   if (!humanAuth) return response;
   return finalizeHumanAuthResponse(request, response, humanAuth);
 }

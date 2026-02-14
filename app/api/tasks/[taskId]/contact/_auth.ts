@@ -1,7 +1,9 @@
 import type { DbClient } from "@/lib/db";
 import crypto from "crypto";
+import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { authenticateAiApiRequest } from "@/lib/ai-api-auth";
 import { getCurrentHumanIdByEmail } from "@/lib/human-session";
 
 export type TaskForContact = {
@@ -14,6 +16,10 @@ export type TaskForContact = {
 export type ContactActor =
   | { role: "ai"; id: string }
   | { role: "human"; id: string };
+
+export type AiActorAuthResult =
+  | { ok: true; actor: { id: string } }
+  | { ok: false; response: NextResponse };
 
 function verifyTestHumanToken(humanId: string, token: string): boolean {
   if (!humanId || !token) return false;
@@ -29,17 +35,25 @@ function verifyTestHumanToken(humanId: string, token: string): boolean {
 }
 
 export async function verifyAiActor(
-  db: DbClient,
+  _db: DbClient,
   aiAccountId: string,
   aiApiKey: string
 ): Promise<{ id: string } | null> {
-  if (!aiAccountId || !aiApiKey) return null;
-  const aiAccount = await db
-    .prepare(`SELECT id, api_key, status FROM ai_accounts WHERE id = ? AND deleted_at IS NULL`)
-    .get<{ id: string; api_key: string; status: string }>(aiAccountId);
-  if (!aiAccount) return null;
-  if (aiAccount.api_key !== aiApiKey || aiAccount.status !== "active") return null;
-  return { id: aiAccount.id };
+  const result = await verifyAiActorDetailed(_db, aiAccountId, aiApiKey);
+  if (!result.ok) return null;
+  return result.actor;
+}
+
+export async function verifyAiActorDetailed(
+  _db: DbClient,
+  aiAccountId: string,
+  aiApiKey: string
+): Promise<AiActorAuthResult> {
+  const auth = await authenticateAiApiRequest(aiAccountId, aiApiKey);
+  if (auth.ok === false) {
+    return { ok: false, response: auth.response };
+  }
+  return { ok: true, actor: { id: auth.aiAccountId } };
 }
 
 export async function resolveActorFromRequest(

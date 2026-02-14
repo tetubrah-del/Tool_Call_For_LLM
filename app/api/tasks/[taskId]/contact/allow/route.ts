@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { openContactChannel } from "@/lib/contact-channel";
-import { verifyAiActor } from "../_auth";
+import { verifyAiActorDetailed } from "../_auth";
 
 export async function POST(
   request: Request,
@@ -14,10 +14,9 @@ export async function POST(
     typeof payload?.ai_api_key === "string" ? payload.ai_api_key.trim() : "";
 
   const db = getDb();
-  const aiActor = await verifyAiActor(db, aiAccountId, aiApiKey);
-  if (!aiActor) {
-    return NextResponse.json({ status: "error", reason: "invalid_request" }, { status: 400 });
-  }
+  const aiAuth = await verifyAiActorDetailed(db, aiAccountId, aiApiKey);
+  if (aiAuth.ok === false) return aiAuth.response;
+  const aiActor = aiAuth.actor;
 
   const task = await db
     .prepare(`SELECT id, ai_account_id, human_id, status FROM tasks WHERE id = ? AND deleted_at IS NULL`)

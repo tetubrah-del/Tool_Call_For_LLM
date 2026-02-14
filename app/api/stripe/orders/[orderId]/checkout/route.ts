@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
+import { applyAiRateLimitHeaders, authenticateAiApiRequest, type AiAuthSuccess } from "@/lib/ai-api-auth";
 import {
   buildIdempotencyKey,
   ensureDestinationChargePreconditions,
@@ -36,17 +37,9 @@ async function requireAiCredentials(payload: any) {
   if (!aiAccountId || !aiApiKey) {
     return { ok: false as const, response: badRequest("invalid_request") };
   }
-  const db = getDb();
-  const aiAccount = (await db
-    .prepare(`SELECT * FROM ai_accounts WHERE id = ? AND deleted_at IS NULL`)
-    .get(aiAccountId)) as { id: string; api_key: string; status: string } | undefined;
-  if (!aiAccount || aiAccount.api_key !== aiApiKey || aiAccount.status !== "active") {
-    return {
-      ok: false as const,
-      response: NextResponse.json({ status: "error", reason: "unauthorized" }, { status: 401 })
-    };
-  }
-  return { ok: true as const, aiAccountId };
+  const auth = await authenticateAiApiRequest(aiAccountId, aiApiKey);
+  if (auth.ok === false) return { ok: false as const, response: auth.response };
+  return { ok: true as const, aiAccountId, aiAuth: auth };
 }
 
 function requireAppBaseUrl() {
@@ -76,9 +69,11 @@ export async function POST(
 ) {
   try {
     const payload: any = await request.json().catch(() => ({}));
+    let aiAuth: AiAuthSuccess | null = null;
 
     const auth = await requireAiCredentials(payload);
-    if (!auth.ok) return auth.response;
+    if (auth.ok === false) return auth.response;
+    aiAuth = auth.aiAuth;
 
     const url = new URL(request.url);
     const version = payload?.version ?? url.searchParams.get("version") ?? 1;
@@ -254,7 +249,7 @@ export async function POST(
        WHERE id = ? AND version = ?`
     ).run(session.id, now, orderId, v);
 
-    return NextResponse.json({
+    let response: NextResponse = NextResponse.json({
       status: "ok",
       order_id: orderId,
       version: v,
@@ -262,6 +257,8 @@ export async function POST(
       checkout_url: session.url,
       warning_message: warningMessage
     });
+    if (aiAuth) response = applyAiRateLimitHeaders(response, aiAuth);
+    return response;
   } catch (err: any) {
     console.error("POST /api/stripe/orders/:orderId/checkout failed", err);
     const status = err?.statusCode && Number.isInteger(err.statusCode) ? err.statusCode : 500;

@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
+import { applyAiRateLimitHeaders, authenticateAiApiRequest } from "@/lib/ai-api-auth";
 import { generateWebhookSecret, type WebhookEventType } from "@/lib/webhooks";
 
 const ALLOWED_EVENTS: WebhookEventType[] = [
@@ -28,19 +29,6 @@ function isValidWebhookUrl(url: string) {
   }
 }
 
-async function loadAiAccount(db: ReturnType<typeof getDb>, aiAccountId: string, aiApiKey: string) {
-  const aiAccount = await db
-    .prepare(`SELECT * FROM ai_accounts WHERE id = ? AND deleted_at IS NULL`)
-    .get(aiAccountId) as
-    | { id: string; api_key: string; status: string }
-    | undefined;
-
-  if (!aiAccount || aiAccount.api_key !== aiApiKey || aiAccount.status !== "active") {
-    return null;
-  }
-  return aiAccount;
-}
-
 export async function POST(request: Request) {
   const payload: any = await request.json().catch(() => ({}));
   const aiAccountId =
@@ -54,10 +42,8 @@ export async function POST(request: Request) {
   }
 
   const db = getDb();
-  const account = await loadAiAccount(db, aiAccountId, aiApiKey);
-  if (!account) {
-    return NextResponse.json({ status: "error", reason: "invalid_credentials" }, { status: 401 });
-  }
+  const auth = await authenticateAiApiRequest(aiAccountId, aiApiKey);
+  if (auth.ok === false) return auth.response;
 
   const id = crypto.randomUUID();
   const secret = generateWebhookSecret();
@@ -68,7 +54,7 @@ export async function POST(request: Request) {
      VALUES (?, ?, ?, ?, 'active', ?, ?)`
   ).run(id, aiAccountId, url, secret, events.join(","), createdAt);
 
-  return NextResponse.json({
+  const response = NextResponse.json({
     status: "created",
     webhook: {
       id,
@@ -79,6 +65,7 @@ export async function POST(request: Request) {
       created_at: createdAt
     }
   });
+  return applyAiRateLimitHeaders(response, auth);
 }
 
 export async function GET(request: Request) {
@@ -91,10 +78,8 @@ export async function GET(request: Request) {
   }
 
   const db = getDb();
-  const account = await loadAiAccount(db, aiAccountId, aiApiKey);
-  if (!account) {
-    return NextResponse.json({ status: "error", reason: "invalid_credentials" }, { status: 401 });
-  }
+  const auth = await authenticateAiApiRequest(aiAccountId, aiApiKey);
+  if (auth.ok === false) return auth.response;
 
   const webhooks = await db
     .prepare(
@@ -111,7 +96,7 @@ export async function GET(request: Request) {
     created_at: string;
   }>;
 
-  return NextResponse.json({
+  const response = NextResponse.json({
     webhooks: webhooks.map((hook) => ({
       id: hook.id,
       url: hook.url,
@@ -125,4 +110,5 @@ export async function GET(request: Request) {
       created_at: hook.created_at
     }))
   });
+  return applyAiRateLimitHeaders(response, auth);
 }
