@@ -50,6 +50,7 @@ type ProgressEvent = {
   key: string;
   created_at: string;
   title: string;
+  kind: "task" | "channel" | "submission" | "message";
   detail?: string;
 };
 
@@ -319,6 +320,7 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
         key: `task-created-${selectedTask.id}`,
         created_at: selectedTask.created_at,
         title: strings.progressTaskCreated,
+        kind: "task",
         detail: `${strings.status}: ${selectedTask.status}`
       });
     }
@@ -327,7 +329,8 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
       events.push({
         key: `channel-opened-${selectedTaskId}`,
         created_at: selectedChannel.opened_at,
-        title: strings.progressChannelOpened
+        title: strings.progressChannelOpened,
+        kind: "channel"
       });
     }
 
@@ -336,9 +339,8 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
         key: `submission-${selectedTask.submission.id}`,
         created_at: selectedTask.submission.created_at,
         title: strings.progressSubmissionStored,
-        detail: selectedTask.submission.content_url
-          ? strings.progressWithAttachment
-          : selectedTask.submission.text || undefined
+        kind: "submission",
+        detail: selectedTask.submission.content_url ? strings.progressWithAttachment : undefined
       });
     }
 
@@ -346,13 +348,12 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
       events.push({
         key: `msg-${message.id}`,
         created_at: message.created_at,
+        kind: "message",
         title:
           message.sender_type === "human"
             ? strings.progressMessageHuman
             : strings.progressMessageAi,
-        detail: message.attachment_url
-          ? `${message.body ? `${message.body} / ` : ""}${strings.progressWithAttachment}`
-          : message.body || undefined
+        detail: message.attachment_url ? strings.progressWithAttachment : undefined
       });
     }
 
@@ -361,6 +362,7 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
         key: `approved-${selectedTask.id}`,
         created_at: selectedTask.approved_at,
         title: strings.progressTaskApproved,
+        kind: "task",
         detail: `${strings.status}: ${selectedTask.status}`
       });
     }
@@ -369,13 +371,14 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
       events.push({
         key: `channel-closed-${selectedTaskId}`,
         created_at: selectedChannel.closed_at,
-        title: strings.progressChannelClosed
+        title: strings.progressChannelClosed,
+        kind: "channel"
       });
     }
 
     return events
       .filter((event) => Boolean(event.created_at))
-      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   }, [selectedTaskId, selectedTask, selectedChannel, threadMessages, strings]);
 
   return (
@@ -593,13 +596,13 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
                   {progressEvents.length === 0 && !loading && (
                     <p className="muted">{strings.noProgressYet}</p>
                   )}
-                  <div className="inquiry-list">
+                  <div className="progress-log-list">
                     {progressEvents.map((event) => (
-                      <article key={event.key} className="inquiry-item">
-                        <div className="inquiry-head">
-                          <p className="inquiry-subject">{event.title}</p>
+                      <article key={event.key} className="progress-log-item">
+                        <div className="progress-log-main">
+                          <span className={`progress-kind-chip progress-kind-${event.kind}`}>{event.title}</span>
+                          {event.detail && <span className="muted">{event.detail}</span>}
                         </div>
-                        {event.detail && <p>{event.detail}</p>}
                         <p className="muted">{new Date(event.created_at).toLocaleString(lang)}</p>
                       </article>
                     ))}

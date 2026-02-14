@@ -979,6 +979,60 @@ button.tag:hover {
   width: auto;
 }
 
+.progress-log-list {
+  display: grid;
+  gap: 8px;
+}
+
+.progress-log-item {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #0f1a2d;
+}
+
+.progress-log-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.progress-kind-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.progress-kind-task {
+  color: #d5e4ff;
+  border: 1px solid #4a6591;
+  background: #162741;
+}
+
+.progress-kind-channel {
+  color: #c7f1da;
+  border: 1px solid #3f7a55;
+  background: #12261b;
+}
+
+.progress-kind-submission {
+  color: #ffe9b0;
+  border: 1px solid #7b5b12;
+  background: #2f240f;
+}
+
+.progress-kind-message {
+  color: #ddd8ff;
+  border: 1px solid #5c4b9e;
+  background: #1f1b3d;
+}
+
 .template-form-actions {
   display: flex;
   align-items: center;
