@@ -1788,7 +1788,7 @@ button.tag:hover {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 4px;
-    padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+    padding: 10px 10px calc(10px + env(safe-area-inset-bottom));
     background: rgba(7, 11, 20, 0.96);
     border-top: 1px solid rgba(38, 56, 88, 0.75);
     backdrop-filter: blur(12px);
@@ -1796,7 +1796,8 @@ button.tag:hover {
 
   .mobile-bottom-nav a {
     display: block;
-    padding: 10px 6px;
+    padding: 12px 6px;
+    min-height: 50px;
     text-align: center;
     font-size: 12px;
     font-weight: 600;
