@@ -893,8 +893,9 @@ button.tag:hover {
 .thread-messages {
   display: grid;
   gap: 8px;
-  max-height: 380px;
-  overflow: auto;
+  max-height: 42vh;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .thread-message {
@@ -1807,6 +1808,10 @@ button.tag:hover {
 }
 
 @media (max-width: 720px) {
+  .thread-messages {
+    max-height: 34vh;
+  }
+
   main {
     padding: 32px 18px 110px;
   }
