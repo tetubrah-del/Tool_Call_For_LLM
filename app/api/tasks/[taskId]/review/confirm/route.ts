@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import { verifyAiActor } from "../../contact/_auth";
+import { verifyAiActorDetailed } from "../../contact/_auth";
 
 function normalizeText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -39,10 +39,9 @@ export async function POST(
   }
 
   const db = getDb();
-  const aiActor = await verifyAiActor(db, aiAccountId, aiApiKey);
-  if (!aiActor?.id) {
-    return NextResponse.json({ status: "unauthorized" }, { status: 401 });
-  }
+  const aiAuth = await verifyAiActorDetailed(db, aiAccountId, aiApiKey);
+  if (aiAuth.ok === false) return aiAuth.response;
+  const aiActor = aiAuth.actor;
 
   const task = await db
     .prepare(`SELECT id, ai_account_id, status FROM tasks WHERE id = ? AND deleted_at IS NULL`)

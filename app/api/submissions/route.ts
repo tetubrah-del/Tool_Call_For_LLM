@@ -5,6 +5,11 @@ import { saveUpload } from "@/lib/storage";
 import { getNormalizedTask } from "@/lib/task-api";
 import { closeContactChannel } from "@/lib/contact-channel";
 import {
+  authenticateAiApiRequest,
+  applyAiRateLimitHeaders,
+  type AiAuthSuccess
+} from "@/lib/ai-api-auth";
+import {
   authenticateHumanRequest,
   finalizeHumanAuthResponse,
   type HumanAuthSuccess
@@ -23,16 +28,6 @@ function verifyTestHumanToken(humanId: string, token: string): boolean {
   return crypto.timingSafeEqual(a, b);
 }
 
-async function verifyAiActor(db: ReturnType<typeof getDb>, aiAccountId: string, aiApiKey: string) {
-  if (!aiAccountId || !aiApiKey) return null;
-  const aiAccount = await db
-    .prepare(`SELECT id, api_key, status FROM ai_accounts WHERE id = ? AND deleted_at IS NULL`)
-    .get<{ id: string; api_key: string; status: string }>(aiAccountId);
-  if (!aiAccount) return null;
-  if (aiAccount.api_key !== aiApiKey || aiAccount.status !== "active") return null;
-  return { id: aiAccount.id };
-}
-
 async function parseRequest(request: Request) {
   const contentType = request.headers.get("content-type") || "";
   if (contentType.includes("application/json")) {
@@ -45,6 +40,7 @@ async function parseRequest(request: Request) {
 export async function POST(request: Request) {
   const parsed = await parseRequest(request);
   let humanAuth: HumanAuthSuccess | null = null;
+  let aiAuth: AiAuthSuccess | null = null;
 
   let taskId = "";
   let type: "photo" | "video" | "text" | "" = "";
@@ -96,6 +92,9 @@ export async function POST(request: Request) {
   }
 
   async function respond(response: NextResponse) {
+    if (aiAuth) {
+      return applyAiRateLimitHeaders(response, aiAuth);
+    }
     if (!humanAuth) return response;
     return finalizeHumanAuthResponse(request, response, humanAuth);
   }
@@ -106,9 +105,13 @@ export async function POST(request: Request) {
   // - Test-only human: human_id + human_test_token (guarded by env flag)
   let actor: { role: "ai" | "human"; id: string } | null = null;
   if (aiAccountId && aiApiKey) {
-    const aiActor = await verifyAiActor(db, aiAccountId.trim(), aiApiKey.trim());
-    if (aiActor && task.ai_account_id === aiActor.id) {
-      actor = { role: "ai", id: aiActor.id };
+    const auth = await authenticateAiApiRequest(aiAccountId.trim(), aiApiKey.trim());
+    if (auth.ok === false) {
+      return auth.response;
+    }
+    aiAuth = auth;
+    if (task.ai_account_id === auth.aiAccountId) {
+      actor = { role: "ai", id: auth.aiAccountId };
     }
   } else if (humanId && humanTestToken) {
     const hid = humanId.trim();

@@ -255,6 +255,21 @@ Deliverables are returned in `submission` via `GET /api/tasks/:taskId`.
 - Same key + same payload replays the previous response.
 - Same key + different payload returns `idempotency_key_conflict`.
 
+## AI API Rate Limits (MVP)
+
+- AI account authentication paths enforce fixed limits by default:
+  - Monthly: `50000` requests per `ai_account_id`
+  - Burst: `60` requests per minute per `ai_account_id`
+- Over-limit responses:
+  - `429` + `reason=monthly_limit_exceeded`
+  - `429` + `reason=minute_limit_exceeded`
+- Response headers include:
+  - `X-AI-RateLimit-Limit-Month`, `X-AI-RateLimit-Remaining-Month`, `X-AI-RateLimit-Reset-Month`
+  - `X-AI-RateLimit-Limit-Minute`, `X-AI-RateLimit-Remaining-Minute`, `X-AI-RateLimit-Reset-Minute`
+  - `X-AI-Usage-Warn` (and `X-AI-Usage-Warn-Threshold` at >= 80% / 95%)
+- Ops override:
+  - `AI_API_LIMIT_BYPASS_IDS` (comma-separated `ai_account_id`) bypasses limits for allowlisted accounts.
+
 ## Task Contact Attachments
 
 - `POST /api/tasks/:taskId/contact/messages` accepts:

@@ -5,6 +5,7 @@ import {
   finalizeHumanAuthResponse,
   type HumanAuthSuccess
 } from "@/lib/human-api-auth";
+import { authenticateAiApiRequest, applyAiRateLimitHeaders, type AiAuthSuccess } from "@/lib/ai-api-auth";
 import { resolveActorFromRequest } from "../_auth";
 
 export async function PATCH(
@@ -12,6 +13,7 @@ export async function PATCH(
   { params }: { params: { taskId: string } }
 ) {
   let humanAuth: HumanAuthSuccess | null = null;
+  let aiAuth: AiAuthSuccess | null = null;
   const payload = await request.json().catch(() => null);
   const db = getDb();
   const task = await db
@@ -28,7 +30,19 @@ export async function PATCH(
   const hasHumanTestCredentials =
     typeof payload?.human_id === "string" || typeof payload?.human_test_token === "string";
   let actor: { role: "ai" | "human"; id: string } | null = null;
-  if (hasAiCredentials || hasHumanTestCredentials) {
+  if (hasAiCredentials) {
+    const aiId =
+      typeof payload?.ai_account_id === "string" ? payload.ai_account_id.trim() : "";
+    const aiKey =
+      typeof payload?.ai_api_key === "string" ? payload.ai_api_key.trim() : "";
+    const auth = await authenticateAiApiRequest(aiId, aiKey);
+    if (auth.ok === false) return auth.response;
+    aiAuth = auth;
+    if (!task.ai_account_id || task.ai_account_id !== auth.aiAccountId) {
+      return NextResponse.json({ status: "unauthorized" }, { status: 401 });
+    }
+    actor = { role: "ai", id: auth.aiAccountId };
+  } else if (hasHumanTestCredentials) {
     actor = await resolveActorFromRequest(db, task, request, payload);
     if (!actor) {
       return NextResponse.json({ status: "unauthorized" }, { status: 401 });
@@ -67,6 +81,7 @@ export async function PATCH(
   }
 
   const response = NextResponse.json({ status: "updated", task_id: task.id });
+  if (aiAuth) return applyAiRateLimitHeaders(response, aiAuth);
   if (!humanAuth) return response;
   return finalizeHumanAuthResponse(request, response, humanAuth);
 }

@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
+import { applyAiRateLimitHeaders, authenticateAiApiRequest, type AiAuthSuccess } from "@/lib/ai-api-auth";
 import {
   assertNonNegativeInt,
   computeIsInternational,
@@ -36,22 +37,19 @@ async function requireAiCredentials(payload: any) {
   if (!aiAccountId || !aiApiKey) {
     return { ok: false as const, response: badRequest("invalid_request") };
   }
-  const db = getDb();
-  const aiAccount = (await db
-    .prepare(`SELECT * FROM ai_accounts WHERE id = ? AND deleted_at IS NULL`)
-    .get(aiAccountId)) as { id: string; api_key: string; status: string } | undefined;
-  if (!aiAccount || aiAccount.api_key !== aiApiKey || aiAccount.status !== "active") {
-    return { ok: false as const, response: NextResponse.json({ status: "error", reason: "unauthorized" }, { status: 401 }) };
-  }
-  return { ok: true as const, aiAccountId };
+  const auth = await authenticateAiApiRequest(aiAccountId, aiApiKey);
+  if (auth.ok === false) return { ok: false as const, response: auth.response };
+  return { ok: true as const, aiAccountId, aiAuth: auth };
 }
 
 export async function POST(request: Request) {
   try {
     const payload: any = await request.json().catch(() => ({}));
+    let aiAuth: AiAuthSuccess | null = null;
 
     const auth = await requireAiCredentials(payload);
-    if (!auth.ok) return auth.response;
+    if (auth.ok === false) return auth.response;
+    aiAuth = auth.aiAuth;
 
     const taskId = typeof payload?.task_id === "string" ? payload.task_id.trim() : "";
     if (!taskId) return badRequest("missing_task_id");
@@ -198,7 +196,9 @@ export async function POST(request: Request) {
       if (Object.keys(mismatch).length) {
         return conflict("order_conflict", { order_id: orderId, version, mismatch });
       }
-      return NextResponse.json({ status: "ok", order: existing });
+      let replay: NextResponse = NextResponse.json({ status: "ok", order: existing });
+      if (aiAuth) replay = applyAiRateLimitHeaders(replay, aiAuth);
+      return replay;
     }
 
     await db.prepare(
@@ -234,7 +234,9 @@ export async function POST(request: Request) {
       .prepare(`SELECT * FROM orders WHERE id = ? AND version = ?`)
       .get(orderId, version);
 
-    return NextResponse.json({ status: "ok", order: created });
+    let response: NextResponse = NextResponse.json({ status: "ok", order: created });
+    if (aiAuth) response = applyAiRateLimitHeaders(response, aiAuth);
+    return response;
   } catch (err: any) {
     console.error("POST /api/stripe/orders failed", err);
     const status = err?.statusCode && Number.isInteger(err.statusCode) ? err.statusCode : 500;

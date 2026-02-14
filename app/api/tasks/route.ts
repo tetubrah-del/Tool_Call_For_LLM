@@ -6,6 +6,7 @@ import { MIN_BUDGET_USD, OPERATOR_COUNTRY, normalizePaymentStatus } from "@/lib/
 import { normalizeCountry } from "@/lib/country";
 import { normalizeTaskLabel } from "@/lib/task-labels";
 import { finishIdempotency, startIdempotency } from "@/lib/idempotency";
+import { applyAiRateLimitHeaders, authenticateAiApiRequest, type AiAuthSuccess } from "@/lib/ai-api-auth";
 
 export async function GET(request: Request) {
   const db = getDb();
@@ -168,6 +169,7 @@ export async function POST(request: Request) {
     typeof payload?.not_allowed === "string" ? payload.not_allowed.trim() : "";
 
   const db = getDb();
+  let aiAuth: AiAuthSuccess | null = null;
   const idemStart = await startIdempotency(db, {
     route: "/api/tasks",
     idemKey,
@@ -184,7 +186,7 @@ export async function POST(request: Request) {
     return NextResponse.json(idemStart.body, { status: idemStart.statusCode });
   }
 
-  async function respond(body: any, status = 200) {
+  async function respond(body: any, status = 200, headers?: HeadersInit) {
     await finishIdempotency(db, {
       route: "/api/tasks",
       idemKey,
@@ -192,7 +194,11 @@ export async function POST(request: Request) {
       statusCode: status,
       responseBody: body
     });
-    return NextResponse.json(body, { status });
+    let response = NextResponse.json(body, { status, headers });
+    if (aiAuth) {
+      response = applyAiRateLimitHeaders(response, aiAuth);
+    }
+    return response;
   }
 
   if (!task || !Number.isFinite(budgetUsd)) {
@@ -216,15 +222,22 @@ export async function POST(request: Request) {
     if (!aiAccountId || !aiApiKey) {
       return respond({ status: "error", reason: "invalid_request" }, 400);
     }
-    const aiAccount = await db
-      .prepare(`SELECT * FROM ai_accounts WHERE id = ? AND deleted_at IS NULL`)
-      .get(aiAccountId) as
-      | { id: string; paypal_email: string; api_key: string; status: string }
-      | undefined;
-    if (!aiAccount || aiAccount.api_key !== aiApiKey || aiAccount.status !== "active") {
+    const auth = await authenticateAiApiRequest(aiAccountId, aiApiKey);
+    if (auth.ok === false) {
+      if (auth.response.status === 429) {
+        return respond(
+          { status: "error", reason: "rate_limited" },
+          429,
+          Object.fromEntries(auth.response.headers.entries())
+        );
+      }
       return respond({ status: "error", reason: "invalid_request" }, 400);
     }
-    payerPaypalEmail = aiAccount.paypal_email;
+    aiAuth = auth;
+    const aiAccount = await db
+      .prepare(`SELECT paypal_email FROM ai_accounts WHERE id = ?`)
+      .get<{ paypal_email: string | null }>(aiAccountId);
+    payerPaypalEmail = aiAccount?.paypal_email || null;
   }
 
   const id = payload?.id ?? crypto.randomUUID();

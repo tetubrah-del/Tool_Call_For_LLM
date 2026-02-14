@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { dispatchTaskEvent } from "@/lib/webhooks";
 import { openContactChannel } from "@/lib/contact-channel";
+import { applyAiRateLimitHeaders, authenticateAiApiRequest, type AiAuthSuccess } from "@/lib/ai-api-auth";
 
 function normalizeText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -23,12 +24,22 @@ export async function POST(
   }
 
   const db = getDb();
+  let aiAuth: AiAuthSuccess | null = null;
+  function respond(body: any, status = 200) {
+    let response = NextResponse.json(body, { status });
+    if (aiAuth) response = applyAiRateLimitHeaders(response, aiAuth);
+    return response;
+  }
+
+  const auth = await authenticateAiApiRequest(aiAccountId, aiApiKey);
+  if (auth.ok === false) return auth.response;
+  aiAuth = auth;
 
   const aiAccount = await db
-    .prepare(`SELECT id, api_key, status FROM ai_accounts WHERE id = ? AND deleted_at IS NULL`)
-    .get<{ id: string; api_key: string; status: string }>(aiAccountId);
-  if (!aiAccount?.id || aiAccount.api_key !== aiApiKey || aiAccount.status !== "active") {
-    return NextResponse.json({ status: "unauthorized" }, { status: 401 });
+    .prepare(`SELECT id FROM ai_accounts WHERE id = ? AND deleted_at IS NULL`)
+    .get<{ id: string }>(aiAccountId);
+  if (!aiAccount?.id) {
+    return respond({ status: "unauthorized" }, 401);
   }
 
   const task = await db
@@ -37,33 +48,33 @@ export async function POST(
       params.taskId
     );
   if (!task?.id) {
-    return NextResponse.json({ status: "not_found" }, { status: 404 });
+    return respond({ status: "not_found" }, 404);
   }
   if (!task.ai_account_id || task.ai_account_id !== aiAccountId) {
-    return NextResponse.json({ status: "unauthorized" }, { status: 401 });
+    return respond({ status: "unauthorized" }, 401);
   }
   if (task.status !== "open") {
-    return NextResponse.json({ status: "error", reason: "not_open" }, { status: 409 });
+    return respond({ status: "error", reason: "not_open" }, 409);
   }
   if (task.human_id) {
-    return NextResponse.json({ status: "error", reason: "already_assigned" }, { status: 409 });
+    return respond({ status: "error", reason: "already_assigned" }, 409);
   }
 
   const application = await db
     .prepare(`SELECT id FROM task_applications WHERE task_id = ? AND human_id = ?`)
     .get<{ id: string }>(params.taskId, selectedHumanId);
   if (!application?.id) {
-    return NextResponse.json({ status: "error", reason: "not_applied" }, { status: 409 });
+    return respond({ status: "error", reason: "not_applied" }, 409);
   }
 
   const human = await db
     .prepare(`SELECT id, paypal_email, status FROM humans WHERE id = ? AND deleted_at IS NULL`)
     .get<{ id: string; paypal_email: string | null; status: string }>(selectedHumanId);
   if (!human?.id) {
-    return NextResponse.json({ status: "not_found" }, { status: 404 });
+    return respond({ status: "not_found" }, 404);
   }
   if (human.status !== "available") {
-    return NextResponse.json({ status: "error", reason: "human_not_available" }, { status: 409 });
+    return respond({ status: "error", reason: "human_not_available" }, 409);
   }
 
   // Accept (assign) the selected applicant.
@@ -82,7 +93,7 @@ export async function POST(
     () => {}
   );
 
-  return NextResponse.json({
+  return respond({
     status: "accepted",
     task_id: params.taskId,
     application_id: application.id

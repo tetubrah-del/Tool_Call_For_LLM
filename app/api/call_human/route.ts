@@ -7,6 +7,7 @@ import { normalizeTaskLabel } from "@/lib/task-labels";
 import { finishIdempotency, startIdempotency } from "@/lib/idempotency";
 import { dispatchTaskEvent } from "@/lib/webhooks";
 import { openContactChannel } from "@/lib/contact-channel";
+import { applyAiRateLimitHeaders, authenticateAiApiRequest, type AiAuthSuccess } from "@/lib/ai-api-auth";
 
 type FieldError = {
   field: string;
@@ -62,6 +63,7 @@ export async function POST(request: Request) {
       : null;
 
   const db = getDb();
+  let aiAuth: AiAuthSuccess | null = null;
   const idemStart = await startIdempotency(db, {
     route: "/api/call_human",
     idemKey,
@@ -79,7 +81,7 @@ export async function POST(request: Request) {
     return NextResponse.json(idemStart.body, { status: idemStart.statusCode });
   }
 
-  async function respond(body: any, status = 200) {
+  async function respond(body: any, status = 200, headers?: HeadersInit) {
     await finishIdempotency(db, {
       route: "/api/call_human",
       idemKey,
@@ -87,7 +89,11 @@ export async function POST(request: Request) {
       statusCode: status,
       responseBody: body
     });
-    return NextResponse.json(body, { status });
+    let response = NextResponse.json(body, { status, headers });
+    if (aiAuth) {
+      response = applyAiRateLimitHeaders(response, aiAuth);
+    }
+    return response;
   }
 
   const fieldErrors: FieldError[] = [];
@@ -135,12 +141,15 @@ export async function POST(request: Request) {
     );
   }
 
-  const aiAccount = await db
-    .prepare(`SELECT * FROM ai_accounts WHERE id = ? AND deleted_at IS NULL`)
-    .get(aiAccountId) as
-    | { id: string; paypal_email: string; api_key: string; status: string }
-    | undefined;
-  if (!aiAccount || aiAccount.api_key !== aiApiKey || aiAccount.status !== "active") {
+  const auth = await authenticateAiApiRequest(aiAccountId, aiApiKey);
+  if (auth.ok === false) {
+    if (auth.response.status === 429) {
+      return respond(
+        { status: "rejected", reason: "rate_limited" },
+        429,
+        Object.fromEntries(auth.response.headers.entries())
+      );
+    }
     return respond(
       {
         status: "rejected",
@@ -150,6 +159,10 @@ export async function POST(request: Request) {
       400
     );
   }
+  aiAuth = auth;
+  const aiAccount = await db
+    .prepare(`SELECT paypal_email FROM ai_accounts WHERE id = ?`)
+    .get<{ paypal_email: string | null }>(aiAccountId);
 
   const taskId = crypto.randomUUID();
   await db.prepare(
@@ -166,7 +179,7 @@ export async function POST(request: Request) {
     acceptanceCriteria,
     notAllowed,
     aiAccountId,
-    aiAccount.paypal_email,
+    aiAccount?.paypal_email || null,
     normalizedDeliverable,
     deadlineMinutes,
     deadlineAt,
