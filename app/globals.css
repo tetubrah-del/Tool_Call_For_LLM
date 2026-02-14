@@ -1825,7 +1825,7 @@ button.tag:hover {
 
 @media (max-width: 720px) {
   .thread-messages {
-    max-height: 34vh;
+    max-height: clamp(450px, 60vh, 560px);
   }
 
   main {
