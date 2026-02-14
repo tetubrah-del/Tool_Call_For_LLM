@@ -4,10 +4,12 @@ import { getDb } from "@/lib/db";
 import { saveUpload } from "@/lib/storage";
 import { getNormalizedTask } from "@/lib/task-api";
 import { closeContactChannel } from "@/lib/contact-channel";
+import {
+  authenticateHumanRequest,
+  finalizeHumanAuthResponse,
+  type HumanAuthSuccess
+} from "@/lib/human-api-auth";
 import { computeReviewPendingDeadline } from "@/lib/review-pending";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { getCurrentHumanIdByEmail } from "@/lib/human-session";
 
 function verifyTestHumanToken(humanId: string, token: string): boolean {
   if (!humanId || !token) return false;
@@ -42,6 +44,7 @@ async function parseRequest(request: Request) {
 
 export async function POST(request: Request) {
   const parsed = await parseRequest(request);
+  let humanAuth: HumanAuthSuccess | null = null;
 
   let taskId = "";
   let type: "photo" | "video" | "text" | "" = "";
@@ -92,6 +95,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ status: "not_found" }, { status: 404 });
   }
 
+  async function respond(response: NextResponse) {
+    if (!humanAuth) return response;
+    return finalizeHumanAuthResponse(request, response, humanAuth);
+  }
+
   // Require an actor to submit. We allow:
   // - AI: ai_account_id + ai_api_key (must match task.ai_account_id)
   // - Human: logged-in session (must match task.human_id)
@@ -109,49 +117,57 @@ export async function POST(request: Request) {
       actor = { role: "human", id: hid };
     }
   } else {
-    const session = await getServerSession(authOptions);
-    const email = session?.user?.email;
-    if (email) {
-      const hid = await getCurrentHumanIdByEmail(email);
-      if (hid && task.human_id === hid) {
-        actor = { role: "human", id: hid };
-      }
+    const auth = await authenticateHumanRequest(request, "submissions:write");
+    if (auth.ok === false) {
+      return auth.response;
+    }
+    humanAuth = auth;
+    if (task.human_id === auth.humanId) {
+      actor = { role: "human", id: auth.humanId };
     }
   }
   if (!actor) {
-    return NextResponse.json({ status: "unauthorized" }, { status: 401 });
+    return respond(NextResponse.json({ status: "unauthorized" }, { status: 401 }));
   }
 
   if (task.status === "failed" && task.failure_reason === "timeout") {
-    return NextResponse.json({ status: "error", reason: "timeout" }, { status: 409 });
+    return respond(NextResponse.json({ status: "error", reason: "timeout" }, { status: 409 }));
   }
 
   // Only accepted tasks can be completed via submission.
   if (task.status !== "accepted" || !task.human_id) {
-    return NextResponse.json(
+    return respond(NextResponse.json(
       { status: "error", reason: "not_assigned" },
       { status: 409 }
-    );
+    ));
   }
 
   if (task.deliverable && task.deliverable !== type) {
-    return NextResponse.json({ status: "error", reason: "wrong_deliverable" }, { status: 400 });
+    return respond(
+      NextResponse.json({ status: "error", reason: "wrong_deliverable" }, { status: 400 })
+    );
   }
 
   let contentUrl: string | null = null;
   if (type === "text") {
     if (!text) {
-      return NextResponse.json({ status: "error", reason: "missing_text" }, { status: 400 });
+      return respond(
+        NextResponse.json({ status: "error", reason: "missing_text" }, { status: 400 })
+      );
     }
     if (file) {
       if (!file.type.startsWith("image/")) {
-        return NextResponse.json({ status: "error", reason: "invalid_file_type" }, { status: 400 });
+        return respond(
+          NextResponse.json({ status: "error", reason: "invalid_file_type" }, { status: 400 })
+        );
       }
       contentUrl = await saveUpload(file);
     }
   } else {
     if (!file) {
-      return NextResponse.json({ status: "error", reason: "missing_file" }, { status: 400 });
+      return respond(
+        NextResponse.json({ status: "error", reason: "missing_file" }, { status: 400 })
+      );
     }
     contentUrl = await saveUpload(file);
   }
@@ -185,5 +201,5 @@ export async function POST(request: Request) {
   }
   await closeContactChannel(db, taskId);
 
-  return NextResponse.json({ status: "stored", submission_id: submissionId });
+  return respond(NextResponse.json({ status: "stored", submission_id: submissionId }));
 }

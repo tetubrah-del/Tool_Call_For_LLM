@@ -9,6 +9,8 @@ type HumanRow = {
   country: string | null;
   location: string | null;
   status: string;
+  api_access_status?: "active" | "disabled" | null;
+  api_monthly_limit?: number | null;
   created_at: string;
   deleted_at: string | null;
   is_provisional?: boolean;
@@ -68,6 +70,8 @@ export default function ManageClient() {
   const [attachmentCheckedByTask, setAttachmentCheckedByTask] = useState<Record<string, boolean>>({});
   const [acceptanceCheckedByTask, setAcceptanceCheckedByTask] = useState<Record<string, boolean>>({});
   const [finalConfirmedByTask, setFinalConfirmedByTask] = useState<Record<string, boolean>>({});
+  const [apiStatusByHuman, setApiStatusByHuman] = useState<Record<string, "active" | "disabled">>({});
+  const [apiLimitByHuman, setApiLimitByHuman] = useState<Record<string, string>>({});
 
   const canLoad = authReady;
 
@@ -147,6 +151,33 @@ export default function ManageClient() {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: human.id })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setError(data?.reason || "failed");
+      return;
+    }
+    setError(null);
+    await load();
+  }
+
+  async function updateHumanApiPolicy(human: HumanRow) {
+    if (human.is_provisional) return;
+    const status = apiStatusByHuman[human.id] || (human.api_access_status === "disabled" ? "disabled" : "active");
+    const limitRaw = apiLimitByHuman[human.id] ?? String(human.api_monthly_limit ?? 1000);
+    const limit = Number(limitRaw);
+    if (!Number.isFinite(limit) || limit < 1) {
+      setError("Invalid API monthly limit.");
+      return;
+    }
+    const res = await fetch("/api/admin/humans", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: human.id,
+        api_access_status: status,
+        api_monthly_limit: Math.floor(limit)
+      })
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
@@ -346,7 +377,45 @@ export default function ManageClient() {
                 {h.email || "-"} | {h.country || "-"} | {h.location || "-"} | {h.status}
                 {h.is_provisional ? " (oauth-only)" : ""}
               </p>
+              {!h.is_provisional && (
+                <p className="muted">
+                  api: {h.api_access_status || "active"} | monthly limit: {h.api_monthly_limit ?? 1000}
+                </p>
+              )}
               <p className="muted">id: {h.id} | created: {h.created_at} | deleted: {h.deleted_at || "-"}</p>
+              {!h.is_provisional && (
+                <div className="row">
+                  <label>
+                    API access
+                    <select
+                      value={apiStatusByHuman[h.id] || (h.api_access_status === "disabled" ? "disabled" : "active")}
+                      onChange={(e) =>
+                        setApiStatusByHuman((prev) => ({
+                          ...prev,
+                          [h.id]: e.target.value === "disabled" ? "disabled" : "active"
+                        }))
+                      }
+                    >
+                      <option value="active">active</option>
+                      <option value="disabled">disabled</option>
+                    </select>
+                  </label>
+                  <label>
+                    API monthly limit
+                    <input
+                      type="number"
+                      min={1}
+                      value={apiLimitByHuman[h.id] ?? String(h.api_monthly_limit ?? 1000)}
+                      onChange={(e) =>
+                        setApiLimitByHuman((prev) => ({ ...prev, [h.id]: e.target.value }))
+                      }
+                    />
+                  </label>
+                  <button type="button" className="secondary" onClick={() => updateHumanApiPolicy(h)}>
+                    Save API policy
+                  </button>
+                </div>
+              )}
               <div className="row">
                 <button
                   type="button"

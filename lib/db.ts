@@ -156,6 +156,8 @@ async function initPostgres() {
       payout_hold_status TEXT,
       payout_hold_reason TEXT,
       payout_hold_until TEXT,
+      api_access_status TEXT NOT NULL DEFAULT 'active',
+      api_monthly_limit INTEGER NOT NULL DEFAULT 1000,
       deleted_at TEXT,
       status TEXT NOT NULL,
       created_at TEXT NOT NULL
@@ -373,7 +375,36 @@ async function initPostgres() {
       response_body TEXT,
       error TEXT,
       created_at TEXT NOT NULL
-    )`
+    )`,
+    `CREATE TABLE IF NOT EXISTS human_api_keys (
+      id TEXT PRIMARY KEY,
+      human_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      key_prefix TEXT NOT NULL,
+      key_hash TEXT NOT NULL,
+      scopes_json TEXT NOT NULL,
+      status TEXT NOT NULL,
+      last_used_at TEXT,
+      expires_at TEXT,
+      revoked_at TEXT,
+      created_at TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS human_api_usage_monthly (
+      human_id TEXT NOT NULL,
+      period_key TEXT NOT NULL,
+      request_count INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (human_id, period_key)
+    )`,
+    `CREATE TABLE IF NOT EXISTS human_api_usage_alerts (
+      human_id TEXT NOT NULL,
+      period_key TEXT NOT NULL,
+      threshold_percent INTEGER NOT NULL,
+      notified_at TEXT NOT NULL,
+      PRIMARY KEY (human_id, period_key, threshold_percent)
+    )`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS human_api_keys_key_hash_idx ON human_api_keys (key_hash)`,
+    `CREATE INDEX IF NOT EXISTS human_api_keys_human_status_idx ON human_api_keys (human_id, status)`
   ];
 
   for (const statement of statements) {
@@ -402,6 +433,8 @@ async function initPostgres() {
     `ALTER TABLE humans ADD COLUMN IF NOT EXISTS payout_hold_status TEXT`,
     `ALTER TABLE humans ADD COLUMN IF NOT EXISTS payout_hold_reason TEXT`,
     `ALTER TABLE humans ADD COLUMN IF NOT EXISTS payout_hold_until TEXT`,
+    `ALTER TABLE humans ADD COLUMN IF NOT EXISTS api_access_status TEXT`,
+    `ALTER TABLE humans ADD COLUMN IF NOT EXISTS api_monthly_limit INTEGER`,
     `ALTER TABLE humans ADD COLUMN IF NOT EXISTS deleted_at TEXT`,
     `ALTER TABLE ai_accounts ADD COLUMN IF NOT EXISTS deleted_at TEXT`,
     `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS deleted_at TEXT`,
@@ -463,6 +496,35 @@ async function initPostgres() {
     `ALTER TABLE webhook_deliveries ADD COLUMN IF NOT EXISTS status_code INTEGER`,
     `ALTER TABLE webhook_deliveries ADD COLUMN IF NOT EXISTS response_body TEXT`,
     `ALTER TABLE webhook_deliveries ADD COLUMN IF NOT EXISTS error TEXT`,
+    `CREATE TABLE IF NOT EXISTS human_api_keys (
+      id TEXT PRIMARY KEY,
+      human_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      key_prefix TEXT NOT NULL,
+      key_hash TEXT NOT NULL,
+      scopes_json TEXT NOT NULL,
+      status TEXT NOT NULL,
+      last_used_at TEXT,
+      expires_at TEXT,
+      revoked_at TEXT,
+      created_at TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS human_api_usage_monthly (
+      human_id TEXT NOT NULL,
+      period_key TEXT NOT NULL,
+      request_count INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (human_id, period_key)
+    )`,
+    `CREATE TABLE IF NOT EXISTS human_api_usage_alerts (
+      human_id TEXT NOT NULL,
+      period_key TEXT NOT NULL,
+      threshold_percent INTEGER NOT NULL,
+      notified_at TEXT NOT NULL,
+      PRIMARY KEY (human_id, period_key, threshold_percent)
+    )`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS human_api_keys_key_hash_idx ON human_api_keys (key_hash)`,
+    `CREATE INDEX IF NOT EXISTS human_api_keys_human_status_idx ON human_api_keys (human_id, status)`,
     `ALTER TABLE orders ADD COLUMN IF NOT EXISTS provider_error TEXT`,
     `ALTER TABLE orders ADD COLUMN IF NOT EXISTS intl_surcharge_minor INTEGER`,
     `ALTER TABLE orders ADD COLUMN IF NOT EXISTS refund_status TEXT`,
@@ -481,6 +543,12 @@ async function initPostgres() {
   for (const statement of migrationStatements) {
     await db.query(statement);
   }
+
+  await db.query(
+    `UPDATE humans
+     SET api_access_status = COALESCE(NULLIF(api_access_status, ''), 'active'),
+         api_monthly_limit = COALESCE(api_monthly_limit, 1000)`
+  );
 }
 
 async function initSqlite() {
@@ -512,6 +580,8 @@ async function initSqlite() {
       payout_hold_status TEXT,
       payout_hold_reason TEXT,
       payout_hold_until TEXT,
+      api_access_status TEXT NOT NULL DEFAULT 'active',
+      api_monthly_limit INTEGER NOT NULL DEFAULT 1000,
       deleted_at TEXT,
       status TEXT NOT NULL,
       created_at TEXT NOT NULL
@@ -704,6 +774,39 @@ async function initSqlite() {
       created_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS human_api_keys (
+      id TEXT PRIMARY KEY,
+      human_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      key_prefix TEXT NOT NULL,
+      key_hash TEXT NOT NULL,
+      scopes_json TEXT NOT NULL,
+      status TEXT NOT NULL,
+      last_used_at TEXT,
+      expires_at TEXT,
+      revoked_at TEXT,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS human_api_usage_monthly (
+      human_id TEXT NOT NULL,
+      period_key TEXT NOT NULL,
+      request_count INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (human_id, period_key)
+    );
+
+    CREATE TABLE IF NOT EXISTS human_api_usage_alerts (
+      human_id TEXT NOT NULL,
+      period_key TEXT NOT NULL,
+      threshold_percent INTEGER NOT NULL,
+      notified_at TEXT NOT NULL,
+      PRIMARY KEY (human_id, period_key, threshold_percent)
+    );
+
+    CREATE UNIQUE INDEX IF NOT EXISTS human_api_keys_key_hash_idx ON human_api_keys (key_hash);
+    CREATE INDEX IF NOT EXISTS human_api_keys_human_status_idx ON human_api_keys (human_id, status);
+
     CREATE TABLE IF NOT EXISTS orders (
       id TEXT NOT NULL,
       version INTEGER NOT NULL,
@@ -794,6 +897,8 @@ async function initSqlite() {
   ensureSqliteColumn(db, "humans", "payout_hold_status", "TEXT");
   ensureSqliteColumn(db, "humans", "payout_hold_reason", "TEXT");
   ensureSqliteColumn(db, "humans", "payout_hold_until", "TEXT");
+  ensureSqliteColumn(db, "humans", "api_access_status", "TEXT");
+  ensureSqliteColumn(db, "humans", "api_monthly_limit", "INTEGER");
   ensureSqliteColumn(db, "humans", "deleted_at", "TEXT");
   ensureSqliteColumn(db, "ai_accounts", "deleted_at", "TEXT");
   ensureSqliteColumn(db, "idempotency_keys", "status_code", "INTEGER");
@@ -832,6 +937,12 @@ async function initSqlite() {
   ensureSqliteColumn(db, "orders", "refund_id", "TEXT");
   ensureSqliteColumn(db, "orders", "refunded_at", "TEXT");
   ensureSqliteColumn(db, "orders", "refund_error_message", "TEXT");
+
+  db.exec(
+    `UPDATE humans
+     SET api_access_status = COALESCE(NULLIF(api_access_status, ''), 'active'),
+         api_monthly_limit = COALESCE(api_monthly_limit, 1000)`
+  );
 }
 
 async function ensureInit() {

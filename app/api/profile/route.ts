@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { normalizeCountry } from "@/lib/country";
+import { authenticateHumanRequest, finalizeHumanAuthResponse } from "@/lib/human-api-auth";
 import { normalizePaypalEmail } from "@/lib/paypal";
 
 function normalizeOptionalString(value: unknown, maxLen: number): string | null {
@@ -73,22 +74,20 @@ async function parseRequest(request: Request) {
   return Object.fromEntries(form.entries());
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    const email = session?.user?.email;
-    if (!email) {
-      return NextResponse.json({ status: "unauthorized" }, { status: 401 });
-    }
+    const auth = await authenticateHumanRequest(request, "profile:read");
+    if (auth.ok === false) return auth.response;
 
     const db = getDb();
     const profile = await db
       .prepare(
-        `SELECT * FROM humans WHERE email = ? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1`
+        `SELECT * FROM humans WHERE id = ? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1`
       )
-      .get(email);
+      .get(auth.humanId);
 
-    return NextResponse.json({ profile: profile || null });
+    const response = NextResponse.json({ profile: profile || null });
+    return finalizeHumanAuthResponse(request, response, auth);
   } catch (error) {
     console.error("GET /api/profile failed", error);
     return NextResponse.json(

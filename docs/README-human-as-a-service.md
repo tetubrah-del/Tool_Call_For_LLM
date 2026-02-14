@@ -194,8 +194,21 @@ Timeouts are enforced by a server-side sweeper while the process is running.
 ## Human Dashboard API入口（先行リリース）
 
 - `/me` のタブに `APIキー` 入口を追加済み（`プロフィール / 支払い / メッセージ / APIキー` の順）。
-- 現時点では仕様策定前のため、`/me?tab=api` は「準備中」表示のみを提供。
-- API仕様の確定後、このタブ配下に実運用機能を追加予定。
+- `Human APIキー` の作成 / ローテーション / 失効を `APIキー` タブと `/api/me/api-keys` で管理可能。
+- 月間上限は `human` ごとに固定値（初期値 `1000`）で、`JST` 月次リセット。
+- 使用量は `/api/me/api-usage` で取得可能。残量が 5% / 1% を下回ると警告対象。
+
+## Human API Key (MVP)
+
+- 認証ヘッダー:
+  - `Authorization: Bearer <human_api_key>`（推奨）
+  - `X-Human-Api-Key: <human_api_key>`（互換）
+- 対象スコープ:
+  - `messages:read`, `messages:write`, `submissions:write`, `payments:read`, `profile:read`
+- 上限超過時:
+  - `429` + `reason=monthly_limit_exceeded`
+  - `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`
+  - `X-Usage-Warn`（低残量警告）
 
 ---
 
