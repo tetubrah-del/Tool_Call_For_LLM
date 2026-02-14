@@ -74,6 +74,7 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<TaskDetail | null>(null);
   const [threadMessages, setThreadMessages] = useState<ContactMessage[]>([]);
+  const [threadView, setThreadView] = useState<"messages" | "task_log">("messages");
   const [threadLoading, setThreadLoading] = useState(false);
   const [composeBody, setComposeBody] = useState("");
   const [composeFile, setComposeFile] = useState<File | null>(null);
@@ -208,6 +209,7 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
     setSendSuccess(null);
     setComposeBody("");
     setComposeFile(null);
+    setThreadView("messages");
   }, [selectedTaskId]);
 
   useEffect(() => {
@@ -498,116 +500,139 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
             {!selectedTaskId && <p className="muted">{strings.selectChannel}</p>}
             {selectedTaskId && (
               <>
-                <div className="thread-messages">
-                  {threadLoading && <p className="muted">{strings.loading}</p>}
-                  {!threadLoading && threadMessages.length === 0 && (
-                    <p className="muted">{strings.noMessages}</p>
-                  )}
-                  {threadMessages.map((message) => (
-                    <article
-                      key={message.id}
-                      className={
-                        message.sender_type === "human" ? "thread-message human-message" : "thread-message ai-message"
-                      }
-                    >
-                      <p className="muted">
-                        {message.sender_type === "human"
-                          ? strings.me
-                          : message.sender_display || strings.ai}
-                      </p>
-                      <p>{message.body}</p>
-                      {message.attachment_url && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={message.attachment_url} alt="message attachment" className="thread-image" />
-                      )}
-                      <p className="muted">
-                        {new Date(message.created_at).toLocaleString(lang)}
-                      </p>
-                    </article>
-                  ))}
+                <div className="tabs">
+                  <button
+                    type="button"
+                    className={threadView === "messages" ? "tab tab-active" : "tab"}
+                    onClick={() => setThreadView("messages")}
+                  >
+                    {strings.messagesTitle}
+                  </button>
+                  <button
+                    type="button"
+                    className={threadView === "task_log" ? "tab tab-active" : "tab"}
+                    onClick={() => setThreadView("task_log")}
+                  >
+                    {strings.progressTitle}
+                  </button>
                 </div>
-                {selectedTask && (
-                  <div className="card">
-                    <h4>{strings.unifiedSendTitle}</h4>
-                    <p className="muted">
-                      {strings.status}: {selectedTask.status} / {strings.deliverable}: {deliverable}
-                    </p>
-                    <p className="muted">{strings.aiMarksSubmissionHint}</p>
 
-                    <form className="thread-compose" onSubmit={sendUnified}>
-                      <label>
-                        {strings.inquiryBody}
-                        <textarea
-                          value={composeBody}
-                          onChange={(e) => setComposeBody(e.target.value)}
-                          rows={8}
-                        />
-                      </label>
-                      <label>
-                        {strings.attachmentImage}
-                        <input
-                          type="file"
-                          accept={fileAccept}
-                          onChange={(e) => setComposeFile(e.target.files?.[0] || null)}
-                        />
-                      </label>
-                      {composeFile && (
-                        <div className="template-actions">
-                          <p className="muted">{composeFile.name}</p>
+                {threadView === "messages" && (
+                  <>
+                    <div className="thread-messages">
+                      {threadLoading && <p className="muted">{strings.loading}</p>}
+                      {!threadLoading && threadMessages.length === 0 && (
+                        <p className="muted">{strings.noMessages}</p>
+                      )}
+                      {threadMessages.map((message) => (
+                        <article
+                          key={message.id}
+                          className={
+                            message.sender_type === "human" ? "thread-message human-message" : "thread-message ai-message"
+                          }
+                        >
+                          <p className="muted">
+                            {message.sender_type === "human"
+                              ? strings.me
+                              : message.sender_display || strings.ai}
+                          </p>
+                          <p>{message.body}</p>
+                          {message.attachment_url && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={message.attachment_url} alt="message attachment" className="thread-image" />
+                          )}
+                          <p className="muted">
+                            {new Date(message.created_at).toLocaleString(lang)}
+                          </p>
+                        </article>
+                      ))}
+                    </div>
+                    {selectedTask && (
+                      <div className="card">
+                        <h4>{strings.unifiedSendTitle}</h4>
+                        <p className="muted">
+                          {strings.status}: {selectedTask.status} / {strings.deliverable}: {deliverable}
+                        </p>
+                        <p className="muted">{strings.aiMarksSubmissionHint}</p>
+
+                        <form className="thread-compose" onSubmit={sendUnified}>
+                          <label>
+                            {strings.inquiryBody}
+                            <textarea
+                              value={composeBody}
+                              onChange={(e) => setComposeBody(e.target.value)}
+                              rows={8}
+                            />
+                          </label>
+                          <label>
+                            {strings.attachmentImage}
+                            <input
+                              type="file"
+                              accept={fileAccept}
+                              onChange={(e) => setComposeFile(e.target.files?.[0] || null)}
+                            />
+                          </label>
+                          {composeFile && (
+                            <div className="template-actions">
+                              <p className="muted">{composeFile.name}</p>
+                              <button
+                                type="button"
+                                className="secondary"
+                                onClick={() => setComposeFile(null)}
+                              >
+                                {strings.removeAttachment}
+                              </button>
+                            </div>
+                          )}
                           <button
-                            type="button"
-                            className="secondary"
-                            onClick={() => setComposeFile(null)}
+                            type="submit"
+                            disabled={
+                              sending ||
+                              !canSendMessage ||
+                              (!composeBody.trim() && !composeFile)
+                            }
                           >
-                            {strings.removeAttachment}
+                            {sending ? strings.saving : strings.sendChannelMessage}
                           </button>
-                        </div>
-                      )}
-                      <button
-                        type="submit"
-                        disabled={
-                          sending ||
-                          !canSendMessage ||
-                          (!composeBody.trim() && !composeFile)
-                        }
-                      >
-                        {sending ? strings.saving : strings.sendChannelMessage}
-                      </button>
-                      {sendSuccess && <p className="muted">{sendSuccess}</p>}
-                      {!canSendMessage && (
-                        <p className="muted">{strings.channelNotOpenHint}</p>
-                      )}
-                    </form>
-                  </div>
+                          {sendSuccess && <p className="muted">{sendSuccess}</p>}
+                          {!canSendMessage && (
+                            <p className="muted">{strings.channelNotOpenHint}</p>
+                          )}
+                        </form>
+                      </div>
+                    )}
+                  </>
                 )}
 
-                <div className="card messages-history-card">
-                  <div className="photo-list-head">
-                    <h3>{strings.progressTitle}</h3>
-                    <button type="button" className="secondary" onClick={loadMessages} disabled={loading}>
-                      {loading ? strings.loading : strings.refresh}
-                    </button>
+                {threadView === "task_log" && (
+                  <div className="card messages-history-card">
+                    <div className="photo-list-head">
+                      <h3>{strings.progressTitle}</h3>
+                      <button type="button" className="secondary" onClick={loadMessages} disabled={loading}>
+                        {loading ? strings.loading : strings.refresh}
+                      </button>
+                    </div>
+                    {error && (
+                      <p className="muted">
+                        {strings.failed}: {error}
+                      </p>
+                    )}
+                    {progressEvents.length === 0 && !loading && (
+                      <p className="muted">{strings.noProgressYet}</p>
+                    )}
+                    <div className="progress-log-list">
+                      {progressEvents.map((event) => (
+                        <article key={event.key} className="progress-log-item">
+                          <div className="progress-log-main">
+                            <span className={`progress-kind-chip progress-kind-${event.kind}`}>{event.title}</span>
+                            {event.detail && <span className="muted">{event.detail}</span>}
+                          </div>
+                          <p className="muted">{new Date(event.created_at).toLocaleString(lang)}</p>
+                        </article>
+                      ))}
+                    </div>
                   </div>
-                  {error && (
-                    <p className="muted">
-                      {strings.failed}: {error}
-                    </p>
-                  )}
-                  {progressEvents.length === 0 && !loading && (
-                    <p className="muted">{strings.noProgressYet}</p>
-                  )}
-                  <div className="progress-log-list">
-                    {progressEvents.map((event) => (
-                      <article key={event.key} className="progress-log-item">
-                        <div className="progress-log-main">
-                          <span className={`progress-kind-chip progress-kind-${event.kind}`}>{event.title}</span>
-                          {event.detail && <span className="muted">{event.detail}</span>}
-                        </div>
-                        <p className="muted">{new Date(event.created_at).toLocaleString(lang)}</p>
-                      </article>
-                    ))}
-                  </div>
-                </div>
+                )}
               </>
             )}
           </div>
