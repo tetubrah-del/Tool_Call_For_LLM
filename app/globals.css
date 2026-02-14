@@ -883,6 +883,11 @@ button.tag:hover {
   min-height: 260px;
   display: grid;
   gap: 12px;
+  align-content: start;
+}
+
+.thread-panel > .card {
+  align-self: start;
 }
 
 .thread-messages {
