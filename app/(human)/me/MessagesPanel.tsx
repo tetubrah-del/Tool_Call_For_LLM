@@ -13,6 +13,7 @@ type Channel = {
   task_en: string | null;
   task_status: string;
   created_at: string;
+  last_message_at: string | null;
   unread_count: number;
   message_count: number;
 };
@@ -170,10 +171,14 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
     const sorted = [...filtered];
     sorted.sort((a, b) => {
       if (channelSort === "recent_desc") {
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        const bTime = new Date(b.last_message_at || b.created_at).getTime();
+        const aTime = new Date(a.last_message_at || a.created_at).getTime();
+        return bTime - aTime;
       }
       if (channelSort === "recent_asc") {
-        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        const aTime = new Date(a.last_message_at || a.created_at).getTime();
+        const bTime = new Date(b.last_message_at || b.created_at).getTime();
+        return aTime - bTime;
       }
       if (channelSort === "unread_desc") {
         if (b.unread_count !== a.unread_count) return b.unread_count - a.unread_count;
@@ -283,7 +288,11 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
       setChannels((prev) =>
         prev.map((channel) =>
           channel.task_id === selectedTaskId
-            ? { ...channel, message_count: channel.message_count + 1 }
+            ? {
+                ...channel,
+                message_count: channel.message_count + 1,
+                last_message_at: data.message?.created_at || new Date().toISOString()
+              }
             : channel
         )
       );
@@ -473,7 +482,7 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
                     {strings.channelStatus}: {channel.status} / {strings.status}: {channel.task_status}
                   </p>
                   <p className="muted">
-                    {strings.unread}: {channel.unread_count} / {strings.messagesCount}: {channel.message_count}
+                    {strings.lastUpdated}: {new Date(channel.last_message_at || channel.created_at).toLocaleString(lang)}
                   </p>
                 </button>
               ))}
