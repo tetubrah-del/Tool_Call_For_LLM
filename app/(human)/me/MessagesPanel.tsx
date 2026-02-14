@@ -66,7 +66,7 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
   const [channelStatusFilter, setChannelStatusFilter] = useState<"all" | "pending" | "open" | "closed">("all");
   const [taskStatusFilter, setTaskStatusFilter] = useState<"all" | "open" | "accepted" | "review_pending" | "completed" | "failed">("all");
   const [channelSort, setChannelSort] = useState<"recent_desc" | "recent_asc" | "unread_desc" | "messages_desc" | "name_asc">("recent_desc");
-  const [showChannelFilters, setShowChannelFilters] = useState(true);
+  const [showChannelFilters, setShowChannelFilters] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<TaskDetail | null>(null);
   const [threadMessages, setThreadMessages] = useState<ContactMessage[]>([]);
@@ -200,12 +200,6 @@ export default function MessagesPanel({ lang }: MessagesPanelProps) {
     setComposeBody("");
     setComposeFile(null);
   }, [selectedTaskId]);
-
-  useEffect(() => {
-    if (typeof window !== "undefined" && window.innerWidth <= 900) {
-      setShowChannelFilters(false);
-    }
-  }, []);
 
   async function sendUnified(event: React.FormEvent) {
     event.preventDefault();
