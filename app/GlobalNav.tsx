@@ -34,16 +34,16 @@ export default function GlobalNav() {
         isActive: pathname.startsWith("/for-agents")
       },
       {
-        key: "tasks",
-        label: strings.tasks,
-        href: `/tasks?${query}`,
-        isActive: pathname.startsWith("/tasks")
-      },
-      {
         key: "ai-connect",
         label: strings.aiConnect,
         href: `/ai/connect?${query}`,
         isActive: pathname.startsWith("/ai/connect")
+      },
+      {
+        key: "tasks",
+        label: strings.tasks,
+        href: `/tasks?${query}`,
+        isActive: pathname.startsWith("/tasks")
       },
       {
         key: "account",
