@@ -31,29 +31,44 @@ export default function GlobalNav() {
         key: "for-agents",
         label: strings.forAgents,
         href: `/for-agents?${query}`,
-        isActive: pathname.startsWith("/for-agents")
+        isActive: pathname.startsWith("/for-agents"),
+        role: "ai" as const
       },
       {
         key: "ai-connect",
         label: strings.aiConnect,
         href: `/ai/connect?${query}`,
-        isActive: pathname.startsWith("/ai/connect")
+        isActive: pathname.startsWith("/ai/connect"),
+        role: "ai" as const
       },
       {
         key: "tasks",
         label: strings.tasks,
         href: `/tasks?${query}`,
-        isActive: pathname.startsWith("/tasks")
+        isActive: pathname.startsWith("/tasks"),
+        role: "human" as const
       },
       {
         key: "account",
         label: session?.user ? strings.myPage : strings.register,
         href: session?.user ? `/me?${query}` : `/auth?${query}`,
-        isActive: session?.user ? pathname.startsWith("/me") : pathname.startsWith("/auth")
+        isActive: session?.user ? pathname.startsWith("/me") : pathname.startsWith("/auth"),
+        role: "common" as const
       }
     ],
     [pathname, query, session?.user, strings.aiConnect, strings.forAgents, strings.myPage, strings.register, strings.tasks]
   );
+  const groupedNav = useMemo(() => {
+    const ai = navItems.filter((item) => item.role === "ai");
+    const human = navItems.filter((item) => item.role === "human");
+    const common = navItems.filter((item) => item.role === "common");
+    return { ai, human, common };
+  }, [navItems]);
+  const groupLabels = {
+    ai: lang === "ja" ? "AI向け" : "For AI",
+    human: lang === "ja" ? "ヒト向け" : "For Human",
+    common: lang === "ja" ? "共通" : "Common"
+  };
 
   function onLangChange(next: UiLang) {
     setLang(next);
@@ -71,11 +86,48 @@ export default function GlobalNav() {
             <BrandLogo lang={lang} size="nav" />
           </a>
           <div className="nav-links">
-            {navItems.map((item) => (
-              <a key={item.key} href={item.href} className={item.isActive ? "active" : undefined}>
-                {item.label}
-              </a>
-            ))}
+            <div className="nav-group nav-group-ai">
+              <span className="nav-group-label">{groupLabels.ai}</span>
+              <div className="nav-group-links">
+                {groupedNav.ai.map((item) => (
+                  <a
+                    key={item.key}
+                    href={item.href}
+                    className={`${item.isActive ? "active " : ""}nav-role-ai`}
+                  >
+                    {item.label}
+                  </a>
+                ))}
+              </div>
+            </div>
+            <div className="nav-group nav-group-human">
+              <span className="nav-group-label">{groupLabels.human}</span>
+              <div className="nav-group-links">
+                {groupedNav.human.map((item) => (
+                  <a
+                    key={item.key}
+                    href={item.href}
+                    className={`${item.isActive ? "active " : ""}nav-role-human`}
+                  >
+                    {item.label}
+                  </a>
+                ))}
+              </div>
+            </div>
+            <div className="nav-group nav-group-common">
+              <span className="nav-group-label">{groupLabels.common}</span>
+              <div className="nav-group-links">
+                {groupedNav.common.map((item) => (
+                  <a
+                    key={item.key}
+                    href={item.href}
+                    className={`${item.isActive ? "active " : ""}nav-role-common`}
+                  >
+                    {item.label}
+                  </a>
+                ))}
+              </div>
+            </div>
           </div>
           <div className="nav-actions">
             <div className="nav-lang">
@@ -103,7 +155,11 @@ export default function GlobalNav() {
       </nav>
       <div className="mobile-bottom-nav" role="navigation" aria-label="Global navigation">
         {navItems.map((item) => (
-          <a key={`mobile-${item.key}`} href={item.href} className={item.isActive ? "active" : undefined}>
+          <a
+            key={`mobile-${item.key}`}
+            href={item.href}
+            className={`${item.isActive ? "active " : ""}${item.role === "ai" ? "nav-role-ai" : item.role === "human" ? "nav-role-human" : "nav-role-common"}`}
+          >
             {item.label}
           </a>
         ))}
