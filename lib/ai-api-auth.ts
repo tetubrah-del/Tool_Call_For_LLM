@@ -169,13 +169,25 @@ export async function authenticateAiApiRequest(
   }
 
   const db = getDb();
-  const aiAccount = await db
-    .prepare(
-      `SELECT id, api_key, api_key_hash, api_key_prefix, status, api_access_status, api_monthly_limit, api_burst_per_minute
-       FROM ai_accounts
-       WHERE id = ? AND deleted_at IS NULL`
-    )
-    .get<AiAccountRow>(aiAccountId);
+  let aiAccount: AiAccountRow | undefined;
+  try {
+    aiAccount = await db
+      .prepare(
+        `SELECT id, api_key, api_key_hash, api_key_prefix, status, api_access_status, api_monthly_limit, api_burst_per_minute
+         FROM ai_accounts
+         WHERE id = ? AND deleted_at IS NULL`
+      )
+      .get<AiAccountRow>(aiAccountId);
+  } catch {
+    // Backward compatibility when schema migration has not been applied yet.
+    aiAccount = await db
+      .prepare(
+        `SELECT id, api_key, status, api_access_status, api_monthly_limit, api_burst_per_minute
+         FROM ai_accounts
+         WHERE id = ? AND deleted_at IS NULL`
+      )
+      .get<AiAccountRow>(aiAccountId);
+  }
 
   if (!aiAccount || !verifyAiApiKey(aiAccount, aiApiKey) || aiAccount.status !== "active") {
     return {

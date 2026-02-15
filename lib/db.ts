@@ -509,7 +509,6 @@ async function initPostgres() {
     )`,
     `CREATE INDEX IF NOT EXISTS email_deliveries_status_next_attempt_idx
       ON email_deliveries (status, next_attempt_at)`
-    ,
   ];
 
   for (const statement of statements) {
@@ -773,28 +772,32 @@ async function initPostgres() {
     await db.query(statement);
   }
 
-  const legacyAiAccounts = await db.query<{
-    id: string;
-    api_key: string | null;
-    api_key_hash: string | null;
-    api_key_prefix: string | null;
-  }>(
-    `SELECT id, api_key, api_key_hash, api_key_prefix
-     FROM ai_accounts
-     WHERE deleted_at IS NULL`
-  );
-  for (const account of legacyAiAccounts.rows) {
-    const rawKey = (account.api_key || "").trim();
-    if (!rawKey) continue;
-    if (account.api_key_hash && account.api_key_prefix) continue;
-    await db.query(
-      `UPDATE ai_accounts
-       SET api_key_hash = COALESCE(api_key_hash, ?),
-           api_key_prefix = COALESCE(api_key_prefix, ?),
-           api_key = ''
-       WHERE id = ?`,
-      [hashAiApiKeyForStorage(rawKey), deriveAiApiKeyPrefix(rawKey), account.id]
+  try {
+    const legacyAiAccounts = await db.query<{
+      id: string;
+      api_key: string | null;
+      api_key_hash: string | null;
+      api_key_prefix: string | null;
+    }>(
+      `SELECT id, api_key, api_key_hash, api_key_prefix
+       FROM ai_accounts
+       WHERE deleted_at IS NULL`
     );
+    for (const account of legacyAiAccounts.rows) {
+      const rawKey = (account.api_key || "").trim();
+      if (!rawKey) continue;
+      if (account.api_key_hash && account.api_key_prefix) continue;
+      await db.query(
+        `UPDATE ai_accounts
+         SET api_key_hash = COALESCE(api_key_hash, ?),
+             api_key_prefix = COALESCE(api_key_prefix, ?),
+             api_key = ''
+         WHERE id = ?`,
+        [hashAiApiKeyForStorage(rawKey), deriveAiApiKeyPrefix(rawKey), account.id]
+      );
+    }
+  } catch (error) {
+    console.warn("ai_accounts legacy key migration skipped (postgres)", error);
   }
 
   await db.query(
@@ -1346,34 +1349,38 @@ async function initSqlite() {
   ensureSqliteColumn(db, "orders", "refunded_at", "TEXT");
   ensureSqliteColumn(db, "orders", "refund_error_message", "TEXT");
 
-  const legacyAiAccounts = db
-    .prepare(
-      `SELECT id, api_key, api_key_hash, api_key_prefix
-       FROM ai_accounts
-       WHERE deleted_at IS NULL`
-    )
-    .all() as Array<{
-    id: string;
-    api_key: string | null;
-    api_key_hash: string | null;
-    api_key_prefix: string | null;
-  }>;
-  const updateAiKeyStmt = db.prepare(
-    `UPDATE ai_accounts
-     SET api_key_hash = COALESCE(api_key_hash, ?),
-         api_key_prefix = COALESCE(api_key_prefix, ?),
-         api_key = ''
-     WHERE id = ?`
-  );
-  for (const account of legacyAiAccounts) {
-    const rawKey = (account.api_key || "").trim();
-    if (!rawKey) continue;
-    if (account.api_key_hash && account.api_key_prefix) continue;
-    updateAiKeyStmt.run(
-      hashAiApiKeyForStorage(rawKey),
-      deriveAiApiKeyPrefix(rawKey),
-      account.id
+  try {
+    const legacyAiAccounts = db
+      .prepare(
+        `SELECT id, api_key, api_key_hash, api_key_prefix
+         FROM ai_accounts
+         WHERE deleted_at IS NULL`
+      )
+      .all() as Array<{
+      id: string;
+      api_key: string | null;
+      api_key_hash: string | null;
+      api_key_prefix: string | null;
+    }>;
+    const updateAiKeyStmt = db.prepare(
+      `UPDATE ai_accounts
+       SET api_key_hash = COALESCE(api_key_hash, ?),
+           api_key_prefix = COALESCE(api_key_prefix, ?),
+           api_key = ''
+       WHERE id = ?`
     );
+    for (const account of legacyAiAccounts) {
+      const rawKey = (account.api_key || "").trim();
+      if (!rawKey) continue;
+      if (account.api_key_hash && account.api_key_prefix) continue;
+      updateAiKeyStmt.run(
+        hashAiApiKeyForStorage(rawKey),
+        deriveAiApiKeyPrefix(rawKey),
+        account.id
+      );
+    }
+  } catch (error) {
+    console.warn("ai_accounts legacy key migration skipped (sqlite)", error);
   }
 
   db.exec(
