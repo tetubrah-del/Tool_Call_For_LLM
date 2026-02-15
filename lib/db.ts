@@ -789,10 +789,10 @@ async function initPostgres() {
       if (account.api_key_hash && account.api_key_prefix) continue;
       await db.query(
         `UPDATE ai_accounts
-         SET api_key_hash = COALESCE(api_key_hash, ?),
-             api_key_prefix = COALESCE(api_key_prefix, ?),
+         SET api_key_hash = COALESCE(api_key_hash, $1),
+             api_key_prefix = COALESCE(api_key_prefix, $2),
              api_key = ''
-         WHERE id = ?`,
+         WHERE id = $3`,
         [hashAiApiKeyForStorage(rawKey), deriveAiApiKeyPrefix(rawKey), account.id]
       );
     }
@@ -820,8 +820,8 @@ async function initPostgres() {
      SET email_enabled = COALESCE(email_enabled, 1),
          notify_task_accepted = COALESCE(notify_task_accepted, 1),
          notify_ai_message = COALESCE(notify_ai_message, 1),
-         created_at = COALESCE(created_at, ?),
-         updated_at = COALESCE(updated_at, ?)`
+         created_at = COALESCE(created_at, $1),
+         updated_at = COALESCE(updated_at, $2)`
     ,
     [new Date().toISOString(), new Date().toISOString()]
   );
