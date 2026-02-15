@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { normalizeLang, UI_STRINGS, type UiLang } from "@/lib/i18n";
 import { calculateFeeAmount } from "@/lib/payments";
+import { chooseDisplayCurrency, formatUsdForDisplay } from "@/lib/currency-display";
 import { TASK_LABEL_TEXT, type TaskLabel } from "@/lib/task-labels";
 
 type Task = {
@@ -91,6 +92,8 @@ export default function TaskDetailClient() {
     [searchParams]
   );
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [profileCountry, setProfileCountry] = useState<string | null>(null);
+  const [requestCountry, setRequestCountry] = useState<string | null>(null);
   const [task, setTask] = useState<Task | null>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("loading");
   const [error, setError] = useState<string | null>(null);
@@ -148,6 +151,12 @@ export default function TaskDetailClient() {
       const data = await res.json();
       if (!cancelled && data.profile?.id) {
         setIsLoggedIn(true);
+        if (typeof data.profile.country === "string") {
+          setProfileCountry(data.profile.country.trim().toUpperCase());
+        }
+        if (typeof data.request_country === "string") {
+          setRequestCountry(data.request_country.trim().toUpperCase());
+        }
         if (!humanId) {
           setHumanId(data.profile.id);
           localStorage.setItem("human_id", data.profile.id);
@@ -171,6 +180,9 @@ export default function TaskDetailClient() {
         const res = await fetch(`/api/tasks/${params.taskId}?${qs.toString()}`);
         if (!res.ok) throw new Error("failed");
         const data = await res.json();
+        if (typeof data.request_country === "string") {
+          setRequestCountry(data.request_country.trim().toUpperCase());
+        }
         setTask(data.task);
         setStatus("idle");
       } catch (err: any) {
@@ -472,6 +484,8 @@ export default function TaskDetailClient() {
     Number((task.budget_usd - calculateFeeAmount(task.budget_usd)).toFixed(2)),
     0
   );
+  const displayCurrency = chooseDisplayCurrency(profileCountry, requestCountry);
+  const locale = lang === "ja" ? "ja-JP" : "en-US";
   const showIntlFeeNote = Boolean(task.is_international_payout);
   const showBestEffort = Boolean(strings.bestEffort && strings.noTimeGuarantee);
   const isAssignedToMe = Boolean(task.human_id && humanId && task.human_id === humanId);
@@ -756,9 +770,11 @@ export default function TaskDetailClient() {
 
       <aside className="task-detail-side">
         <div className="card task-side-card">
-          <div className="task-price-amount">${task.budget_usd}</div>
+          <div className="task-price-amount">
+            {formatUsdForDisplay(task.budget_usd, displayCurrency, locale)}
+          </div>
           <div className="task-price-sub">{strings.payout}</div>
-          <p className="muted">net ${netPayout}</p>
+          <p className="muted">net {formatUsdForDisplay(netPayout, displayCurrency, locale)}</p>
         </div>
 
         <div className="card task-side-card">

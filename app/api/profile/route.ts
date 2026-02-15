@@ -6,6 +6,7 @@ import { getDb } from "@/lib/db";
 import { normalizeCountry } from "@/lib/country";
 import { authenticateHumanRequest, finalizeHumanAuthResponse } from "@/lib/human-api-auth";
 import { normalizePaypalEmail } from "@/lib/paypal";
+import { getRequestCountry } from "@/lib/request-country";
 
 function normalizeOptionalString(value: unknown, maxLen: number): string | null {
   if (typeof value !== "string") return null;
@@ -78,6 +79,7 @@ export async function GET(request: Request) {
   try {
     const auth = await authenticateHumanRequest(request, "profile:read");
     if (auth.ok === false) return auth.response;
+    const requestCountry = getRequestCountry(request);
 
     const db = getDb();
     const profile = await db
@@ -86,7 +88,10 @@ export async function GET(request: Request) {
       )
       .get(auth.humanId);
 
-    const response = NextResponse.json({ profile: profile || null });
+    const response = NextResponse.json({
+      profile: profile || null,
+      request_country: requestCountry
+    });
     return finalizeHumanAuthResponse(request, response, auth);
   } catch (error) {
     console.error("GET /api/profile failed", error);
