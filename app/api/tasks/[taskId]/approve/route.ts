@@ -16,6 +16,12 @@ function buildOrderId(taskId: string): string {
   return `order_${taskId}`;
 }
 
+function resolveBaseUrl(request: Request): string {
+  const configured = (process.env.APP_BASE_URL || "").trim().replace(/\/+$/, "");
+  if (configured) return configured;
+  return new URL(request.url).origin;
+}
+
 async function safeReadJson(response: Response): Promise<any> {
   try {
     return await response.json();
@@ -192,7 +198,7 @@ export async function POST(
       ? quoteAmountMinor
       : usdToMinor(Number(task.budget_usd || 0), orderCurrency);
 
-  const baseUrl = new URL(request.url).origin;
+  const baseUrl = resolveBaseUrl(request);
   const orderId = buildOrderId(task.id);
   const orderCreateRequest = new Request(`${baseUrl}/api/stripe/orders`, {
     method: "POST",
