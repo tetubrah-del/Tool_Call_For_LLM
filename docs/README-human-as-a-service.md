@@ -85,6 +85,8 @@ Minimal API where an AI agent tool_call can hire a registered human for a real-w
 - `GET /api/me/messages` (my-page inquiry history + templates)
 - `GET /api/me/payments` (my-page payout summary + history)
 - `GET /api/me/reviews/summary` (my-page rating summary)
+- `GET /api/me/notifications` (human notification settings)
+- `PATCH /api/me/notifications` (update human notification settings)
 - `GET /api/ai/reviews/summary?ai_account_id=...&ai_api_key=...` (AI rating summary)
 - `PATCH /api/me/messages/:inquiryId` (my-page inquiry read/unread update)
 - `POST /api/me/message-templates` (my-page template create)
@@ -221,6 +223,23 @@ Timeouts are enforced by a server-side sweeper while the process is running.
   - `429` + `reason=monthly_limit_exceeded`
   - `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`
   - `X-Usage-Warn`（低残量警告）
+
+## Email notifications (Human, MVP)
+
+- Triggered events:
+  - Task application accepted (`open -> accepted`)
+  - New AI message in task contact channel (`sender_type=ai`)
+- User can configure in `/me` notifications tab:
+  - `email_enabled`
+  - `notify_task_accepted`
+  - `notify_ai_message`
+- Delivery is async via DB queue (`email_deliveries`) and worker:
+  - Run once: `npm run notifications:worker`
+  - Continuous mode: `EMAIL_WORKER_CONTINUOUS=true npm run notifications:worker`
+- Required environment variables for sending:
+  - `RESEND_API_KEY`
+  - `NOTIFICATION_FROM_EMAIL`
+  - Optional app links base URL: `APP_BASE_URL` (fallback: `NEXTAUTH_URL`, then `http://localhost:3000`)
 
 ---
 

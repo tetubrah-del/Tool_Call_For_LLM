@@ -448,7 +448,48 @@ async function initPostgres() {
       threshold_percent INTEGER NOT NULL,
       notified_at TEXT NOT NULL,
       PRIMARY KEY (ai_account_id, period_key, threshold_percent)
-    )`
+    )`,
+    `CREATE TABLE IF NOT EXISTS human_notification_settings (
+      human_id TEXT PRIMARY KEY,
+      email_enabled INTEGER NOT NULL DEFAULT 1,
+      notify_task_accepted INTEGER NOT NULL DEFAULT 1,
+      notify_ai_message INTEGER NOT NULL DEFAULT 1,
+      quiet_hours_start TEXT,
+      quiet_hours_end TEXT,
+      timezone TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS notification_events (
+      id TEXT PRIMARY KEY,
+      event_type TEXT NOT NULL,
+      task_id TEXT NOT NULL,
+      human_id TEXT NOT NULL,
+      idempotency_key TEXT NOT NULL,
+      payload_json TEXT,
+      created_at TEXT NOT NULL
+    )`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS notification_events_idempotency_idx
+      ON notification_events (idempotency_key)`,
+    `CREATE TABLE IF NOT EXISTS email_deliveries (
+      id TEXT PRIMARY KEY,
+      event_id TEXT NOT NULL,
+      to_email TEXT NOT NULL,
+      template_key TEXT NOT NULL,
+      subject TEXT NOT NULL,
+      body_text TEXT NOT NULL,
+      status TEXT NOT NULL,
+      attempt_count INTEGER NOT NULL DEFAULT 0,
+      next_attempt_at TEXT,
+      provider_message_id TEXT,
+      last_error TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      sent_at TEXT
+    )`,
+    `CREATE INDEX IF NOT EXISTS email_deliveries_status_next_attempt_idx
+      ON email_deliveries (status, next_attempt_at)`
+    ,
   ];
 
   for (const statement of statements) {
@@ -624,6 +665,73 @@ async function initPostgres() {
       notified_at TEXT NOT NULL,
       PRIMARY KEY (ai_account_id, period_key, threshold_percent)
     )`,
+    `CREATE TABLE IF NOT EXISTS human_notification_settings (
+      human_id TEXT PRIMARY KEY,
+      email_enabled INTEGER NOT NULL DEFAULT 1,
+      notify_task_accepted INTEGER NOT NULL DEFAULT 1,
+      notify_ai_message INTEGER NOT NULL DEFAULT 1,
+      quiet_hours_start TEXT,
+      quiet_hours_end TEXT,
+      timezone TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`,
+    `ALTER TABLE human_notification_settings ADD COLUMN IF NOT EXISTS email_enabled INTEGER`,
+    `ALTER TABLE human_notification_settings ADD COLUMN IF NOT EXISTS notify_task_accepted INTEGER`,
+    `ALTER TABLE human_notification_settings ADD COLUMN IF NOT EXISTS notify_ai_message INTEGER`,
+    `ALTER TABLE human_notification_settings ADD COLUMN IF NOT EXISTS quiet_hours_start TEXT`,
+    `ALTER TABLE human_notification_settings ADD COLUMN IF NOT EXISTS quiet_hours_end TEXT`,
+    `ALTER TABLE human_notification_settings ADD COLUMN IF NOT EXISTS timezone TEXT`,
+    `ALTER TABLE human_notification_settings ADD COLUMN IF NOT EXISTS created_at TEXT`,
+    `ALTER TABLE human_notification_settings ADD COLUMN IF NOT EXISTS updated_at TEXT`,
+    `CREATE TABLE IF NOT EXISTS notification_events (
+      id TEXT PRIMARY KEY,
+      event_type TEXT NOT NULL,
+      task_id TEXT NOT NULL,
+      human_id TEXT NOT NULL,
+      idempotency_key TEXT NOT NULL,
+      payload_json TEXT,
+      created_at TEXT NOT NULL
+    )`,
+    `ALTER TABLE notification_events ADD COLUMN IF NOT EXISTS event_type TEXT`,
+    `ALTER TABLE notification_events ADD COLUMN IF NOT EXISTS task_id TEXT`,
+    `ALTER TABLE notification_events ADD COLUMN IF NOT EXISTS human_id TEXT`,
+    `ALTER TABLE notification_events ADD COLUMN IF NOT EXISTS idempotency_key TEXT`,
+    `ALTER TABLE notification_events ADD COLUMN IF NOT EXISTS payload_json TEXT`,
+    `ALTER TABLE notification_events ADD COLUMN IF NOT EXISTS created_at TEXT`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS notification_events_idempotency_idx
+      ON notification_events (idempotency_key)`,
+    `CREATE TABLE IF NOT EXISTS email_deliveries (
+      id TEXT PRIMARY KEY,
+      event_id TEXT NOT NULL,
+      to_email TEXT NOT NULL,
+      template_key TEXT NOT NULL,
+      subject TEXT NOT NULL,
+      body_text TEXT NOT NULL,
+      status TEXT NOT NULL,
+      attempt_count INTEGER NOT NULL DEFAULT 0,
+      next_attempt_at TEXT,
+      provider_message_id TEXT,
+      last_error TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      sent_at TEXT
+    )`,
+    `ALTER TABLE email_deliveries ADD COLUMN IF NOT EXISTS event_id TEXT`,
+    `ALTER TABLE email_deliveries ADD COLUMN IF NOT EXISTS to_email TEXT`,
+    `ALTER TABLE email_deliveries ADD COLUMN IF NOT EXISTS template_key TEXT`,
+    `ALTER TABLE email_deliveries ADD COLUMN IF NOT EXISTS subject TEXT`,
+    `ALTER TABLE email_deliveries ADD COLUMN IF NOT EXISTS body_text TEXT`,
+    `ALTER TABLE email_deliveries ADD COLUMN IF NOT EXISTS status TEXT`,
+    `ALTER TABLE email_deliveries ADD COLUMN IF NOT EXISTS attempt_count INTEGER`,
+    `ALTER TABLE email_deliveries ADD COLUMN IF NOT EXISTS next_attempt_at TEXT`,
+    `ALTER TABLE email_deliveries ADD COLUMN IF NOT EXISTS provider_message_id TEXT`,
+    `ALTER TABLE email_deliveries ADD COLUMN IF NOT EXISTS last_error TEXT`,
+    `ALTER TABLE email_deliveries ADD COLUMN IF NOT EXISTS created_at TEXT`,
+    `ALTER TABLE email_deliveries ADD COLUMN IF NOT EXISTS updated_at TEXT`,
+    `ALTER TABLE email_deliveries ADD COLUMN IF NOT EXISTS sent_at TEXT`,
+    `CREATE INDEX IF NOT EXISTS email_deliveries_status_next_attempt_idx
+      ON email_deliveries (status, next_attempt_at)`,
     `ALTER TABLE orders ADD COLUMN IF NOT EXISTS provider_error TEXT`,
     `ALTER TABLE orders ADD COLUMN IF NOT EXISTS intl_surcharge_minor INTEGER`,
     `ALTER TABLE orders ADD COLUMN IF NOT EXISTS refund_status TEXT`,
@@ -657,6 +765,16 @@ async function initPostgres() {
   await db.query(
     `UPDATE task_reviews
      SET is_hidden = COALESCE(is_hidden, 0)`
+  );
+  await db.query(
+    `UPDATE human_notification_settings
+     SET email_enabled = COALESCE(email_enabled, 1),
+         notify_task_accepted = COALESCE(notify_task_accepted, 1),
+         notify_ai_message = COALESCE(notify_ai_message, 1),
+         created_at = COALESCE(created_at, ?),
+         updated_at = COALESCE(updated_at, ?)`
+    ,
+    [new Date().toISOString(), new Date().toISOString()]
   );
 }
 
@@ -959,6 +1077,46 @@ async function initSqlite() {
       notified_at TEXT NOT NULL,
       PRIMARY KEY (ai_account_id, period_key, threshold_percent)
     );
+    CREATE TABLE IF NOT EXISTS human_notification_settings (
+      human_id TEXT PRIMARY KEY,
+      email_enabled INTEGER NOT NULL DEFAULT 1,
+      notify_task_accepted INTEGER NOT NULL DEFAULT 1,
+      notify_ai_message INTEGER NOT NULL DEFAULT 1,
+      quiet_hours_start TEXT,
+      quiet_hours_end TEXT,
+      timezone TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS notification_events (
+      id TEXT PRIMARY KEY,
+      event_type TEXT NOT NULL,
+      task_id TEXT NOT NULL,
+      human_id TEXT NOT NULL,
+      idempotency_key TEXT NOT NULL,
+      payload_json TEXT,
+      created_at TEXT NOT NULL
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS notification_events_idempotency_idx
+      ON notification_events (idempotency_key);
+    CREATE TABLE IF NOT EXISTS email_deliveries (
+      id TEXT PRIMARY KEY,
+      event_id TEXT NOT NULL,
+      to_email TEXT NOT NULL,
+      template_key TEXT NOT NULL,
+      subject TEXT NOT NULL,
+      body_text TEXT NOT NULL,
+      status TEXT NOT NULL,
+      attempt_count INTEGER NOT NULL DEFAULT 0,
+      next_attempt_at TEXT,
+      provider_message_id TEXT,
+      last_error TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      sent_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS email_deliveries_status_next_attempt_idx
+      ON email_deliveries (status, next_attempt_at);
     CREATE UNIQUE INDEX IF NOT EXISTS task_reviews_task_reviewer_idx
       ON task_reviews (task_id, reviewer_type);
     CREATE INDEX IF NOT EXISTS task_reviews_reviewee_published_idx
@@ -1074,6 +1232,33 @@ async function initSqlite() {
   ensureSqliteColumn(db, "oauth_users", "provider", "TEXT");
   ensureSqliteColumn(db, "oauth_users", "first_seen_at", "TEXT");
   ensureSqliteColumn(db, "oauth_users", "last_seen_at", "TEXT");
+  ensureSqliteColumn(db, "human_notification_settings", "email_enabled", "INTEGER");
+  ensureSqliteColumn(db, "human_notification_settings", "notify_task_accepted", "INTEGER");
+  ensureSqliteColumn(db, "human_notification_settings", "notify_ai_message", "INTEGER");
+  ensureSqliteColumn(db, "human_notification_settings", "quiet_hours_start", "TEXT");
+  ensureSqliteColumn(db, "human_notification_settings", "quiet_hours_end", "TEXT");
+  ensureSqliteColumn(db, "human_notification_settings", "timezone", "TEXT");
+  ensureSqliteColumn(db, "human_notification_settings", "created_at", "TEXT");
+  ensureSqliteColumn(db, "human_notification_settings", "updated_at", "TEXT");
+  ensureSqliteColumn(db, "notification_events", "event_type", "TEXT");
+  ensureSqliteColumn(db, "notification_events", "task_id", "TEXT");
+  ensureSqliteColumn(db, "notification_events", "human_id", "TEXT");
+  ensureSqliteColumn(db, "notification_events", "idempotency_key", "TEXT");
+  ensureSqliteColumn(db, "notification_events", "payload_json", "TEXT");
+  ensureSqliteColumn(db, "notification_events", "created_at", "TEXT");
+  ensureSqliteColumn(db, "email_deliveries", "event_id", "TEXT");
+  ensureSqliteColumn(db, "email_deliveries", "to_email", "TEXT");
+  ensureSqliteColumn(db, "email_deliveries", "template_key", "TEXT");
+  ensureSqliteColumn(db, "email_deliveries", "subject", "TEXT");
+  ensureSqliteColumn(db, "email_deliveries", "body_text", "TEXT");
+  ensureSqliteColumn(db, "email_deliveries", "status", "TEXT");
+  ensureSqliteColumn(db, "email_deliveries", "attempt_count", "INTEGER");
+  ensureSqliteColumn(db, "email_deliveries", "next_attempt_at", "TEXT");
+  ensureSqliteColumn(db, "email_deliveries", "provider_message_id", "TEXT");
+  ensureSqliteColumn(db, "email_deliveries", "last_error", "TEXT");
+  ensureSqliteColumn(db, "email_deliveries", "created_at", "TEXT");
+  ensureSqliteColumn(db, "email_deliveries", "updated_at", "TEXT");
+  ensureSqliteColumn(db, "email_deliveries", "sent_at", "TEXT");
   ensureSqliteColumn(db, "human_photos", "is_public", "INTEGER");
   ensureSqliteColumn(db, "human_inquiries", "is_read", "INTEGER");
   ensureSqliteColumn(db, "message_templates", "updated_at", "TEXT");
@@ -1125,6 +1310,12 @@ async function initSqlite() {
   db.exec(
     `UPDATE task_reviews
      SET is_hidden = COALESCE(is_hidden, 0)`
+  );
+  db.exec(
+    `UPDATE human_notification_settings
+     SET email_enabled = COALESCE(email_enabled, 1),
+         notify_task_accepted = COALESCE(notify_task_accepted, 1),
+         notify_ai_message = COALESCE(notify_ai_message, 1)`
   );
 }
 
@@ -1430,4 +1621,16 @@ export type TaskReview = {
   updated_at: string;
   published_at: string | null;
   is_hidden: 0 | 1;
+};
+
+export type HumanNotificationSettings = {
+  human_id: string;
+  email_enabled: 0 | 1;
+  notify_task_accepted: 0 | 1;
+  notify_ai_message: 0 | 1;
+  quiet_hours_start: string | null;
+  quiet_hours_end: string | null;
+  timezone: string | null;
+  created_at: string;
+  updated_at: string;
 };

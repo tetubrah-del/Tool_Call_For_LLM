@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { dispatchTaskEvent } from "@/lib/webhooks";
 import { openContactChannel } from "@/lib/contact-channel";
+import { queueTaskAcceptedHumanNotification } from "@/lib/notifications";
 import { applyAiRateLimitHeaders, authenticateAiApiRequest, type AiAuthSuccess } from "@/lib/ai-api-auth";
 
 function normalizeText(value: unknown): string {
@@ -92,6 +93,10 @@ export async function POST(
   void dispatchTaskEvent(db, { eventType: "task.accepted", taskId: params.taskId }).catch(
     () => {}
   );
+  void queueTaskAcceptedHumanNotification(db, {
+    taskId: params.taskId,
+    humanId: selectedHumanId
+  }).catch(() => {});
 
   return respond({
     status: "accepted",
