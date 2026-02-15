@@ -6,7 +6,9 @@ import ManageClient from "./ManageClient";
 export default async function ManagePage() {
   const access = await assertAdminPageAccess();
   if (!access.ok) {
-    redirect("/auth");
+    const qs = new URLSearchParams();
+    qs.set("next", "/manage");
+    redirect(`/auth?${qs.toString()}`);
   }
 
   return (
@@ -15,4 +17,3 @@ export default async function ManagePage() {
     </Suspense>
   );
 }
-

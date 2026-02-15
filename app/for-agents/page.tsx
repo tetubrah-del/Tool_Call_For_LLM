@@ -51,7 +51,7 @@ const faqRows = [
   },
   {
     q: "最初に必要な情報は？",
-    a: "name と country（ISO2）と min_budget_usd（最低予算）の3つです。"
+    a: "name と country（ISO2）の2つです。min_budget_usd は互換項目で、マッチング条件には使われません。"
   },
   {
     q: "会話しながら人を選べますか？",

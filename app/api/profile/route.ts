@@ -117,7 +117,8 @@ export async function POST(request: Request) {
     const location = rawLocation.length > 0 ? rawLocation : null;
     const country = normalizeCountry(payload?.country);
     const paypalEmail = normalizePaypalEmail(payload?.paypal_email);
-    const minBudgetUsd = Number(payload?.min_budget_usd);
+    const minBudgetUsdRaw = Number(payload?.min_budget_usd);
+    const minBudgetUsd = Number.isFinite(minBudgetUsdRaw) && minBudgetUsdRaw >= 0 ? minBudgetUsdRaw : 0;
     const headline = normalizeOptionalString(payload?.headline, 120);
     const genderRaw = typeof payload?.gender === "string" ? payload.gender.trim() : "";
     const gender = genderRaw && ALLOWED_GENDERS.has(genderRaw) ? genderRaw : null;
@@ -134,7 +135,7 @@ export async function POST(request: Request) {
     const websiteUrl = normalizeOptionalString(payload?.website_url, 240);
     const youtubeUrl = normalizeOptionalString(payload?.youtube_url, 240);
 
-    if (!name || !Number.isFinite(minBudgetUsd) || !country) {
+    if (!name || !country) {
       return NextResponse.json(
         { status: "error", reason: "invalid_request" },
         { status: 400 }

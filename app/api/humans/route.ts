@@ -27,9 +27,10 @@ export async function POST(request: Request) {
     typeof payload?.location === "string" ? payload.location.trim() : "";
   const location = rawLocation.length > 0 ? rawLocation : null;
   const country = normalizeCountry(payload?.country);
-  const minBudgetUsd = Number(payload?.min_budget_usd);
+  const minBudgetUsdRaw = Number(payload?.min_budget_usd);
+  const minBudgetUsd = Number.isFinite(minBudgetUsdRaw) && minBudgetUsdRaw >= 0 ? minBudgetUsdRaw : 0;
 
-  if (!name || !Number.isFinite(minBudgetUsd) || !country) {
+  if (!name || !country) {
     return NextResponse.json(
       { status: "error", reason: "invalid_request" },
       { status: 400 }
