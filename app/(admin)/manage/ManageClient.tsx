@@ -90,21 +90,21 @@ export default function ManageClient() {
       if (activeTab === "humans") {
         const res = await fetch(`/api/admin/humans?${queryString}`);
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data?.reason || "failed");
+        if (!res.ok) throw new Error(data?.reason || "失敗");
         setHumans(Array.isArray(data.humans) ? data.humans : []);
       } else if (activeTab === "ai") {
         const res = await fetch(`/api/admin/ai-accounts?${queryString}`);
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data?.reason || "failed");
+        if (!res.ok) throw new Error(data?.reason || "失敗");
         setAccounts(Array.isArray(data.accounts) ? data.accounts : []);
       } else {
         const res = await fetch(`/api/admin/tasks?${queryString}`);
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data?.reason || "failed");
+        if (!res.ok) throw new Error(data?.reason || "失敗");
         setTasks(Array.isArray(data.tasks) ? data.tasks : []);
       }
     } catch (err: any) {
-      setError(err.message || "failed");
+      setError(err.message || "失敗");
     } finally {
       setLoading(false);
     }
@@ -125,8 +125,8 @@ export default function ManageClient() {
     if (
       !confirm(
         human.is_provisional
-          ? `Delete oauth-only user ${human.email || human.id}?`
-          : `Soft-delete human ${human.email || human.id}?`
+          ? `OAuthのみユーザー ${human.email || human.id} を削除しますか？`
+          : `ヒト ${human.email || human.id} を削除しますか？`
       )
     ) {
       return;
@@ -138,7 +138,7 @@ export default function ManageClient() {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      setError(data?.reason || "failed");
+      setError(data?.reason || "失敗");
       return;
     }
     setError(null);
@@ -154,7 +154,7 @@ export default function ManageClient() {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      setError(data?.reason || "failed");
+      setError(data?.reason || "失敗");
       return;
     }
     setError(null);
@@ -167,7 +167,7 @@ export default function ManageClient() {
     const limitRaw = apiLimitByHuman[human.id] ?? String(human.api_monthly_limit ?? 1000);
     const limit = Number(limitRaw);
     if (!Number.isFinite(limit) || limit < 1) {
-      setError("Invalid API monthly limit.");
+      setError("API月間上限が不正です。");
       return;
     }
     const res = await fetch("/api/admin/humans", {
@@ -181,7 +181,7 @@ export default function ManageClient() {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      setError(data?.reason || "failed");
+      setError(data?.reason || "失敗");
       return;
     }
     setError(null);
@@ -189,7 +189,7 @@ export default function ManageClient() {
   }
 
   async function deleteAccount(account: AiAccountRow) {
-    if (!confirm(`Soft-delete AI account ${account.id}?`)) return;
+    if (!confirm(`AIアカウント ${account.id} を削除しますか？`)) return;
     const res = await fetch("/api/admin/ai-accounts", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
@@ -197,7 +197,7 @@ export default function ManageClient() {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      setError(data?.reason || "failed");
+      setError(data?.reason || "失敗");
       return;
     }
     setError(null);
@@ -212,7 +212,7 @@ export default function ManageClient() {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      setError(data?.reason || "failed");
+      setError(data?.reason || "失敗");
       return;
     }
     setError(null);
@@ -220,7 +220,7 @@ export default function ManageClient() {
   }
 
   async function deleteTask(task: TaskRow) {
-    if (!confirm(`Soft-delete task ${task.id}?`)) return;
+    if (!confirm(`タスク ${task.id} を削除しますか？`)) return;
     const res = await fetch("/api/admin/tasks", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
@@ -228,7 +228,7 @@ export default function ManageClient() {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      setError(data?.reason || "failed");
+      setError(data?.reason || "失敗");
       return;
     }
     setError(null);
@@ -243,7 +243,7 @@ export default function ManageClient() {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      setError(data?.reason || "failed");
+      setError(data?.reason || "失敗");
       return;
     }
     setError(null);
@@ -252,7 +252,7 @@ export default function ManageClient() {
 
   function requireAiAuthInputs() {
     if (!aiAccountIdInput.trim() || !aiApiKeyInput.trim()) {
-      setError("Set AI Account ID and AI API Key first.");
+      setError("先に AI Account ID と AI API Key を入力してください。");
       return null;
     }
     return { ai_account_id: aiAccountIdInput.trim(), ai_api_key: aiApiKeyInput.trim() };
@@ -274,10 +274,10 @@ export default function ManageClient() {
         })
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.reason || "failed");
+      if (!res.ok) throw new Error(data?.reason || "失敗");
       await load();
     } catch (err: any) {
-      setError(err.message || "failed");
+      setError(err.message || "失敗");
     } finally {
       setReviewLoadingTaskId(null);
     }
@@ -301,10 +301,10 @@ export default function ManageClient() {
         })
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.reason || "failed");
+      if (!res.ok) throw new Error(data?.reason || "失敗");
       await load();
     } catch (err: any) {
-      setError(err.message || "failed");
+      setError(err.message || "失敗");
     } finally {
       setReviewLoadingTaskId(null);
     }
@@ -322,10 +322,10 @@ export default function ManageClient() {
         body: JSON.stringify(authPayload)
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.reason || "failed");
+      if (!res.ok) throw new Error(data?.reason || "失敗");
       await load();
     } catch (err: any) {
-      setError(err.message || "failed");
+      setError(err.message || "失敗");
     } finally {
       setReviewLoadingTaskId(null);
     }
@@ -333,60 +333,60 @@ export default function ManageClient() {
 
   return (
     <div>
-      <h1>Admin: Manage</h1>
+      <h1>管理: マネージ</h1>
 
       <div className="row">
         <button type="button" className={activeTab === "humans" ? "" : "button-neutral"} onClick={() => setActiveTab("humans")}>
-          Humans
+          ヒト
         </button>
         <button type="button" className={activeTab === "ai" ? "" : "button-neutral"} onClick={() => setActiveTab("ai")}>
-          AI accounts
+          AIアカウント
         </button>
         <button type="button" className={activeTab === "tasks" ? "" : "button-neutral"} onClick={() => setActiveTab("tasks")}>
-          Tasks
+          タスク
         </button>
       </div>
 
       <div className="card">
         <div className="row">
           <label>
-            Search
+            検索
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="email / name / id" />
           </label>
           <label>
-            Include deleted
+            削除済みを含む
             <select value={includeDeleted ? "1" : "0"} onChange={(e) => setIncludeDeleted(e.target.value === "1")}>
-              <option value="0">No</option>
-              <option value="1">Yes</option>
+              <option value="0">いいえ</option>
+              <option value="1">はい</option>
             </select>
           </label>
           <button type="button" onClick={load} disabled={!canLoad || loading}>
-            {loading ? "Loading..." : "Refresh"}
+            {loading ? "読み込み中..." : "更新"}
           </button>
         </div>
-        {error && <p className="muted">Error: {error}</p>}
+        {error && <p className="muted">エラー: {error}</p>}
       </div>
 
       {activeTab === "humans" && (
         <>
-          {humans.length === 0 && <p className="muted">No humans.</p>}
+          {humans.length === 0 && <p className="muted">ヒトがいません。</p>}
           {humans.map((h) => (
             <div key={h.id} className="card">
               <p><strong>{h.name}</strong></p>
               <p className="muted">
                 {h.email || "-"} | {h.country || "-"} | {h.location || "-"} | {h.status}
-                {h.is_provisional ? " (oauth-only)" : ""}
+                {h.is_provisional ? " (OAuthのみ)" : ""}
               </p>
               {!h.is_provisional && (
                 <p className="muted">
-                  api: {h.api_access_status || "active"} | monthly limit: {h.api_monthly_limit ?? 1000}
+                  API: {h.api_access_status || "active"} | 月間上限: {h.api_monthly_limit ?? 1000}
                 </p>
               )}
-              <p className="muted">id: {h.id} | created: {h.created_at} | deleted: {h.deleted_at || "-"}</p>
+              <p className="muted">id: {h.id} | 作成: {h.created_at} | 削除: {h.deleted_at || "-"}</p>
               {!h.is_provisional && (
                 <div className="row">
                   <label>
-                    API access
+                    APIアクセス
                     <select
                       value={apiStatusByHuman[h.id] || (h.api_access_status === "disabled" ? "disabled" : "active")}
                       onChange={(e) =>
@@ -401,7 +401,7 @@ export default function ManageClient() {
                     </select>
                   </label>
                   <label>
-                    API monthly limit
+                    API月間上限
                     <input
                       type="number"
                       min={1}
@@ -412,7 +412,7 @@ export default function ManageClient() {
                     />
                   </label>
                   <button type="button" className="secondary" onClick={() => updateHumanApiPolicy(h)}>
-                    Save API policy
+                    API設定を保存
                   </button>
                 </div>
               )}
@@ -422,7 +422,7 @@ export default function ManageClient() {
                   onClick={() => deleteHuman(h)}
                   disabled={Boolean(h.deleted_at)}
                 >
-                  Delete
+                  削除
                 </button>
                 <button
                   type="button"
@@ -430,7 +430,7 @@ export default function ManageClient() {
                   onClick={() => restoreHuman(h)}
                   disabled={!h.deleted_at || Boolean(h.is_provisional)}
                 >
-                  Restore
+                  復元
                 </button>
               </div>
             </div>
@@ -440,18 +440,18 @@ export default function ManageClient() {
 
       {activeTab === "ai" && (
         <>
-          {accounts.length === 0 && <p className="muted">No AI accounts.</p>}
+          {accounts.length === 0 && <p className="muted">AIアカウントがありません。</p>}
           {accounts.map((a) => (
             <div key={a.id} className="card">
               <p><strong>{a.name}</strong></p>
               <p className="muted">{a.paypal_email} | {a.status}</p>
-              <p className="muted">id: {a.id} | created: {a.created_at} | deleted: {a.deleted_at || "-"}</p>
+              <p className="muted">id: {a.id} | 作成: {a.created_at} | 削除: {a.deleted_at || "-"}</p>
               <div className="row">
                 <button type="button" onClick={() => deleteAccount(a)} disabled={Boolean(a.deleted_at)}>
-                  Delete
+                  削除
                 </button>
                 <button type="button" className="secondary" onClick={() => restoreAccount(a)} disabled={!a.deleted_at}>
-                  Restore
+                  復元
                 </button>
               </div>
             </div>
@@ -462,7 +462,7 @@ export default function ManageClient() {
       {activeTab === "tasks" && (
         <>
           <div className="card">
-            <p><strong>AI Review Controls</strong></p>
+            <p><strong>AIレビューツール</strong></p>
             <div className="row">
               <label>
                 AI Account ID
@@ -482,21 +482,21 @@ export default function ManageClient() {
               </label>
             </div>
             <p className="muted">
-              Set once, then use each task card: Recognize Submission → Save Checks → Approve.
+              先に設定し、各タスクカードで「提出認識 → チェック保存 → 承認」を実行してください。
             </p>
           </div>
-          {tasks.length === 0 && <p className="muted">No tasks.</p>}
+          {tasks.length === 0 && <p className="muted">タスクがありません。</p>}
           {tasks.map((t) => (
             <div key={t.id} className="card">
               <p><strong>{t.task_display || t.task}</strong></p>
-              <p className="muted">status: {t.status} | human: {t.human_id || "-"} | ai: {t.ai_account_id || "-"}</p>
-              <p className="muted">id: {t.id} | created: {t.created_at} | deleted: {t.deleted_at || "-"}</p>
+              <p className="muted">状態: {t.status} | human: {t.human_id || "-"} | ai: {t.ai_account_id || "-"}</p>
+              <p className="muted">id: {t.id} | 作成: {t.created_at} | 削除: {t.deleted_at || "-"}</p>
               <p className="muted">
-                latest human message: {t.latest_human_message?.id || "-"}
+                最新ヒトメッセージ: {t.latest_human_message?.id || "-"}
                 {t.latest_human_message?.created_at ? ` (${t.latest_human_message.created_at})` : ""}
               </p>
               <p className="muted">
-                guard:
+                ガード:
                 {" recognized="}{t.review_guard?.recognized_message_id || t.review_guard?.recognized_submission_id || "-"}
                 {" | has_attachment="}{String(Boolean(t.review_guard?.has_attachment))}
                 {" | attachment_checked="}{String(Boolean(t.review_guard?.attachment_checked))}
@@ -505,7 +505,7 @@ export default function ManageClient() {
               </p>
               <div className="row">
                 <label>
-                  message_id (optional)
+                  message_id（任意）
                   <input
                     value={reviewMessageIdByTask[t.id] ?? t.latest_human_message?.id ?? ""}
                     onChange={(e) =>
@@ -520,7 +520,7 @@ export default function ManageClient() {
                   onClick={() => recognizeSubmission(t)}
                   disabled={Boolean(t.deleted_at) || reviewLoadingTaskId === t.id}
                 >
-                  {reviewLoadingTaskId === t.id ? "Working..." : "Recognize Submission"}
+                  {reviewLoadingTaskId === t.id ? "処理中..." : "提出を認識"}
                 </button>
               </div>
               <div className="row">
@@ -532,7 +532,7 @@ export default function ManageClient() {
                       setAttachmentCheckedByTask((prev) => ({ ...prev, [t.id]: e.target.checked }))
                     }
                   />
-                  attachment checked
+                  添付確認済み
                 </label>
                 <label>
                   <input
@@ -542,7 +542,7 @@ export default function ManageClient() {
                       setAcceptanceCheckedByTask((prev) => ({ ...prev, [t.id]: e.target.checked }))
                     }
                   />
-                  acceptance checked
+                  受入条件確認済み
                 </label>
                 <label>
                   <input
@@ -552,11 +552,11 @@ export default function ManageClient() {
                       setFinalConfirmedByTask((prev) => ({ ...prev, [t.id]: e.target.checked }))
                     }
                   />
-                  final confirmed
+                  最終確認済み
                 </label>
               </div>
               <label>
-                review note
+                レビューノート
                 <textarea
                   value={reviewNoteByTask[t.id] ?? t.review_guard?.review_note ?? ""}
                   onChange={(e) =>
@@ -572,22 +572,22 @@ export default function ManageClient() {
                   onClick={() => saveReviewChecks(t)}
                   disabled={Boolean(t.deleted_at) || reviewLoadingTaskId === t.id}
                 >
-                  {reviewLoadingTaskId === t.id ? "Working..." : "Save Review Checks"}
+                  {reviewLoadingTaskId === t.id ? "処理中..." : "レビューチェック保存"}
                 </button>
                 <button
                   type="button"
                   onClick={() => approveTaskAsAi(t)}
                   disabled={Boolean(t.deleted_at) || reviewLoadingTaskId === t.id}
                 >
-                  {reviewLoadingTaskId === t.id ? "Working..." : "Approve (AI)"}
+                  {reviewLoadingTaskId === t.id ? "処理中..." : "承認（AI）"}
                 </button>
               </div>
               <div className="row">
                 <button type="button" onClick={() => deleteTask(t)} disabled={Boolean(t.deleted_at)}>
-                  Delete
+                  削除
                 </button>
                 <button type="button" className="secondary" onClick={() => restoreTask(t)} disabled={!t.deleted_at}>
-                  Restore
+                  復元
                 </button>
               </div>
             </div>
