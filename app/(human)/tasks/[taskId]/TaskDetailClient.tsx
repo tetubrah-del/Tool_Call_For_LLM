@@ -125,6 +125,14 @@ export default function TaskDetailClient() {
   const [reviewRating, setReviewRating] = useState<number>(5);
   const [reviewComment, setReviewComment] = useState("");
 
+  const testHumanHeaders = useMemo(() => {
+    if (!humanId || !humanTestToken) return undefined;
+    return {
+      "x-human-id": humanId,
+      "x-human-test-token": humanTestToken
+    };
+  }, [humanId, humanTestToken]);
+
   useEffect(() => {
     let cancelled = false;
     async function resolveHumanId() {
@@ -202,15 +210,9 @@ export default function TaskDetailClient() {
     setContactLoading(true);
     setContactError(null);
     try {
-      const qs = new URLSearchParams();
-      if (humanId && humanTestToken) {
-        qs.set("human_id", humanId);
-        qs.set("human_test_token", humanTestToken);
-      }
-      const url = qs.toString().length
-        ? `/api/tasks/${task.id}/contact/messages?${qs.toString()}`
-        : `/api/tasks/${task.id}/contact/messages`;
-      const res = await fetch(url);
+      const res = await fetch(`/api/tasks/${task.id}/contact/messages`, {
+        headers: testHumanHeaders
+      });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error(data?.reason || data?.status || "failed");
@@ -256,8 +258,9 @@ export default function TaskDetailClient() {
       try {
         const qs = new URLSearchParams();
         qs.set("human_id", humanId);
-        if (humanTestToken) qs.set("human_test_token", humanTestToken);
-        const res = await fetch(`/api/tasks/${taskId}/apply?${qs.toString()}`);
+        const res = await fetch(`/api/tasks/${taskId}/apply?${qs.toString()}`, {
+          headers: testHumanHeaders
+        });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) return;
         if (cancelled) return;
@@ -276,7 +279,7 @@ export default function TaskDetailClient() {
     return () => {
       cancelled = true;
     };
-  }, [task?.id, task?.status, isLoggedIn, humanId, humanTestToken]);
+  }, [task?.id, task?.status, isLoggedIn, humanId, humanTestToken, testHumanHeaders]);
 
   async function postComment(event: React.FormEvent) {
     event.preventDefault();
@@ -358,15 +361,9 @@ export default function TaskDetailClient() {
     setReviewLoading(true);
     setReviewError(null);
     try {
-      const qs = new URLSearchParams();
-      if (humanId && humanTestToken) {
-        qs.set("human_id", humanId);
-        qs.set("human_test_token", humanTestToken);
-      }
-      const url = qs.toString().length
-        ? `/api/tasks/${currentTask.id}/reviews?${qs.toString()}`
-        : `/api/tasks/${currentTask.id}/reviews`;
-      const res = await fetch(url);
+      const res = await fetch(`/api/tasks/${currentTask.id}/reviews`, {
+        headers: testHumanHeaders
+      });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.reason || data?.status || "failed");
       const nextMyReview = data?.my_review || null;

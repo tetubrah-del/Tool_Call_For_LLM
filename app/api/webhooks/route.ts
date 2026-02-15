@@ -1,7 +1,14 @@
 import crypto from "crypto";
 import { NextResponse } from "next/server";
+import dns from "dns/promises";
+import net from "net";
 import { getDb } from "@/lib/db";
-import { applyAiRateLimitHeaders, authenticateAiApiRequest } from "@/lib/ai-api-auth";
+import {
+  applyAiRateLimitHeaders,
+  authenticateAiApiRequest,
+  parseAiAccountIdFromRequest,
+  parseAiApiKeyFromRequest
+} from "@/lib/ai-api-auth";
 import { generateWebhookSecret, type WebhookEventType } from "@/lib/webhooks";
 
 const ALLOWED_EVENTS: WebhookEventType[] = [
@@ -20,10 +27,48 @@ function parseEvents(value: unknown): WebhookEventType[] | null {
   return Array.from(new Set(normalized));
 }
 
-function isValidWebhookUrl(url: string) {
+const PRIVATE_IPV4_BLOCKS: Array<[number, number]> = [
+  [0x0a000000, 0x0affffff], // 10.0.0.0/8
+  [0xac100000, 0xac1fffff], // 172.16.0.0/12
+  [0xc0a80000, 0xc0a8ffff], // 192.168.0.0/16
+  [0x7f000000, 0x7fffffff], // 127.0.0.0/8
+  [0xa9fe0000, 0xa9feffff], // 169.254.0.0/16
+  [0x00000000, 0x00ffffff] // 0.0.0.0/8
+];
+
+function ipv4ToInt(ip: string): number {
+  return ip.split(".").reduce((acc, part) => (acc << 8) + Number(part), 0) >>> 0;
+}
+
+function isPrivateIp(ip: string): boolean {
+  const version = net.isIP(ip);
+  if (version === 4) {
+    const n = ipv4ToInt(ip);
+    return PRIVATE_IPV4_BLOCKS.some(([start, end]) => n >= start && n <= end);
+  }
+  if (version === 6) {
+    const v = ip.toLowerCase();
+    return (
+      v === "::1" ||
+      v.startsWith("fc") ||
+      v.startsWith("fd") ||
+      v.startsWith("fe80:") ||
+      v === "::"
+    );
+  }
+  return true;
+}
+
+async function isValidWebhookUrl(url: string) {
   try {
     const parsed = new URL(url);
-    return parsed.protocol === "https:" || parsed.protocol === "http:";
+    if (parsed.protocol !== "https:") return false;
+    const host = parsed.hostname.trim().toLowerCase();
+    if (!host || host === "localhost" || host.endsWith(".local")) return false;
+    if (net.isIP(host)) return !isPrivateIp(host);
+    const resolved = await dns.lookup(host, { all: true });
+    if (!resolved.length) return false;
+    return resolved.every((entry) => !isPrivateIp(entry.address));
   } catch {
     return false;
   }
@@ -37,7 +82,7 @@ export async function POST(request: Request) {
   const url = typeof payload?.url === "string" ? payload.url.trim() : "";
   const events = parseEvents(payload?.events);
 
-  if (!aiAccountId || !aiApiKey || !url || !events || !isValidWebhookUrl(url)) {
+  if (!aiAccountId || !aiApiKey || !url || !events || !(await isValidWebhookUrl(url))) {
     return NextResponse.json({ status: "error", reason: "invalid_request" }, { status: 400 });
   }
 
@@ -70,8 +115,8 @@ export async function POST(request: Request) {
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const aiAccountId = (url.searchParams.get("ai_account_id") || "").trim();
-  const aiApiKey = (url.searchParams.get("ai_api_key") || "").trim();
+  const aiAccountId = parseAiAccountIdFromRequest(request, url);
+  const aiApiKey = parseAiApiKeyFromRequest(request);
 
   if (!aiAccountId || !aiApiKey) {
     return NextResponse.json({ status: "error", reason: "invalid_request" }, { status: 400 });

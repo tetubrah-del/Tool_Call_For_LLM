@@ -8,11 +8,20 @@ export default function AIConnectClient() {
   const searchParams = useSearchParams();
   const lang = useMemo(() => normalizeLang(searchParams.get("lang")), [searchParams]);
   const strings = UI_STRINGS[lang];
+  const existingAccountMessage =
+    lang === "ja"
+      ? "既存アカウントが見つかりました。既存APIキーは再表示できません。"
+      : "Account already exists. Existing API keys cannot be re-displayed.";
+  const apiKeyOneTimeMessage =
+    lang === "ja"
+      ? "セキュリティのため、APIキーは新規発行時のみ表示されます。"
+      : "For security, API keys are shown only when newly issued.";
 
   const [name, setName] = useState("");
   const [paypalEmail, setPaypalEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "saving" | "done" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
+  const [alreadyConnected, setAlreadyConnected] = useState(false);
   const [accountId, setAccountId] = useState("");
   const [apiKey, setApiKey] = useState("");
 
@@ -34,6 +43,7 @@ export default function AIConnectClient() {
       }
 
       const data = await res.json();
+      setAlreadyConnected(data.status === "already_connected");
       setAccountId(data.account_id || "");
       setApiKey(data.api_key || "");
       setStatus("done");
@@ -70,10 +80,16 @@ export default function AIConnectClient() {
 
       {status === "done" && (
         <div className="card">
-          <p>{strings.aiConnectDone}</p>
+          <p>{alreadyConnected ? existingAccountMessage : strings.aiConnectDone}</p>
           <p className="muted">{strings.aiAccountId}: {accountId}</p>
-          <p className="muted">{strings.aiApiKey}: {apiKey}</p>
-          <p className="muted">{strings.aiKeyWarning}</p>
+          {apiKey ? (
+            <>
+              <p className="muted">{strings.aiApiKey}: {apiKey}</p>
+              <p className="muted">{strings.aiKeyWarning}</p>
+            </>
+          ) : (
+            <p className="muted">{apiKeyOneTimeMessage}</p>
+          )}
         </div>
       )}
 

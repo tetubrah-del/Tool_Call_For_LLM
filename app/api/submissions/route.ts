@@ -16,6 +16,9 @@ import {
 } from "@/lib/human-api-auth";
 import { computeReviewPendingDeadline } from "@/lib/review-pending";
 
+const IMAGE_MIME_TYPES: string[] = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+const VIDEO_MIME_TYPES: string[] = ["video/mp4", "video/webm", "video/quicktime"];
+
 function verifyTestHumanToken(humanId: string, token: string): boolean {
   if (!humanId || !token) return false;
   if (process.env.ENABLE_TEST_HUMAN_AUTH !== "true") return false;
@@ -159,12 +162,19 @@ export async function POST(request: Request) {
       );
     }
     if (file) {
-      if (!file.type.startsWith("image/")) {
+      const mime = (file.type || "").toLowerCase();
+      if (!IMAGE_MIME_TYPES.includes(mime)) {
         return respond(
           NextResponse.json({ status: "error", reason: "invalid_file_type" }, { status: 400 })
         );
       }
-      contentUrl = await saveUpload(file);
+      try {
+        contentUrl = await saveUpload(file, { allowedMimeTypes: [...IMAGE_MIME_TYPES] });
+      } catch {
+        return respond(
+          NextResponse.json({ status: "error", reason: "invalid_file_type" }, { status: 400 })
+        );
+      }
     }
   } else {
     if (!file) {
@@ -172,7 +182,20 @@ export async function POST(request: Request) {
         NextResponse.json({ status: "error", reason: "missing_file" }, { status: 400 })
       );
     }
-    contentUrl = await saveUpload(file);
+    const mime = (file.type || "").toLowerCase();
+    const allowedMimeTypes = type === "photo" ? [...IMAGE_MIME_TYPES] : [...VIDEO_MIME_TYPES];
+    if (!allowedMimeTypes.includes(mime)) {
+      return respond(
+        NextResponse.json({ status: "error", reason: "invalid_file_type" }, { status: 400 })
+      );
+    }
+    try {
+      contentUrl = await saveUpload(file, { allowedMimeTypes });
+    } catch {
+      return respond(
+        NextResponse.json({ status: "error", reason: "invalid_file_type" }, { status: 400 })
+      );
+    }
   }
 
   const submissionId = crypto.randomUUID();

@@ -6,7 +6,13 @@ import {
   finalizeHumanAuthResponse,
   type HumanAuthSuccess
 } from "@/lib/human-api-auth";
-import { authenticateAiApiRequest, applyAiRateLimitHeaders, type AiAuthSuccess } from "@/lib/ai-api-auth";
+import {
+  authenticateAiApiRequest,
+  applyAiRateLimitHeaders,
+  parseAiAccountIdFromRequest,
+  parseAiApiKeyFromRequest,
+  type AiAuthSuccess
+} from "@/lib/ai-api-auth";
 import { saveUpload } from "@/lib/storage";
 import { queueAiMessageHumanNotification } from "@/lib/notifications";
 import { resolveActorFromRequest } from "../_auth";
@@ -17,6 +23,7 @@ function normalizeMessageBody(value: unknown): string {
 
 const MAX_MESSAGE_LENGTH = 4000;
 const MAX_ATTACHMENT_SIZE_BYTES = 10 * 1024 * 1024;
+const MESSAGE_IMAGE_MIME_TYPES: string[] = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 
 async function parsePayload(request: Request): Promise<{
   body: string;
@@ -76,8 +83,8 @@ export async function GET(
   }
 
   const url = new URL(request.url);
-  const qAiId = (url.searchParams.get("ai_account_id") || "").trim();
-  const qAiKey = (url.searchParams.get("ai_api_key") || "").trim();
+  const qAiId = parseAiAccountIdFromRequest(request, url);
+  const qAiKey = parseAiApiKeyFromRequest(request);
   let actor: { role: "ai" | "human"; id: string } | null = null;
   if (qAiId && qAiKey) {
     const auth = await authenticateAiApiRequest(qAiId, qAiKey);
@@ -170,7 +177,7 @@ export async function POST(
   if (payload.body.length > MAX_MESSAGE_LENGTH) {
     return NextResponse.json({ status: "error", reason: "invalid_request" }, { status: 400 });
   }
-  if (hasFile && !payload.file.type.startsWith("image/")) {
+  if (hasFile && !MESSAGE_IMAGE_MIME_TYPES.includes((payload.file.type || "").toLowerCase())) {
     return NextResponse.json({ status: "error", reason: "invalid_file_type" }, { status: 400 });
   }
   if (hasFile && payload.file.size > MAX_ATTACHMENT_SIZE_BYTES) {
@@ -235,7 +242,14 @@ export async function POST(
     return finalizeHumanAuthResponse(request, response, humanAuth);
   }
 
-  const attachmentUrl = hasFile ? await saveUpload(payload.file) : null;
+  let attachmentUrl: string | null = null;
+  if (hasFile) {
+    try {
+      attachmentUrl = await saveUpload(payload.file, { allowedMimeTypes: MESSAGE_IMAGE_MIME_TYPES });
+    } catch {
+      return NextResponse.json({ status: "error", reason: "invalid_file_type" }, { status: 400 });
+    }
+  }
   const id = crypto.randomUUID();
   const createdAt = new Date().toISOString();
   const readByAi = actor.role === "ai" ? 1 : 0;
