@@ -59,7 +59,7 @@ export default function RegisterClient({
   // `location` is used for task matching (exact match). Keep it as the "city/ward" field.
   const [location, setLocation] = useState("");
   const [country, setCountry] = useState("");
-  const [minBudgetUsd, setMinBudgetUsd] = useState("15");
+  const [minBudgetUsd, setMinBudgetUsd] = useState("0");
   const [headline, setHeadline] = useState("");
   const [gender, setGender] = useState("unspecified");
   const [bio, setBio] = useState("");
@@ -166,7 +166,7 @@ export default function RegisterClient({
               ? data.profile.country.trim().toUpperCase()
               : ""
           );
-          setMinBudgetUsd(String(data.profile.min_budget_usd ?? 15));
+          setMinBudgetUsd(String(data.profile.min_budget_usd ?? 0));
           setHeadline(data.profile.headline || "");
           setGender(typeof data.profile.gender === "string" ? data.profile.gender : "unspecified");
           setBio(data.profile.bio || "");

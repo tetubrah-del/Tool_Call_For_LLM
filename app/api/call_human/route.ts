@@ -209,12 +209,11 @@ export async function POST(request: Request) {
     `SELECT * FROM humans
      WHERE status = 'available'
        AND deleted_at IS NULL
-       AND min_budget_usd <= ?
        ${location ? "AND location = ?" : ""}
-     ORDER BY min_budget_usd ASC
+     ORDER BY created_at ASC
      LIMIT 1`
   );
-  const params = location ? [budgetUsd, location] : [budgetUsd];
+  const params = location ? [location] : [];
   const human = await stmt.get(...params);
 
   if (!human) {
