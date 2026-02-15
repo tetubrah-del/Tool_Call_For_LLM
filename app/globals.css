@@ -330,7 +330,7 @@ button.tag:hover {
 .nav-links {
   display: flex;
   align-items: center;
-  gap: clamp(10px, 1.3vw, 18px);
+  gap: clamp(10px, 1.3vw, 16px);
   flex-wrap: nowrap;
   white-space: nowrap;
   flex: 1 1 auto;
@@ -338,9 +338,37 @@ button.tag:hover {
   justify-content: center;
 }
 
+.nav-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(37, 58, 92, 0.6);
+  background: rgba(8, 14, 28, 0.7);
+}
+
+.nav-group-label {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.nav-group-links {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .nav-links a {
   font-weight: 600;
   color: var(--muted);
+  padding: 4px 8px;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
 }
 
 .nav-links a:hover {
@@ -349,6 +377,39 @@ button.tag:hover {
 
 .nav-links a.active {
   color: var(--ink);
+}
+
+.nav-links a.nav-role-ai {
+  border-color: rgba(57, 155, 255, 0.25);
+}
+
+.nav-links a.nav-role-ai:hover,
+.nav-links a.nav-role-ai.active {
+  color: #79c2ff;
+  border-color: rgba(90, 185, 255, 0.65);
+  background: rgba(24, 86, 146, 0.22);
+}
+
+.nav-links a.nav-role-human {
+  border-color: rgba(73, 199, 132, 0.25);
+}
+
+.nav-links a.nav-role-human:hover,
+.nav-links a.nav-role-human.active {
+  color: #8ce3b6;
+  border-color: rgba(110, 225, 162, 0.65);
+  background: rgba(16, 110, 64, 0.22);
+}
+
+.nav-links a.nav-role-common {
+  border-color: rgba(143, 157, 182, 0.2);
+}
+
+.nav-links a.nav-role-common:hover,
+.nav-links a.nav-role-common.active {
+  color: #d2d9e6;
+  border-color: rgba(174, 188, 211, 0.55);
+  background: rgba(69, 80, 103, 0.25);
 }
 
 .nav-actions {
@@ -403,6 +464,10 @@ button.tag:hover {
     justify-content: flex-start;
     flex-wrap: wrap;
     white-space: normal;
+  }
+
+  .nav-group {
+    flex-wrap: wrap;
   }
 }
 
@@ -1887,6 +1952,18 @@ button.tag:hover {
   .mobile-bottom-nav a.active {
     color: var(--ink);
     background: rgba(255, 255, 255, 0.08);
+  }
+
+  .mobile-bottom-nav a.nav-role-ai {
+    border: 1px solid rgba(57, 155, 255, 0.35);
+  }
+
+  .mobile-bottom-nav a.nav-role-human {
+    border: 1px solid rgba(73, 199, 132, 0.35);
+  }
+
+  .mobile-bottom-nav a.nav-role-common {
+    border: 1px solid rgba(143, 157, 182, 0.25);
   }
 
   .site-footer-inner {
