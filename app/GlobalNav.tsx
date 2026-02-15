@@ -53,7 +53,7 @@ export default function GlobalNav() {
         label: session?.user ? strings.myPage : strings.register,
         href: session?.user ? `/me?${query}` : `/auth?${query}`,
         isActive: session?.user ? pathname.startsWith("/me") : pathname.startsWith("/auth"),
-        role: "common" as const
+        role: "human" as const
       }
     ],
     [pathname, query, session?.user, strings.aiConnect, strings.forAgents, strings.myPage, strings.register, strings.tasks]
@@ -66,8 +66,7 @@ export default function GlobalNav() {
   }, [navItems]);
   const groupLabels = {
     ai: lang === "ja" ? "AI向け" : "For AI",
-    human: lang === "ja" ? "ヒト向け" : "For Human",
-    common: lang === "ja" ? "共通" : "Common"
+    human: lang === "ja" ? "ヒト向け" : "For Human"
   };
 
   function onLangChange(next: UiLang) {
@@ -114,20 +113,22 @@ export default function GlobalNav() {
                 ))}
               </div>
             </div>
-            <div className="nav-group nav-group-common">
-              <span className="nav-group-label">{groupLabels.common}</span>
-              <div className="nav-group-links">
-                {groupedNav.common.map((item) => (
-                  <a
-                    key={item.key}
-                    href={item.href}
-                    className={`${item.isActive ? "active " : ""}nav-role-common`}
-                  >
-                    {item.label}
-                  </a>
-                ))}
+            {groupedNav.common.length > 0 && (
+              <div className="nav-group nav-group-common">
+                <span className="nav-group-label">{lang === "ja" ? "共通" : "Common"}</span>
+                <div className="nav-group-links">
+                  {groupedNav.common.map((item) => (
+                    <a
+                      key={item.key}
+                      href={item.href}
+                      className={`${item.isActive ? "active " : ""}nav-role-common`}
+                    >
+                      {item.label}
+                    </a>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
           <div className="nav-actions">
             <div className="nav-lang">
