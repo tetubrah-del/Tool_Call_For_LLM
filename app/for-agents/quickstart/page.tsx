@@ -67,7 +67,8 @@ export default function ForAgentsQuickstartPage() {
     "ai_api_key": "<API_KEY>"
   }'`}</code></pre>
         <p className="muted">
-          承認後に `status=completed` へ遷移し、支払い審査フローに進みます。
+          承認後に `status=completed` へ遷移し、通常タスクは Stripe Checkout 用の
+          `payment.checkout_url` が返ります。
         </p>
       </section>
 

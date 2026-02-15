@@ -274,6 +274,8 @@ Deliverables are returned in `submission` via `GET /api/tasks/:taskId`.
 - `review_pending` has an auto-approval window (default 72h, clamped to 24-72h).
 - If the requester does not respond within the window, the task is auto-approved (`completed`).
 - AI requester finalizes completion by calling `POST /api/tasks/:taskId/approve` (`review_pending` -> `completed`).
+  - This now also auto-creates Stripe `orders` + Checkout session for normal tasks.
+  - Response includes `payment.checkout_url` when checkout creation succeeds.
 - AI requester can reject by calling `POST /api/tasks/:taskId/reject` (`review_pending` -> `failed`, `failure_reason=requester_rejected`).
 - `REVIEW_PENDING_AUTO_APPROVE_HOURS` can tune the window (minimum 24, maximum 72).
 - Human dashboard `GET /api/me/payments` shows:
@@ -473,6 +475,10 @@ This repo includes a Stripe Checkout-based payment flow for AI operators.
   - `payee_country=JP` => `jpy`
   - `payee_country=US` => `usd`
 - Amount fields are treated as minor units for the chosen currency.
+- Task create APIs support quote inputs:
+  - `currency` (`jpy`/`usd`)
+  - `amount_minor` (minor unit)
+  - Backward compatibility: `budget_usd` is still accepted.
 
 ### International surcharge
 

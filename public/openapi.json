@@ -771,7 +771,6 @@
           "task_label",
           "acceptance_criteria",
           "not_allowed",
-          "budget_usd",
           "ai_account_id",
           "ai_api_key"
         ],
@@ -781,7 +780,20 @@
           "task_label": { "$ref": "#/components/schemas/TaskLabel" },
           "acceptance_criteria": { "type": "string" },
           "not_allowed": { "type": "string" },
-          "budget_usd": { "type": "number" },
+          "budget_usd": {
+            "type": "number",
+            "description": "Legacy budget input in USD. Optional when `amount_minor` is provided."
+          },
+          "currency": {
+            "type": "string",
+            "enum": ["usd", "jpy"],
+            "description": "Quote currency for `amount_minor`. If omitted, defaults by origin_country."
+          },
+          "amount_minor": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Quoted amount in minor units for `currency` (USD cents / JPY yen)."
+          },
           "location": { "type": "string" },
           "deliverable": { "$ref": "#/components/schemas/Deliverable" },
           "deadline_minutes": { "type": "number" },
@@ -802,8 +814,34 @@
         "required": ["status", "task_id"],
         "properties": {
           "status": { "type": "string", "enum": ["completed"] },
-          "task_id": { "type": "string" }
+          "task_id": { "type": "string" },
+          "payment": {
+            "anyOf": [
+              { "$ref": "#/components/schemas/ApproveTaskPayment" },
+              { "type": "null" }
+            ]
+          }
         }
+      },
+      "ApproveTaskPayment": {
+        "type": "object",
+        "required": ["status"],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": ["checkout_created", "error", "created", "paid", "failed", "canceled"]
+          },
+          "step": { "type": ["string", "null"] },
+          "reason": { "type": ["string", "null"] },
+          "detail": { "type": ["object", "null"], "additionalProperties": true },
+          "order_id": { "type": ["string", "null"] },
+          "version": { "type": ["integer", "null"] },
+          "currency": { "type": ["string", "null"], "enum": ["usd", "jpy", null] },
+          "amount_minor": { "type": ["integer", "null"] },
+          "checkout_session_id": { "type": ["string", "null"] },
+          "checkout_url": { "type": ["string", "null"] }
+        },
+        "additionalProperties": true
       },
       "RejectTaskResponse": {
         "type": "object",
@@ -842,6 +880,10 @@
           "lang",
           "location",
           "budget_usd",
+          "quote_currency",
+          "quote_amount_minor",
+          "display_currency",
+          "display_amount",
           "origin_country",
           "task_label",
           "acceptance_criteria",
@@ -874,6 +916,10 @@
           "lang": { "type": "string", "enum": ["en", "ja"] },
           "location": { "type": ["string", "null"] },
           "budget_usd": { "type": "number" },
+          "quote_currency": { "type": ["string", "null"], "enum": ["usd", "jpy", null] },
+          "quote_amount_minor": { "type": ["integer", "null"] },
+          "display_currency": { "type": "string", "enum": ["usd", "jpy"] },
+          "display_amount": { "type": "number" },
           "origin_country": { "type": ["string", "null"] },
           "task_label": { "anyOf": [{ "$ref": "#/components/schemas/TaskLabel" }, { "type": "null" }] },
           "acceptance_criteria": { "type": ["string", "null"] },
@@ -912,7 +958,7 @@
       },
       "TaskListItem": {
         "type": "object",
-        "required": ["id", "task", "status", "budget_usd", "created_at"],
+        "required": ["id", "task", "status", "budget_usd", "display_currency", "display_amount", "created_at"],
         "properties": {
           "id": { "type": "string" },
           "task": { "type": "string" },
@@ -920,6 +966,10 @@
           "lang": { "type": "string", "enum": ["en", "ja"] },
           "status": { "$ref": "#/components/schemas/TaskStatus" },
           "budget_usd": { "type": "number" },
+          "quote_currency": { "type": ["string", "null"], "enum": ["usd", "jpy", null] },
+          "quote_amount_minor": { "type": ["integer", "null"] },
+          "display_currency": { "type": "string", "enum": ["usd", "jpy"] },
+          "display_amount": { "type": "number" },
           "task_label": { "anyOf": [{ "$ref": "#/components/schemas/TaskLabel" }, { "type": "null" }] },
           "deliverable": { "anyOf": [{ "$ref": "#/components/schemas/Deliverable" }, { "type": "null" }] },
           "location": { "type": ["string", "null"] },
