@@ -59,5 +59,9 @@ export async function GET() {
   const humans = await db
     .prepare(`SELECT * FROM humans WHERE deleted_at IS NULL ORDER BY created_at DESC`)
     .all();
-  return NextResponse.json({ humans });
+  const sanitized = humans.map((row: any) => {
+    const { status: _status, ...rest } = row;
+    return rest;
+  });
+  return NextResponse.json({ humans: sanitized });
 }
