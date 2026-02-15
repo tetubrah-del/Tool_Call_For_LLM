@@ -207,8 +207,7 @@ export async function POST(request: Request) {
 
   const stmt = db.prepare(
     `SELECT * FROM humans
-     WHERE status = 'available'
-       AND deleted_at IS NULL
+     WHERE deleted_at IS NULL
        ${location ? "AND location = ?" : ""}
      ORDER BY created_at ASC
      LIMIT 1`
@@ -232,7 +231,6 @@ export async function POST(request: Request) {
     human.paypal_email || null,
     taskId
   );
-  await db.prepare(`UPDATE humans SET status = 'busy' WHERE id = ?`).run(human.id);
   await openContactChannel(db, taskId);
   // Payment is mocked for MVP; integrate Stripe here later if needed.
   void dispatchTaskEvent(db, { eventType: "task.accepted", taskId }).catch(() => {});

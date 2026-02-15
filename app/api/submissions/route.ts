@@ -220,11 +220,6 @@ export async function POST(request: Request) {
       reviewPendingDeadlineAt,
       taskId
     );
-  if (task.human_id) {
-    await db
-      .prepare(`UPDATE humans SET status = 'available' WHERE id = ?`)
-      .run(task.human_id);
-  }
   await closeContactChannel(db, taskId);
 
   return respond(NextResponse.json({ status: "stored", submission_id: submissionId }));

@@ -123,13 +123,10 @@ export async function POST(
   }
 
   const human = await db
-    .prepare(`SELECT id, paypal_email, status FROM humans WHERE id = ? AND deleted_at IS NULL`)
-    .get<{ id: string; paypal_email: string | null; status: string }>(humanId);
+    .prepare(`SELECT id, paypal_email FROM humans WHERE id = ? AND deleted_at IS NULL`)
+    .get<{ id: string; paypal_email: string | null }>(humanId);
   if (!human?.id) {
     return NextResponse.json({ status: "not_found" }, { status: 404 });
-  }
-  if (human.status !== "available") {
-    return NextResponse.json({ status: "error", reason: "human_not_available" }, { status: 409 });
   }
 
   const existing = await db

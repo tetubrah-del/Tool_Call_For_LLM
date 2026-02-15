@@ -69,13 +69,10 @@ export async function POST(
   }
 
   const human = await db
-    .prepare(`SELECT id, paypal_email, status FROM humans WHERE id = ? AND deleted_at IS NULL`)
-    .get<{ id: string; paypal_email: string | null; status: string }>(selectedHumanId);
+    .prepare(`SELECT id, paypal_email FROM humans WHERE id = ? AND deleted_at IS NULL`)
+    .get<{ id: string; paypal_email: string | null }>(selectedHumanId);
   if (!human?.id) {
     return respond({ status: "not_found" }, 404);
-  }
-  if (human.status !== "available") {
-    return respond({ status: "error", reason: "human_not_available" }, 409);
   }
 
   // Accept (assign) the selected applicant.
@@ -84,7 +81,6 @@ export async function POST(
       `UPDATE tasks SET status = 'accepted', human_id = ?, payee_paypal_email = ? WHERE id = ?`
     )
     .run(selectedHumanId, human.paypal_email, params.taskId);
-  await db.prepare(`UPDATE humans SET status = 'busy' WHERE id = ?`).run(selectedHumanId);
 
   // Open contact channel immediately once assignment is accepted.
   await openContactChannel(db, params.taskId);
