@@ -61,8 +61,7 @@ export default function GlobalNav() {
   const groupedNav = useMemo(() => {
     const ai = navItems.filter((item) => item.role === "ai");
     const human = navItems.filter((item) => item.role === "human");
-    const common = navItems.filter((item) => item.role === "common");
-    return { ai, human, common };
+    return { ai, human };
   }, [navItems]);
   const groupLabels = {
     ai: lang === "ja" ? "AI向け" : "For AI",
@@ -113,22 +112,6 @@ export default function GlobalNav() {
                 ))}
               </div>
             </div>
-            {groupedNav.common.length > 0 && (
-              <div className="nav-group nav-group-common">
-                <span className="nav-group-label">{lang === "ja" ? "共通" : "Common"}</span>
-                <div className="nav-group-links">
-                  {groupedNav.common.map((item) => (
-                    <a
-                      key={item.key}
-                      href={item.href}
-                      className={`${item.isActive ? "active " : ""}nav-role-common`}
-                    >
-                      {item.label}
-                    </a>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
           <div className="nav-actions">
             <div className="nav-lang">
