@@ -8,6 +8,7 @@ import { normalizeTaskLabel } from "@/lib/task-labels";
 import { finishIdempotency, startIdempotency } from "@/lib/idempotency";
 import { applyAiRateLimitHeaders, authenticateAiApiRequest, type AiAuthSuccess } from "@/lib/ai-api-auth";
 import { getRequestCountry } from "@/lib/request-country";
+import { chooseDisplayCurrency, fromUsdForDisplay } from "@/lib/currency-display";
 
 export async function GET(request: Request) {
   const db = getDb();
@@ -18,13 +19,21 @@ export async function GET(request: Request) {
   const lang = url.searchParams.get("lang");
   const keyword = (url.searchParams.get("q") || "").trim().toLowerCase();
   const filterTaskLabel = normalizeTaskLabel(url.searchParams.get("task_label"));
+  const withDisplayAmount = (task: any) => {
+    const displayCurrency = chooseDisplayCurrency(task?.origin_country || null, requestCountry);
+    return {
+      ...task,
+      display_currency: displayCurrency.toLowerCase(),
+      display_amount: fromUsdForDisplay(Number(task?.budget_usd || 0), displayCurrency)
+    };
+  };
 
   if (taskId) {
     const task = await getNormalizedTask(db, taskId, lang);
     if (!task) {
       return NextResponse.json({ status: "not_found" }, { status: 404 });
     }
-    return NextResponse.json({ task, request_country: requestCountry });
+    return NextResponse.json({ task: withDisplayAmount(task), request_country: requestCountry });
   }
 
   if (humanId) {
@@ -90,7 +99,7 @@ export async function GET(request: Request) {
           .run(task.id);
       }
       const normalizedTaskLabel = normalizeTaskLabel(task.task_label);
-      tasks.push({
+      tasks.push(withDisplayAmount({
         ...task,
         task_label: normalizedTaskLabel,
         deliverable: task.deliverable || "text",
@@ -98,7 +107,7 @@ export async function GET(request: Request) {
         lang: display.lang,
         paid_status: normalizePaymentStatus(task.paid_status),
         is_international_payout: human.country !== OPERATOR_COUNTRY
-      });
+      }));
     }
 
     const filteredByKeyword =
@@ -133,14 +142,14 @@ export async function GET(request: Request) {
         .run(task.id);
     }
     const normalizedTaskLabel = normalizeTaskLabel(task.task_label);
-      normalized.push({
+      normalized.push(withDisplayAmount({
         ...task,
         task_label: normalizedTaskLabel,
         deliverable: task.deliverable || "text",
         task_display: display.display,
         lang: display.lang,
         paid_status: normalizePaymentStatus(task.paid_status)
-      });
+      }));
   }
   const filteredByKeyword =
     keyword.length === 0
