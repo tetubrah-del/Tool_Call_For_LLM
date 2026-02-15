@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import crypto from "crypto";
 import Database from "better-sqlite3";
 import { Pool } from "pg";
 import { startTimeoutSweeper } from "@/lib/timeout-sweeper";
@@ -23,6 +24,7 @@ type DbMode = "postgres" | "sqlite";
 
 const DB_PATH = path.join(process.cwd(), "data", "app.db");
 const DATABASE_URL = process.env.DATABASE_URL?.trim();
+const AI_API_KEY_PREFIX = "ai_live_";
 
 let mode: DbMode | null = null;
 let initPromise: Promise<void> | null = null;
@@ -127,6 +129,22 @@ function ensureSqliteColumn(
   instance.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
 }
 
+function hashAiApiKeyForStorage(rawKey: string) {
+  const pepper = process.env.AI_API_KEY_PEPPER || "";
+  return crypto
+    .createHash("sha256")
+    .update(`${pepper}:${rawKey}`)
+    .digest("hex");
+}
+
+function deriveAiApiKeyPrefix(rawKey: string): string {
+  const idx = rawKey.indexOf("_", AI_API_KEY_PREFIX.length);
+  if (rawKey.startsWith(AI_API_KEY_PREFIX) && idx > 0) {
+    return rawKey.slice(0, idx);
+  }
+  return "legacy";
+}
+
 async function initPostgres() {
   const db = getPool();
   const statements = [
@@ -166,7 +184,9 @@ async function initPostgres() {
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       paypal_email TEXT NOT NULL,
-      api_key TEXT NOT NULL,
+      api_key TEXT NOT NULL DEFAULT '',
+      api_key_hash TEXT,
+      api_key_prefix TEXT,
       api_access_status TEXT NOT NULL DEFAULT 'active',
       api_monthly_limit INTEGER NOT NULL DEFAULT 50000,
       api_burst_per_minute INTEGER NOT NULL DEFAULT 60,
@@ -522,6 +542,8 @@ async function initPostgres() {
     `ALTER TABLE humans ADD COLUMN IF NOT EXISTS api_monthly_limit INTEGER`,
     `ALTER TABLE humans ADD COLUMN IF NOT EXISTS deleted_at TEXT`,
     `ALTER TABLE ai_accounts ADD COLUMN IF NOT EXISTS deleted_at TEXT`,
+    `ALTER TABLE ai_accounts ADD COLUMN IF NOT EXISTS api_key_hash TEXT`,
+    `ALTER TABLE ai_accounts ADD COLUMN IF NOT EXISTS api_key_prefix TEXT`,
     `ALTER TABLE ai_accounts ADD COLUMN IF NOT EXISTS api_access_status TEXT`,
     `ALTER TABLE ai_accounts ADD COLUMN IF NOT EXISTS api_monthly_limit INTEGER`,
     `ALTER TABLE ai_accounts ADD COLUMN IF NOT EXISTS api_burst_per_minute INTEGER`,
@@ -751,6 +773,30 @@ async function initPostgres() {
     await db.query(statement);
   }
 
+  const legacyAiAccounts = await db.query<{
+    id: string;
+    api_key: string | null;
+    api_key_hash: string | null;
+    api_key_prefix: string | null;
+  }>(
+    `SELECT id, api_key, api_key_hash, api_key_prefix
+     FROM ai_accounts
+     WHERE deleted_at IS NULL`
+  );
+  for (const account of legacyAiAccounts.rows) {
+    const rawKey = (account.api_key || "").trim();
+    if (!rawKey) continue;
+    if (account.api_key_hash && account.api_key_prefix) continue;
+    await db.query(
+      `UPDATE ai_accounts
+       SET api_key_hash = COALESCE(api_key_hash, ?),
+           api_key_prefix = COALESCE(api_key_prefix, ?),
+           api_key = ''
+       WHERE id = ?`,
+      [hashAiApiKeyForStorage(rawKey), deriveAiApiKeyPrefix(rawKey), account.id]
+    );
+  }
+
   await db.query(
     `UPDATE humans
      SET api_access_status = COALESCE(NULLIF(api_access_status, ''), 'active'),
@@ -818,7 +864,9 @@ async function initSqlite() {
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       paypal_email TEXT NOT NULL,
-      api_key TEXT NOT NULL,
+      api_key TEXT NOT NULL DEFAULT '',
+      api_key_hash TEXT,
+      api_key_prefix TEXT,
       api_access_status TEXT NOT NULL DEFAULT 'active',
       api_monthly_limit INTEGER NOT NULL DEFAULT 50000,
       api_burst_per_minute INTEGER NOT NULL DEFAULT 60,
@@ -1218,6 +1266,8 @@ async function initSqlite() {
   ensureSqliteColumn(db, "humans", "api_monthly_limit", "INTEGER");
   ensureSqliteColumn(db, "humans", "deleted_at", "TEXT");
   ensureSqliteColumn(db, "ai_accounts", "deleted_at", "TEXT");
+  ensureSqliteColumn(db, "ai_accounts", "api_key_hash", "TEXT");
+  ensureSqliteColumn(db, "ai_accounts", "api_key_prefix", "TEXT");
   ensureSqliteColumn(db, "ai_accounts", "api_access_status", "TEXT");
   ensureSqliteColumn(db, "ai_accounts", "api_monthly_limit", "INTEGER");
   ensureSqliteColumn(db, "ai_accounts", "api_burst_per_minute", "INTEGER");
@@ -1295,6 +1345,36 @@ async function initSqlite() {
   ensureSqliteColumn(db, "orders", "refund_id", "TEXT");
   ensureSqliteColumn(db, "orders", "refunded_at", "TEXT");
   ensureSqliteColumn(db, "orders", "refund_error_message", "TEXT");
+
+  const legacyAiAccounts = db
+    .prepare(
+      `SELECT id, api_key, api_key_hash, api_key_prefix
+       FROM ai_accounts
+       WHERE deleted_at IS NULL`
+    )
+    .all() as Array<{
+    id: string;
+    api_key: string | null;
+    api_key_hash: string | null;
+    api_key_prefix: string | null;
+  }>;
+  const updateAiKeyStmt = db.prepare(
+    `UPDATE ai_accounts
+     SET api_key_hash = COALESCE(api_key_hash, ?),
+         api_key_prefix = COALESCE(api_key_prefix, ?),
+         api_key = ''
+     WHERE id = ?`
+  );
+  for (const account of legacyAiAccounts) {
+    const rawKey = (account.api_key || "").trim();
+    if (!rawKey) continue;
+    if (account.api_key_hash && account.api_key_prefix) continue;
+    updateAiKeyStmt.run(
+      hashAiApiKeyForStorage(rawKey),
+      deriveAiApiKeyPrefix(rawKey),
+      account.id
+    );
+  }
 
   db.exec(
     `UPDATE humans
@@ -1531,6 +1611,8 @@ export type AiAccount = {
   name: string;
   paypal_email: string;
   api_key: string;
+  api_key_hash: string | null;
+  api_key_prefix: string | null;
   status: "active" | "disabled";
   created_at: string;
 };

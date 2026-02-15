@@ -48,7 +48,7 @@ export async function GET(
 ) {
   const url = new URL(request.url);
   const humanId = normalizeText(url.searchParams.get("human_id"));
-  const humanTestToken = normalizeText(url.searchParams.get("human_test_token"));
+  const humanTestToken = normalizeText(request.headers.get("x-human-test-token"));
 
   if (!humanId) {
     return NextResponse.json({ status: "error", reason: "missing_human" }, { status: 400 });

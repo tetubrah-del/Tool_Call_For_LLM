@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { authenticateAiApiRequest } from "@/lib/ai-api-auth";
+import { parseAiAccountIdFromRequest, parseAiApiKeyFromRequest } from "@/lib/ai-api-auth";
 import { getCurrentHumanIdByEmail } from "@/lib/human-session";
 
 export type TaskForContact = {
@@ -73,8 +74,8 @@ export async function resolveActorFromRequest(
   }
 
   const url = new URL(request.url);
-  const qAiId = (url.searchParams.get("ai_account_id") || "").trim();
-  const qAiKey = (url.searchParams.get("ai_api_key") || "").trim();
+  const qAiId = parseAiAccountIdFromRequest(request, url);
+  const qAiKey = parseAiApiKeyFromRequest(request);
   if (qAiId && qAiKey) {
     const aiActor = await verifyAiActor(db, qAiId, qAiKey);
     if (!aiActor || task.ai_account_id !== aiActor.id) return null;
@@ -94,8 +95,8 @@ export async function resolveActorFromRequest(
     return { role: "human", id: fromPayloadHumanId };
   }
 
-  const qHumanId = (url.searchParams.get("human_id") || "").trim();
-  const qHumanToken = (url.searchParams.get("human_test_token") || "").trim();
+  const qHumanId = (request.headers.get("x-human-id") || "").trim();
+  const qHumanToken = (request.headers.get("x-human-test-token") || "").trim();
   if (
     qHumanId &&
     qHumanToken &&

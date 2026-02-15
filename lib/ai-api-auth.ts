@@ -1,13 +1,17 @@
+import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 
 const DEFAULT_AI_MONTHLY_LIMIT = 50000;
 const DEFAULT_AI_BURST_PER_MINUTE = 60;
 const WARN_PCTS = [80, 95] as const;
+const AI_API_KEY_PREFIX = "ai_live_";
 
 type AiAccountRow = {
   id: string;
   api_key: string;
+  api_key_hash: string | null;
+  api_key_prefix: string | null;
   status: string;
   api_access_status: string | null;
   api_monthly_limit: number | null;
@@ -32,6 +36,63 @@ function normalizeLimit(value: number | null | undefined, fallback: number) {
   const n = Number(value ?? fallback);
   if (!Number.isFinite(n) || n <= 0) return fallback;
   return Math.floor(n);
+}
+
+export function generateAiApiKey() {
+  const prefixId = crypto.randomBytes(4).toString("hex");
+  const secret = crypto.randomBytes(24).toString("hex");
+  const prefix = `${AI_API_KEY_PREFIX}${prefixId}`;
+  return {
+    prefix,
+    key: `${prefix}_${secret}`
+  };
+}
+
+export function hashAiApiKey(rawKey: string) {
+  const pepper = process.env.AI_API_KEY_PEPPER || "";
+  return crypto
+    .createHash("sha256")
+    .update(`${pepper}:${rawKey}`)
+    .digest("hex");
+}
+
+function compareHash(a: string, b: string) {
+  const left = Buffer.from(a);
+  const right = Buffer.from(b);
+  if (left.length !== right.length) return false;
+  return crypto.timingSafeEqual(left, right);
+}
+
+function deriveAiApiKeyPrefix(rawKey: string): string {
+  const idx = rawKey.indexOf("_", AI_API_KEY_PREFIX.length);
+  if (rawKey.startsWith(AI_API_KEY_PREFIX) && idx > 0) {
+    return rawKey.slice(0, idx);
+  }
+  return "legacy";
+}
+
+function verifyAiApiKey(account: AiAccountRow, provided: string): boolean {
+  if (account.api_key_hash) {
+    return compareHash(account.api_key_hash, hashAiApiKey(provided));
+  }
+  if (account.api_key) return account.api_key === provided;
+  return false;
+}
+
+export function parseAiApiKeyFromRequest(request: Request): string {
+  const authHeader = request.headers.get("authorization") || "";
+  if (authHeader.toLowerCase().startsWith("bearer ")) {
+    const token = authHeader.slice(7).trim();
+    if (token) return token;
+  }
+  return (request.headers.get("x-ai-api-key") || "").trim();
+}
+
+export function parseAiAccountIdFromRequest(request: Request, requestUrl?: URL): string {
+  const headerValue = (request.headers.get("x-ai-account-id") || "").trim();
+  if (headerValue) return headerValue;
+  if (!requestUrl) return "";
+  return (requestUrl.searchParams.get("ai_account_id") || "").trim();
 }
 
 function getBypassIds(): Set<string> {
@@ -110,17 +171,28 @@ export async function authenticateAiApiRequest(
   const db = getDb();
   const aiAccount = await db
     .prepare(
-      `SELECT id, api_key, status, api_access_status, api_monthly_limit, api_burst_per_minute
+      `SELECT id, api_key, api_key_hash, api_key_prefix, status, api_access_status, api_monthly_limit, api_burst_per_minute
        FROM ai_accounts
        WHERE id = ? AND deleted_at IS NULL`
     )
     .get<AiAccountRow>(aiAccountId);
 
-  if (!aiAccount || aiAccount.api_key !== aiApiKey || aiAccount.status !== "active") {
+  if (!aiAccount || !verifyAiApiKey(aiAccount, aiApiKey) || aiAccount.status !== "active") {
     return {
       ok: false,
       response: NextResponse.json({ status: "error", reason: "invalid_credentials" }, { status: 401 })
     };
+  }
+  if ((!aiAccount.api_key_hash || !aiAccount.api_key_prefix) && aiAccount.api_key === aiApiKey) {
+    const hash = hashAiApiKey(aiApiKey);
+    const prefix = deriveAiApiKeyPrefix(aiApiKey);
+    await db
+      .prepare(
+        `UPDATE ai_accounts
+         SET api_key_hash = ?, api_key_prefix = ?, api_key = ''
+         WHERE id = ?`
+      )
+      .run(hash, prefix, aiAccountId);
   }
   if ((aiAccount.api_access_status || "active") !== "active") {
     return {

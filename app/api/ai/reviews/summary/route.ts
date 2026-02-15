@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { verifyAiActorDetailed } from "../../../tasks/[taskId]/contact/_auth";
+import { parseAiAccountIdFromRequest, parseAiApiKeyFromRequest } from "@/lib/ai-api-auth";
 
 function normalizeText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -8,8 +9,8 @@ function normalizeText(value: unknown): string {
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const aiAccountId = normalizeText(url.searchParams.get("ai_account_id"));
-  const aiApiKey = normalizeText(url.searchParams.get("ai_api_key"));
+  const aiAccountId = normalizeText(parseAiAccountIdFromRequest(request, url));
+  const aiApiKey = normalizeText(parseAiApiKeyFromRequest(request));
   if (!aiAccountId || !aiApiKey) {
     return NextResponse.json({ status: "error", reason: "invalid_request" }, { status: 400 });
   }
