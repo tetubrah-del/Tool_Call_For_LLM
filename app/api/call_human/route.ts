@@ -8,6 +8,7 @@ import { finishIdempotency, startIdempotency } from "@/lib/idempotency";
 import { dispatchTaskEvent } from "@/lib/webhooks";
 import { openContactChannel } from "@/lib/contact-channel";
 import { applyAiRateLimitHeaders, authenticateAiApiRequest, type AiAuthSuccess } from "@/lib/ai-api-auth";
+import { minorToUsd, normalizeCurrencyCode, usdToMinor } from "@/lib/currency-display";
 
 type FieldError = {
   field: string;
@@ -31,7 +32,11 @@ export async function POST(request: Request) {
   }
 
   const task = typeof payload?.task === "string" ? payload.task.trim() : "";
-  const budgetUsd = Number(payload?.budget_usd);
+  const budgetUsdRaw = Number(payload?.budget_usd);
+  const currencyInput = normalizeCurrencyCode(payload?.currency);
+  const amountMinorInput = payload?.amount_minor;
+  const amountMinor =
+    amountMinorInput == null || amountMinorInput === "" ? null : Number(amountMinorInput);
   const aiAccountId =
     typeof payload?.ai_account_id === "string" ? payload.ai_account_id.trim() : "";
   const aiApiKey =
@@ -40,6 +45,15 @@ export async function POST(request: Request) {
     typeof payload?.location === "string" ? payload.location.trim() : "";
   const location = rawLocation.length > 0 ? rawLocation : null;
   const originCountry = normalizeCountry(payload?.origin_country);
+  const quoteCurrency = currencyInput || (originCountry === "JP" ? "jpy" : "usd");
+  const budgetUsd =
+    amountMinor != null && Number.isInteger(amountMinor) && amountMinor >= 0
+      ? minorToUsd(amountMinor, quoteCurrency)
+      : budgetUsdRaw;
+  const quoteAmountMinor =
+    amountMinor != null && Number.isInteger(amountMinor) && amountMinor >= 0
+      ? amountMinor
+      : usdToMinor(budgetUsd, quoteCurrency);
   const taskLabel = normalizeTaskLabel(payload?.task_label);
   const acceptanceCriteria =
     typeof payload?.acceptance_criteria === "string"
@@ -100,6 +114,9 @@ export async function POST(request: Request) {
   if (!task) fieldErrors.push({ field: "task", code: "required" });
   if (!Number.isFinite(budgetUsd)) {
     fieldErrors.push({ field: "budget_usd", code: "invalid_number" });
+  }
+  if (amountMinor != null && (!Number.isInteger(amountMinor) || amountMinor < 0)) {
+    fieldErrors.push({ field: "amount_minor", code: "invalid_number" });
   }
   if (!aiAccountId) fieldErrors.push({ field: "ai_account_id", code: "required" });
   if (!aiApiKey) fieldErrors.push({ field: "ai_api_key", code: "required" });
@@ -166,14 +183,16 @@ export async function POST(request: Request) {
 
   const taskId = crypto.randomUUID();
   await db.prepare(
-    `INSERT INTO tasks (id, task, task_en, location, budget_usd, origin_country, task_label, acceptance_criteria, not_allowed, ai_account_id, payer_paypal_email, payee_paypal_email, deliverable, deadline_minutes, deadline_at, status, failure_reason, human_id, submission_id, paid_status, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, 'open', NULL, NULL, NULL, 'pending', ?)`
+    `INSERT INTO tasks (id, task, task_en, location, budget_usd, quote_currency, quote_amount_minor, origin_country, task_label, acceptance_criteria, not_allowed, ai_account_id, payer_paypal_email, payee_paypal_email, deliverable, deadline_minutes, deadline_at, status, failure_reason, human_id, submission_id, paid_status, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, 'open', NULL, NULL, NULL, 'pending', ?)`
   ).run(
     taskId,
     task,
     task,
     location,
     budgetUsd,
+    quoteCurrency,
+    quoteAmountMinor,
     originCountry,
     taskLabel,
     acceptanceCriteria,

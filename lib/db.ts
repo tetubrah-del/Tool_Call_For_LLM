@@ -200,6 +200,8 @@ async function initPostgres() {
       task_en TEXT,
       location TEXT,
       budget_usd DOUBLE PRECISION NOT NULL,
+      quote_currency TEXT,
+      quote_amount_minor INTEGER,
       origin_country TEXT,
       task_label TEXT,
       acceptance_criteria TEXT,
@@ -548,6 +550,8 @@ async function initPostgres() {
     `ALTER TABLE ai_accounts ADD COLUMN IF NOT EXISTS api_burst_per_minute INTEGER`,
     `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS deleted_at TEXT`,
     `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS task_en TEXT`,
+    `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS quote_currency TEXT`,
+    `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS quote_amount_minor INTEGER`,
     `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS origin_country TEXT`,
     `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS task_label TEXT`,
     `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS acceptance_criteria TEXT`,
@@ -884,6 +888,8 @@ async function initSqlite() {
       task_en TEXT,
       location TEXT,
       budget_usd REAL NOT NULL,
+      quote_currency TEXT,
+      quote_amount_minor INTEGER,
       origin_country TEXT,
       task_label TEXT,
       acceptance_criteria TEXT,
@@ -1220,6 +1226,8 @@ async function initSqlite() {
   `);
 
   ensureSqliteColumn(db, "tasks", "task_en", "TEXT");
+  ensureSqliteColumn(db, "tasks", "quote_currency", "TEXT");
+  ensureSqliteColumn(db, "tasks", "quote_amount_minor", "INTEGER");
   ensureSqliteColumn(db, "tasks", "origin_country", "TEXT");
   ensureSqliteColumn(db, "tasks", "task_label", "TEXT");
   ensureSqliteColumn(db, "tasks", "acceptance_criteria", "TEXT");
@@ -1583,6 +1591,8 @@ export type Task = {
   task_en: string | null;
   location: string | null;
   budget_usd: number;
+  quote_currency: "usd" | "jpy" | null;
+  quote_amount_minor: number | null;
   origin_country: string | null;
   task_label: TaskLabel | null;
   acceptance_criteria: string | null;

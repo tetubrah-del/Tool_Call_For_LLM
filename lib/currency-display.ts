@@ -1,9 +1,17 @@
 export type DisplayCurrency = "USD" | "JPY";
+export type CurrencyCodeLower = "usd" | "jpy";
 
 function usdToJpyRate() {
   const raw = Number(process.env.NEXT_PUBLIC_USD_TO_JPY_RATE || "150");
   if (!Number.isFinite(raw) || raw <= 0) return 150;
   return raw;
+}
+
+export function normalizeCurrencyCode(value: unknown): CurrencyCodeLower | null {
+  if (typeof value !== "string") return null;
+  const v = value.trim().toLowerCase();
+  if (v === "usd" || v === "jpy") return v;
+  return null;
 }
 
 export function chooseDisplayCurrency(
@@ -38,3 +46,27 @@ export function formatUsdForDisplay(
   }).format(value);
 }
 
+export function usdToMinor(amountUsd: number, currency: CurrencyCodeLower): number {
+  const safe = Number(amountUsd || 0);
+  if (!Number.isFinite(safe) || safe < 0) return 0;
+  if (currency === "jpy") {
+    return Math.round(safe * usdToJpyRate());
+  }
+  return Math.round(safe * 100);
+}
+
+export function minorToUsd(amountMinor: number, currency: CurrencyCodeLower): number {
+  const safe = Number(amountMinor || 0);
+  if (!Number.isFinite(safe) || safe < 0) return 0;
+  if (currency === "jpy") {
+    return Number((safe / usdToJpyRate()).toFixed(2));
+  }
+  return Number((safe / 100).toFixed(2));
+}
+
+export function minorToDisplayAmount(amountMinor: number, currency: CurrencyCodeLower): number {
+  const safe = Number(amountMinor || 0);
+  if (!Number.isFinite(safe) || safe < 0) return 0;
+  if (currency === "jpy") return Math.round(safe);
+  return Number((safe / 100).toFixed(2));
+}
