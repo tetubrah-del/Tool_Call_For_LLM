@@ -25,6 +25,8 @@ export type NormalizedTask = {
   deliverable: "photo" | "video" | "text";
   deadline_at: string | null;
   review_pending_deadline_at: string | null;
+  completed_at: string | null;
+  review_deadline_at: string | null;
   status: "open" | "accepted" | "review_pending" | "completed" | "failed";
   failure_reason: FailureReason | null;
   human_id: string | null;
@@ -227,6 +229,8 @@ export async function getNormalizedTask(
     deliverable: normalizedDeliverable,
     deadline_at: deadlineAt,
     review_pending_deadline_at: finalTask.review_pending_deadline_at ?? null,
+    completed_at: finalTask.completed_at ?? null,
+    review_deadline_at: finalTask.review_deadline_at ?? null,
     status: finalTask.status,
     failure_reason: failureReason,
     human_id: finalTask.human_id,
