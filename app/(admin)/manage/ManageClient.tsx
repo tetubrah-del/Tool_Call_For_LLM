@@ -374,7 +374,7 @@ export default function ManageClient() {
             <div key={h.id} className="card">
               <p><strong>{h.name}</strong></p>
               <p className="muted">
-                {h.email || "-"} | {h.country || "-"} | {h.location || "-"} | {h.status}
+                {h.email || "-"} | {h.country || "-"} | {h.location || "-"}
                 {h.is_provisional ? " (OAuthのみ)" : ""}
               </p>
               {!h.is_provisional && (
