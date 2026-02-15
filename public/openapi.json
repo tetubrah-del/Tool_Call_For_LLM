@@ -511,6 +511,66 @@
         }
       }
     },
+    "/api/me/notifications": {
+      "get": {
+        "summary": "Get human notification settings",
+        "responses": {
+          "200": {
+            "description": "Notification settings",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/GetNotificationSettingsResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update human notification settings",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/NotificationSettingsPatchPayload" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Notification settings updated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/UpdateNotificationSettingsResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/ai/reviews/summary": {
       "get": {
         "summary": "Get AI account review summary",
@@ -999,6 +1059,50 @@
               }
             }
           }
+        }
+      },
+      "NotificationSettings": {
+        "type": "object",
+        "required": [
+          "human_id",
+          "email_enabled",
+          "notify_task_accepted",
+          "notify_ai_message",
+          "quiet_hours_start",
+          "quiet_hours_end",
+          "timezone"
+        ],
+        "properties": {
+          "human_id": { "type": "string" },
+          "email_enabled": { "type": "boolean" },
+          "notify_task_accepted": { "type": "boolean" },
+          "notify_ai_message": { "type": "boolean" },
+          "quiet_hours_start": { "type": ["string", "null"] },
+          "quiet_hours_end": { "type": ["string", "null"] },
+          "timezone": { "type": ["string", "null"] }
+        }
+      },
+      "GetNotificationSettingsResponse": {
+        "type": "object",
+        "required": ["settings"],
+        "properties": {
+          "settings": { "$ref": "#/components/schemas/NotificationSettings" }
+        }
+      },
+      "NotificationSettingsPatchPayload": {
+        "type": "object",
+        "properties": {
+          "email_enabled": { "type": "boolean" },
+          "notify_task_accepted": { "type": "boolean" },
+          "notify_ai_message": { "type": "boolean" }
+        }
+      },
+      "UpdateNotificationSettingsResponse": {
+        "type": "object",
+        "required": ["status", "settings"],
+        "properties": {
+          "status": { "type": "string", "enum": ["updated"] },
+          "settings": { "$ref": "#/components/schemas/NotificationSettings" }
         }
       },
       "AiReviewSummaryResponse": {

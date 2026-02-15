@@ -8,6 +8,7 @@ import {
 } from "@/lib/human-api-auth";
 import { authenticateAiApiRequest, applyAiRateLimitHeaders, type AiAuthSuccess } from "@/lib/ai-api-auth";
 import { saveUpload } from "@/lib/storage";
+import { queueAiMessageHumanNotification } from "@/lib/notifications";
 import { resolveActorFromRequest } from "../_auth";
 
 function normalizeMessageBody(value: unknown): string {
@@ -266,6 +267,14 @@ export async function POST(
     readByAi,
     readByHuman
   );
+  if (actor.role === "ai" && task.human_id) {
+    void queueAiMessageHumanNotification(db, {
+      taskId: task.id,
+      humanId: task.human_id,
+      messageId: id,
+      messageBody: payload.body
+    }).catch(() => {});
+  }
 
   const response = NextResponse.json({
     status: "stored",
