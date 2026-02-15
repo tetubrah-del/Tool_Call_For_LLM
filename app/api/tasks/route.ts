@@ -8,7 +8,14 @@ import { normalizeTaskLabel } from "@/lib/task-labels";
 import { finishIdempotency, startIdempotency } from "@/lib/idempotency";
 import { applyAiRateLimitHeaders, authenticateAiApiRequest, type AiAuthSuccess } from "@/lib/ai-api-auth";
 import { getRequestCountry } from "@/lib/request-country";
-import { chooseDisplayCurrency, fromUsdForDisplay } from "@/lib/currency-display";
+import {
+  chooseDisplayCurrency,
+  fromUsdForDisplay,
+  minorToUsd,
+  minorToDisplayAmount,
+  normalizeCurrencyCode,
+  usdToMinor
+} from "@/lib/currency-display";
 
 export async function GET(request: Request) {
   const db = getDb();
@@ -20,6 +27,15 @@ export async function GET(request: Request) {
   const keyword = (url.searchParams.get("q") || "").trim().toLowerCase();
   const filterTaskLabel = normalizeTaskLabel(url.searchParams.get("task_label"));
   const withDisplayAmount = (task: any) => {
+    const quoteCurrency = normalizeCurrencyCode(task?.quote_currency);
+    const quoteAmountMinor = Number(task?.quote_amount_minor);
+    if (quoteCurrency && Number.isInteger(quoteAmountMinor) && quoteAmountMinor >= 0) {
+      return {
+        ...task,
+        display_currency: quoteCurrency,
+        display_amount: minorToDisplayAmount(quoteAmountMinor, quoteCurrency)
+      };
+    }
     const displayCurrency = chooseDisplayCurrency(task?.origin_country || null, requestCountry);
     return {
       ...task,
@@ -165,8 +181,21 @@ export async function POST(request: Request) {
   const idemKey = request.headers.get("Idempotency-Key")?.trim() || null;
   const payload = await request.json();
   const task = typeof payload?.task === "string" ? payload.task.trim() : "";
-  const budgetUsd = Number(payload?.budget_usd);
+  const budgetUsdRaw = Number(payload?.budget_usd);
+  const currencyInput = normalizeCurrencyCode(payload?.currency);
+  const amountMinorInput = payload?.amount_minor;
+  const amountMinor =
+    amountMinorInput == null || amountMinorInput === "" ? null : Number(amountMinorInput);
   const originCountry = normalizeCountry(payload?.origin_country);
+  const quoteCurrency = currencyInput || (originCountry === "JP" ? "jpy" : "usd");
+  const budgetUsd =
+    amountMinor != null && Number.isInteger(amountMinor) && amountMinor >= 0
+      ? minorToUsd(amountMinor, quoteCurrency)
+      : budgetUsdRaw;
+  const quoteAmountMinor =
+    amountMinor != null && Number.isInteger(amountMinor) && amountMinor >= 0
+      ? amountMinor
+      : usdToMinor(budgetUsd, quoteCurrency);
   const taskLabel = normalizeTaskLabel(payload?.task_label);
   const aiAccountId =
     typeof payload?.ai_account_id === "string" ? payload.ai_account_id.trim() : "";
@@ -214,6 +243,9 @@ export async function POST(request: Request) {
 
   if (!task || !Number.isFinite(budgetUsd)) {
     return respond({ status: "error" }, 400);
+  }
+  if (amountMinor != null && (!Number.isInteger(amountMinor) || amountMinor < 0)) {
+    return respond({ status: "error", reason: "invalid_request" }, 400);
   }
   if (!originCountry) {
     return respond({ status: "error", reason: "missing_origin_country" }, 400);
@@ -265,14 +297,16 @@ export async function POST(request: Request) {
       : null;
 
   await db.prepare(
-    `INSERT INTO tasks (id, task, task_en, location, budget_usd, origin_country, task_label, acceptance_criteria, not_allowed, ai_account_id, payer_paypal_email, payee_paypal_email, deliverable, deadline_minutes, deadline_at, status, failure_reason, human_id, submission_id, paid_status, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, 'open', NULL, NULL, NULL, 'pending', ?)`
+    `INSERT INTO tasks (id, task, task_en, location, budget_usd, quote_currency, quote_amount_minor, origin_country, task_label, acceptance_criteria, not_allowed, ai_account_id, payer_paypal_email, payee_paypal_email, deliverable, deadline_minutes, deadline_at, status, failure_reason, human_id, submission_id, paid_status, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, 'open', NULL, NULL, NULL, 'pending', ?)`
   ).run(
     id,
     task,
     task,
     location,
     budgetUsd,
+    quoteCurrency,
+    quoteAmountMinor,
     originCountry,
     taskLabel,
     acceptanceCriteria,

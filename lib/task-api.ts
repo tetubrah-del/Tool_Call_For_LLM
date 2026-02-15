@@ -15,6 +15,8 @@ export type NormalizedTask = {
   lang: UiLang;
   location: string | null;
   budget_usd: number;
+  quote_currency: "usd" | "jpy" | null;
+  quote_amount_minor: number | null;
   origin_country: string | null;
   task_label: TaskLabel | null;
   acceptance_criteria: string | null;
@@ -219,6 +221,8 @@ export async function getNormalizedTask(
     lang,
     location: finalTask.location,
     budget_usd: finalTask.budget_usd,
+    quote_currency: finalTask.quote_currency ?? null,
+    quote_amount_minor: finalTask.quote_amount_minor ?? null,
     origin_country: finalTask.origin_country ?? null,
     task_label: normalizeTaskLabel(finalTask.task_label),
     acceptance_criteria: finalTask.acceptance_criteria ?? null,

@@ -3,7 +3,12 @@ import { getDb } from "@/lib/db";
 import { getNormalizedTask } from "@/lib/task-api";
 import { OPERATOR_COUNTRY } from "@/lib/payments";
 import { getRequestCountry } from "@/lib/request-country";
-import { chooseDisplayCurrency, fromUsdForDisplay } from "@/lib/currency-display";
+import {
+  chooseDisplayCurrency,
+  fromUsdForDisplay,
+  minorToDisplayAmount,
+  normalizeCurrencyCode
+} from "@/lib/currency-display";
 
 export async function GET(
   request: Request,
@@ -18,7 +23,16 @@ export async function GET(
   if (!task) {
     return NextResponse.json({ status: "not_found" }, { status: 404 });
   }
-  const displayCurrency = chooseDisplayCurrency(task.origin_country, requestCountry);
+  const quoteCurrency = normalizeCurrencyCode(task.quote_currency);
+  const quoteAmountMinor = Number(task.quote_amount_minor);
+  const displayCurrency = quoteCurrency || chooseDisplayCurrency(task.origin_country, requestCountry).toLowerCase();
+  const displayAmount =
+    quoteCurrency && Number.isInteger(quoteAmountMinor) && quoteAmountMinor >= 0
+      ? minorToDisplayAmount(quoteAmountMinor, quoteCurrency)
+      : fromUsdForDisplay(
+          Number(task.budget_usd || 0),
+          displayCurrency === "jpy" ? "JPY" : "USD"
+        );
   let isInternationalPayout = false;
   if (humanId) {
     const human = await db
@@ -32,8 +46,8 @@ export async function GET(
     task: {
       ...task,
       is_international_payout: isInternationalPayout,
-      display_currency: displayCurrency.toLowerCase(),
-      display_amount: fromUsdForDisplay(Number(task.budget_usd || 0), displayCurrency)
+      display_currency: displayCurrency,
+      display_amount: displayAmount
     },
     request_country: requestCountry
   });
