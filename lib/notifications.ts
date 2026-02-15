@@ -12,6 +12,7 @@ type HumanRow = {
   id: string;
   name: string | null;
   email: string | null;
+  country?: string | null;
 };
 
 type TaskRow = {
@@ -29,6 +30,10 @@ function baseUrl() {
 
 function nowIso() {
   return new Date().toISOString();
+}
+
+function isJapaneseCountry(country: string | null | undefined) {
+  return (country || "").trim().toUpperCase() === "JP";
 }
 
 async function ensureNotificationSettings(db: DbClient, humanId: string) {
@@ -125,16 +130,29 @@ export async function queueTaskAcceptedHumanNotification(
     .prepare(`SELECT id, task, task_en FROM tasks WHERE id = ? AND deleted_at IS NULL`)
     .get<TaskRow>(params.taskId);
   if (!task?.id) return;
+  const human = await db
+    .prepare(`SELECT id, country FROM humans WHERE id = ? AND deleted_at IS NULL`)
+    .get<HumanRow>(params.humanId);
+  const useJa = isJapaneseCountry(human?.country);
 
   const title = (task.task_en || task.task || "").trim();
   const taskUrl = `${baseUrl()}/tasks/${encodeURIComponent(task.id)}`;
-  const subject = `[Sinkai] Task accepted: ${title || task.id}`;
-  const bodyText = [
-    "Your application was accepted.",
-    "",
-    `Task: ${title || task.id}`,
-    `Task URL: ${taskUrl}`
-  ].join("\n");
+  const subject = useJa
+    ? `[Sinkai] 応募が受諾されました: ${title || task.id}`
+    : `[Sinkai] Task accepted: ${title || task.id}`;
+  const bodyText = useJa
+    ? [
+        "応募したタスクが受諾されました。",
+        "",
+        `タスク: ${title || task.id}`,
+        `タスクURL: ${taskUrl}`
+      ].join("\n")
+    : [
+        "Your application was accepted.",
+        "",
+        `Task: ${title || task.id}`,
+        `Task URL: ${taskUrl}`
+      ].join("\n");
 
   await enqueueEmailDelivery(db, {
     eventType: "task.accepted.human",
@@ -168,18 +186,34 @@ export async function queueAiMessageHumanNotification(
     .prepare(`SELECT id, task, task_en FROM tasks WHERE id = ? AND deleted_at IS NULL`)
     .get<TaskRow>(params.taskId);
   if (!task?.id) return;
+  const human = await db
+    .prepare(`SELECT id, country FROM humans WHERE id = ? AND deleted_at IS NULL`)
+    .get<HumanRow>(params.humanId);
+  const useJa = isJapaneseCountry(human?.country);
 
   const title = (task.task_en || task.task || "").trim();
   const messageUrl = `${baseUrl()}/me?tab=messages&task_id=${encodeURIComponent(task.id)}`;
   const excerpt = (params.messageBody || "").trim().slice(0, 160);
-  const subject = `[Sinkai] New AI message: ${title || task.id}`;
-  const bodyText = [
-    "You received a new message from AI.",
-    "",
-    `Task: ${title || task.id}`,
-    excerpt ? `Message: ${excerpt}` : null,
-    `Open messages: ${messageUrl}`
-  ]
+  const subject = useJa
+    ? `[Sinkai] AIから新しいメッセージ: ${title || task.id}`
+    : `[Sinkai] New AI message: ${title || task.id}`;
+  const bodyText = (
+    useJa
+      ? [
+          "AIから新しいメッセージを受信しました。",
+          "",
+          `タスク: ${title || task.id}`,
+          excerpt ? `メッセージ: ${excerpt}` : null,
+          `メッセージを開く: ${messageUrl}`
+        ]
+      : [
+          "You received a new message from AI.",
+          "",
+          `Task: ${title || task.id}`,
+          excerpt ? `Message: ${excerpt}` : null,
+          `Open messages: ${messageUrl}`
+        ]
+  )
     .filter(Boolean)
     .join("\n");
 
