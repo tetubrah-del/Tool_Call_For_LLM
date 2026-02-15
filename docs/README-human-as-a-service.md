@@ -267,6 +267,12 @@ Deliverables are returned in `submission` via `GET /api/tasks/:taskId`.
 - Tasks are fulfilled on a `best effort` basis.
 - No delivery-time/SLA guarantee is provided in MVP.
 
+## Assignment concurrency
+
+- Human workers can accept multiple tasks concurrently.
+- Matching does not use `humans.status` (`available`/`busy`) as an assignment gate.
+- `no_human_available` is returned only when no eligible human exists after non-status filters (for example `deleted_at`, optional location match).
+
 ## Payment lifecycle (MVP)
 
 - Default payout status is `pending`.

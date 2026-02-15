@@ -116,10 +116,6 @@ export async function DELETE(request: Request) {
   }
 
   const now = new Date().toISOString();
-  if (task.status === "accepted" && task.human_id) {
-    await db.prepare(`UPDATE humans SET status = 'available' WHERE id = ?`).run(task.human_id);
-  }
-
   // Hide it from normal flows and prevent stuck channels.
   await db
     .prepare(

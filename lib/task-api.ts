@@ -128,11 +128,6 @@ async function applyTimeoutIfNeeded(
   await db.prepare(
     `UPDATE tasks SET status = 'failed', failure_reason = 'timeout', deadline_at = ? WHERE id = ?`
   ).run(deadlineAt, task.id);
-  if (task.human_id) {
-    await db.prepare(`UPDATE humans SET status = 'available' WHERE id = ?`).run(
-      task.human_id
-    );
-  }
   await closeContactChannel(db, task.id);
 
   const updated: Task = {

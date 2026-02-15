@@ -42,7 +42,6 @@ export async function POST(
   await db.prepare(`UPDATE tasks SET status = 'open', human_id = NULL, payee_paypal_email = NULL WHERE id = ?`).run(
     params.taskId
   );
-  await db.prepare(`UPDATE humans SET status = 'available' WHERE id = ?`).run(humanId);
   await closeContactChannel(db, params.taskId);
 
   return NextResponse.json({ status: "skipped", task_id: params.taskId });

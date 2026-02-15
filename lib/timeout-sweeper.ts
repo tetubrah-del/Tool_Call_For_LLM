@@ -91,11 +91,6 @@ async function sweepTimeouts(db: DbClient) {
        WHERE id = ?`
     ).run(deadlineAt, task.id);
 
-    if (task.human_id) {
-      await db.prepare(`UPDATE humans SET status = 'available' WHERE id = ?`).run(
-        task.human_id
-      );
-    }
     await closeContactChannel(db, task.id);
     void dispatchTaskEvent(db, { eventType: "task.failed", taskId: task.id }).catch(() => {});
   }
