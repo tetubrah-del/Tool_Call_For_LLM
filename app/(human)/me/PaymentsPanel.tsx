@@ -4,6 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type { UiLang } from "@/lib/i18n";
 import { UI_STRINGS } from "@/lib/i18n";
+import {
+  chooseDisplayCurrency,
+  formatUsdForDisplay,
+  type DisplayCurrency
+} from "@/lib/currency-display";
 
 type PaymentStatus = "pending" | "approved" | "paid" | "failed";
 
@@ -50,6 +55,8 @@ type PaymentItem = {
 };
 
 type PaymentResponse = {
+  human_country?: string | null;
+  request_country?: string | null;
   summary: {
     pending_total: number;
     approved_total: number;
@@ -57,10 +64,6 @@ type PaymentResponse = {
   };
   payments: PaymentItem[];
 };
-
-function formatUsd(amount: number) {
-  return `$${Number(amount || 0).toFixed(2)}`;
-}
 
 function formatDate(value: string | null) {
   if (!value) return "-";
@@ -80,6 +83,8 @@ export default function PaymentsPanel({ lang }: { lang: UiLang }) {
   const [stripeReady, setStripeReady] = useState<boolean>(false);
   const [stripeReason, setStripeReason] = useState<string | null>(null);
   const [stripeStarting, setStripeStarting] = useState(false);
+  const [humanCountry, setHumanCountry] = useState<string | null>(null);
+  const [requestCountry, setRequestCountry] = useState<string | null>(null);
   const [summary, setSummary] = useState({
     pending_total: 0,
     approved_total: 0,
@@ -87,6 +92,13 @@ export default function PaymentsPanel({ lang }: { lang: UiLang }) {
   });
   const [payments, setPayments] = useState<PaymentItem[]>([]);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const displayCurrency: DisplayCurrency = useMemo(
+    () => chooseDisplayCurrency(humanCountry, requestCountry),
+    [humanCountry, requestCountry]
+  );
+  const locale = lang === "ja" ? "ja-JP" : "en-US";
+  const formatDisplayMoney = (amount: number) =>
+    formatUsdForDisplay(amount, displayCurrency, locale);
 
   useEffect(() => {
     let alive = true;
@@ -100,6 +112,14 @@ export default function PaymentsPanel({ lang }: { lang: UiLang }) {
         }
         const data = (await res.json()) as PaymentResponse;
         if (!alive) return;
+        setHumanCountry(
+          typeof data.human_country === "string" ? data.human_country.trim().toUpperCase() : null
+        );
+        setRequestCountry(
+          typeof data.request_country === "string"
+            ? data.request_country.trim().toUpperCase()
+            : null
+        );
         setSummary(data.summary || { pending_total: 0, approved_total: 0, paid_total: 0 });
         setPayments(data.payments || []);
       } catch {
@@ -226,15 +246,15 @@ export default function PaymentsPanel({ lang }: { lang: UiLang }) {
 
       <div className="payments-summary-grid">
         <div className="stat-card">
-          <div className="stat-value">{formatUsd(summary.pending_total)}</div>
+          <div className="stat-value">{formatDisplayMoney(summary.pending_total)}</div>
           <div className="stat-label">{strings.paymentsSummaryPending}</div>
         </div>
         <div className="stat-card">
-          <div className="stat-value">{formatUsd(summary.approved_total)}</div>
+          <div className="stat-value">{formatDisplayMoney(summary.approved_total)}</div>
           <div className="stat-label">{strings.paymentsSummaryApproved}</div>
         </div>
         <div className="stat-card">
-          <div className="stat-value">{formatUsd(summary.paid_total)}</div>
+          <div className="stat-value">{formatDisplayMoney(summary.paid_total)}</div>
           <div className="stat-label">{strings.paymentsSummaryPaid}</div>
         </div>
       </div>
@@ -264,10 +284,10 @@ export default function PaymentsPanel({ lang }: { lang: UiLang }) {
                 {payments.map((item) => (
                   <tr key={item.task_id}>
                     <td>{item.task}</td>
-                    <td>{formatUsd(item.gross_amount)}</td>
-                    <td>{formatUsd(item.platform_fee)}</td>
-                    <td>{formatUsd(item.paypal_fee)}</td>
-                    <td className="payments-net">{formatUsd(item.net_amount)}</td>
+                    <td>{formatDisplayMoney(item.gross_amount)}</td>
+                    <td>{formatDisplayMoney(item.platform_fee)}</td>
+                    <td>{formatDisplayMoney(item.paypal_fee)}</td>
+                    <td className="payments-net">{formatDisplayMoney(item.net_amount)}</td>
                     <td>
                       <span className={`payment-chip payment-chip-${item.status}`}>
                         {statusLabel(item.status)}
@@ -305,10 +325,10 @@ export default function PaymentsPanel({ lang }: { lang: UiLang }) {
           </div>
           <p className="muted">{selected.task}</p>
           <p className="muted">
-            {strings.paymentsTableGross}: {formatUsd(selected.gross_amount)} |{" "}
-            {strings.paymentsTableFee}: {formatUsd(selected.platform_fee)} |{" "}
-            {strings.paymentsTablePaypalFee}: {formatUsd(selected.paypal_fee)} |{" "}
-            {strings.paymentsTableNet}: {formatUsd(selected.net_amount)}
+            {strings.paymentsTableGross}: {formatDisplayMoney(selected.gross_amount)} |{" "}
+            {strings.paymentsTableFee}: {formatDisplayMoney(selected.platform_fee)} |{" "}
+            {strings.paymentsTablePaypalFee}: {formatDisplayMoney(selected.paypal_fee)} |{" "}
+            {strings.paymentsTableNet}: {formatDisplayMoney(selected.net_amount)}
           </p>
           <p className="muted">
             {strings.paymentsTableStatus}: {statusLabel(selected.status)} |{" "}

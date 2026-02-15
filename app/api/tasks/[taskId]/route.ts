@@ -2,12 +2,14 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { getNormalizedTask } from "@/lib/task-api";
 import { OPERATOR_COUNTRY } from "@/lib/payments";
+import { getRequestCountry } from "@/lib/request-country";
 
 export async function GET(
   request: Request,
   { params }: { params: { taskId: string } }
 ) {
   const db = getDb();
+  const requestCountry = getRequestCountry(request);
   const url = new URL(request.url);
   const lang = url.searchParams.get("lang");
   const humanId = url.searchParams.get("human_id");
@@ -25,6 +27,7 @@ export async function GET(
     }
   }
   return NextResponse.json({
-    task: { ...task, is_international_payout: isInternationalPayout }
+    task: { ...task, is_international_payout: isInternationalPayout },
+    request_country: requestCountry
   });
 }

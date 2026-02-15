@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { normalizeLang, UI_STRINGS, type UiLang } from "@/lib/i18n";
 import { calculateFeeAmount } from "@/lib/payments";
+import { chooseDisplayCurrency, formatUsdForDisplay } from "@/lib/currency-display";
 import {
   TASK_LABELS,
   TASK_LABEL_TEXT,
@@ -49,6 +50,8 @@ export default function TasksClient() {
   const [maxBudget, setMaxBudget] = useState("");
   const [loading, setLoading] = useState(false);
   const [profileLoading, setProfileLoading] = useState(true);
+  const [profileCountry, setProfileCountry] = useState<string | null>(null);
+  const [requestCountry, setRequestCountry] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const strings = UI_STRINGS[lang];
@@ -60,6 +63,11 @@ export default function TasksClient() {
     completed: strings.statusCompleted,
     failed: strings.statusFailed
   };
+  const displayCurrency = useMemo(
+    () => chooseDisplayCurrency(profileCountry, requestCountry),
+    [profileCountry, requestCountry]
+  );
+  const locale = lang === "ja" ? "ja-JP" : "en-US";
 
   const originCountryOptions = useMemo(() => {
     const set = new Set<string>();
@@ -140,6 +148,9 @@ export default function TasksClient() {
 
         const data = await res.json();
         setTasks(data.tasks || []);
+        if (typeof data.request_country === "string") {
+          setRequestCountry(data.request_country.trim().toUpperCase());
+        }
       } catch (err: any) {
         setError(err.message || "failed");
       } finally {
@@ -175,6 +186,12 @@ export default function TasksClient() {
         if (!cancelled && data.profile?.id) {
           setHumanId(data.profile.id);
           localStorage.setItem("human_id", data.profile.id);
+          if (typeof data.profile.country === "string") {
+            setProfileCountry(data.profile.country.trim().toUpperCase());
+          }
+          if (typeof data.request_country === "string") {
+            setRequestCountry(data.request_country.trim().toUpperCase());
+          }
         }
       } finally {
         if (!cancelled) {
@@ -414,11 +431,11 @@ export default function TasksClient() {
 
               <aside className="task-price">
                 <div className="task-price-amount">
-                  ${netPayout}
+                  {formatUsdForDisplay(netPayout, displayCurrency, locale)}
                 </div>
                 <div className="task-price-sub">{strings.payout}</div>
                 <div className="task-price-raw muted">
-                  ${task.budget_usd} gross
+                  {formatUsdForDisplay(task.budget_usd, displayCurrency, locale)} gross
                 </div>
               </aside>
             </div>

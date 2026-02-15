@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { authenticateHumanRequest, finalizeHumanAuthResponse } from "@/lib/human-api-auth";
 import { calculatePayout, normalizePaymentStatus } from "@/lib/payments";
+import { getRequestCountry } from "@/lib/request-country";
 
 type PaymentRow = {
   id: string;
@@ -21,6 +22,7 @@ type PaymentRow = {
 export async function GET(request: Request) {
   const auth = await authenticateHumanRequest(request, "payments:read");
   if (auth.ok === false) return auth.response;
+  const requestCountry = getRequestCountry(request);
 
   let response: NextResponse;
   try {
@@ -28,6 +30,8 @@ export async function GET(request: Request) {
     if (!humanId) {
       response = NextResponse.json({
         human_id: null,
+        human_country: null,
+        request_country: requestCountry,
         summary: { pending_total: 0, approved_total: 0, paid_total: 0 },
         payments: []
       });
@@ -35,6 +39,9 @@ export async function GET(request: Request) {
     }
 
     const db = getDb();
+    const human = await db
+      .prepare(`SELECT country FROM humans WHERE id = ? AND deleted_at IS NULL`)
+      .get<{ country: string | null }>(humanId);
     const rows = await db
       .prepare(
         `SELECT
@@ -93,6 +100,8 @@ export async function GET(request: Request) {
 
     response = NextResponse.json({
       human_id: humanId,
+      human_country: human?.country || null,
+      request_country: requestCountry,
       summary: {
         pending_total: Number(pendingTotal.toFixed(2)),
         approved_total: Number(approvedTotal.toFixed(2)),

@@ -7,10 +7,12 @@ import { normalizeCountry } from "@/lib/country";
 import { normalizeTaskLabel } from "@/lib/task-labels";
 import { finishIdempotency, startIdempotency } from "@/lib/idempotency";
 import { applyAiRateLimitHeaders, authenticateAiApiRequest, type AiAuthSuccess } from "@/lib/ai-api-auth";
+import { getRequestCountry } from "@/lib/request-country";
 
 export async function GET(request: Request) {
   const db = getDb();
   const url = new URL(request.url);
+  const requestCountry = getRequestCountry(request);
   const taskId = url.searchParams.get("task_id");
   const humanId = url.searchParams.get("human_id");
   const lang = url.searchParams.get("lang");
@@ -22,7 +24,7 @@ export async function GET(request: Request) {
     if (!task) {
       return NextResponse.json({ status: "not_found" }, { status: 404 });
     }
-    return NextResponse.json({ task });
+    return NextResponse.json({ task, request_country: requestCountry });
   }
 
   if (humanId) {
@@ -107,7 +109,7 @@ export async function GET(request: Request) {
             return source.includes(keyword);
           });
 
-    return NextResponse.json({ tasks: filteredByKeyword });
+    return NextResponse.json({ tasks: filteredByKeyword, request_country: requestCountry });
   }
 
   const where: string[] = [];
@@ -147,7 +149,7 @@ export async function GET(request: Request) {
           const source = `${task.task_display || task.task || ""}`.toLowerCase();
           return source.includes(keyword);
         });
-  return NextResponse.json({ tasks: filteredByKeyword });
+  return NextResponse.json({ tasks: filteredByKeyword, request_country: requestCountry });
 }
 
 export async function POST(request: Request) {
