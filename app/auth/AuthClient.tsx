@@ -1,7 +1,7 @@
 "use client";
 
 import { signIn, signOut, useSession } from "next-auth/react";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { normalizeLang, UI_STRINGS } from "@/lib/i18n";
 
@@ -12,14 +12,42 @@ export default function AuthClient() {
   const { data: session, status } = useSession();
 
   const callbackUrl = useMemo(() => {
-    const requested = (searchParams.get("next") || "").trim();
-    if (requested.startsWith("/") && !requested.startsWith("//")) {
-      return requested;
+    const nextRequested = (searchParams.get("next") || "").trim();
+    if (nextRequested.startsWith("/") && !nextRequested.startsWith("//")) {
+      return nextRequested;
     }
+
+    const callbackRequested = (searchParams.get("callbackUrl") || "").trim();
+    if (callbackRequested) {
+      if (callbackRequested.startsWith("/") && !callbackRequested.startsWith("//")) {
+        return callbackRequested;
+      }
+      try {
+        const parsed = new URL(callbackRequested);
+        if (parsed.pathname.startsWith("/")) {
+          return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+        }
+      } catch {
+        // Ignore invalid callbackUrl and fall back.
+      }
+    }
+
     const params = new URLSearchParams();
     params.set("lang", lang);
     return `/register?${params.toString()}`;
   }, [lang, searchParams]);
+  const hasExplicitTarget = useMemo(() => {
+    const nextRequested = (searchParams.get("next") || "").trim();
+    if (nextRequested.startsWith("/") && !nextRequested.startsWith("//")) return true;
+    const callbackRequested = (searchParams.get("callbackUrl") || "").trim();
+    return Boolean(callbackRequested);
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (status === "authenticated" && session && hasExplicitTarget) {
+      window.location.assign(callbackUrl);
+    }
+  }, [status, session, hasExplicitTarget, callbackUrl]);
 
   return (
     <div className="auth">
