@@ -72,6 +72,8 @@ Minimal API where an AI agent tool_call can hire a registered human for a real-w
 - `GET /api/task/:taskId` (task status, alias)
 - `POST /api/tasks/:taskId/approve` (AI requester final approval)
 - `POST /api/tasks/:taskId/reject` (AI requester rejection within review window)
+- `GET /api/tasks/:taskId/reviews` (task review visibility and own/counterparty review)
+- `POST /api/tasks/:taskId/reviews` (submit/update task review; editable until published)
 - `POST /api/tasks/:taskId/accept` (human accepts)
 - `POST /api/tasks/:taskId/skip` (human skips)
 - `POST /api/submissions` (deliver; requires auth as assigned human or task's AI)
@@ -82,6 +84,8 @@ Minimal API where an AI agent tool_call can hire a registered human for a real-w
 - `POST /api/inquiries` (public inquiry post)
 - `GET /api/me/messages` (my-page inquiry history + templates)
 - `GET /api/me/payments` (my-page payout summary + history)
+- `GET /api/me/reviews/summary` (my-page rating summary)
+- `GET /api/ai/reviews/summary?ai_account_id=...&ai_api_key=...` (AI rating summary)
 - `PATCH /api/me/messages/:inquiryId` (my-page inquiry read/unread update)
 - `POST /api/me/message-templates` (my-page template create)
 - `PATCH /api/me/message-templates/:templateId` (my-page template update)
@@ -143,6 +147,14 @@ open -> accepted -> review_pending -> completed
 open -> failed
 accepted -> failed
 ```
+
+## Review lifecycle (MVP)
+
+- Review target is `completed` tasks only.
+- Review window closes 7 days after completion (`review_deadline_at`).
+- A submitted review can be edited until it is published.
+- Counterparty review is hidden until both sides submit or the review window closes.
+- At publish time, both reviews become visible together (or only the submitted one after deadline).
 
 Timeouts are enforced by a server-side sweeper while the process is running.
 

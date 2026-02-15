@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
+import { computeReviewDeadlineAt } from "@/lib/task-reviews";
 import { dispatchTaskEvent } from "@/lib/webhooks";
 import { verifyAiActorDetailed } from "../contact/_auth";
 
@@ -95,9 +96,17 @@ export async function POST(
     );
   }
 
+  const now = new Date().toISOString();
   await db
-    .prepare(`UPDATE tasks SET status = 'completed', review_pending_deadline_at = NULL WHERE id = ?`)
-    .run(task.id);
+    .prepare(
+      `UPDATE tasks
+       SET status = 'completed',
+           review_pending_deadline_at = NULL,
+           completed_at = ?,
+           review_deadline_at = ?
+       WHERE id = ?`
+    )
+    .run(now, computeReviewDeadlineAt(now), task.id);
   void dispatchTaskEvent(db, { eventType: "task.completed", taskId: task.id }).catch(() => {});
 
   return NextResponse.json({ status: "completed", task_id: task.id });

@@ -22,6 +22,10 @@ export default function MyPageClient() {
     return "profile";
   }, [searchParams]);
   const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
+  const [reviewSummary, setReviewSummary] = useState<{ avg: number | null; count: number }>({
+    avg: null,
+    count: 0
+  });
   const formId = "profile-form";
 
   const tabs: Array<{ key: TabKey; label: string }> = [
@@ -35,6 +39,29 @@ export default function MyPageClient() {
     setActiveTab(initialTab);
   }, [initialTab]);
 
+  useEffect(() => {
+    let cancelled = false;
+    async function loadReviewSummary() {
+      try {
+        const res = await fetch("/api/me/reviews/summary");
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || cancelled) return;
+        const avg = Number(data?.avg_rating);
+        const count = Number(data?.review_count ?? 0);
+        setReviewSummary({
+          avg: Number.isFinite(avg) ? avg : null,
+          count: Number.isFinite(count) ? count : 0
+        });
+      } catch {
+        // Best effort only.
+      }
+    }
+    void loadReviewSummary();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <div className="mypage">
       <section className="stat-grid">
@@ -47,7 +74,11 @@ export default function MyPageClient() {
           <div className="stat-label">{strings.statsAiInquiries}</div>
         </div>
         <div className="stat-card">
-          <div className="stat-value">-</div>
+          <div className="stat-value">
+            {reviewSummary.count > 0 && reviewSummary.avg != null
+              ? `${reviewSummary.avg.toFixed(1)} (${reviewSummary.count})`
+              : "-"}
+          </div>
           <div className="stat-label">{strings.statsRating}</div>
         </div>
       </section>

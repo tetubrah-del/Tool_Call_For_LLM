@@ -23,6 +23,7 @@ type Task = {
   human_id?: string | null;
   origin_country?: string | null;
   deadline_at?: string | null;
+  review_deadline_at?: string | null;
   created_at?: string;
 };
 
@@ -44,6 +45,18 @@ type TaskComment = {
   human_name: string | null;
   body: string;
   created_at: string;
+};
+
+type TaskReviewView = {
+  id: string;
+  task_id: string;
+  reviewer_type: "ai" | "human";
+  reviewee_type: "ai" | "human";
+  rating_overall: number;
+  comment: string | null;
+  created_at: string;
+  updated_at: string;
+  published_at: string | null;
 };
 
 function formatRelativeTime(iso: string, lang: UiLang): string {
@@ -103,6 +116,14 @@ export default function TaskDetailClient() {
   );
   const [applyError, setApplyError] = useState<string | null>(null);
   const [applying, setApplying] = useState(false);
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [reviewError, setReviewError] = useState<string | null>(null);
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [myReview, setMyReview] = useState<TaskReviewView | null>(null);
+  const [counterpartyReview, setCounterpartyReview] = useState<TaskReviewView | null>(null);
+  const [reviewWindowClosed, setReviewWindowClosed] = useState(false);
+  const [reviewRating, setReviewRating] = useState<number>(5);
+  const [reviewComment, setReviewComment] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -208,6 +229,12 @@ export default function TaskDetailClient() {
     void loadContact();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [task?.id, task?.status, humanId, humanTestToken]);
+
+  useEffect(() => {
+    if (!task) return;
+    void loadReviews(task);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [task?.id, task?.status, humanId, humanTestToken, isLoggedIn]);
 
   useEffect(() => {
     let cancelled = false;
@@ -321,6 +348,42 @@ export default function TaskDetailClient() {
     }
   }
 
+  async function loadReviews(currentTask: Task) {
+    if (!isAssignedToMe || !canActAsHuman || currentTask.status !== "completed") {
+      setMyReview(null);
+      setCounterpartyReview(null);
+      setReviewWindowClosed(false);
+      return;
+    }
+    setReviewLoading(true);
+    setReviewError(null);
+    try {
+      const qs = new URLSearchParams();
+      if (humanId && humanTestToken) {
+        qs.set("human_id", humanId);
+        qs.set("human_test_token", humanTestToken);
+      }
+      const url = qs.toString().length
+        ? `/api/tasks/${currentTask.id}/reviews?${qs.toString()}`
+        : `/api/tasks/${currentTask.id}/reviews`;
+      const res = await fetch(url);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.reason || data?.status || "failed");
+      const nextMyReview = data?.my_review || null;
+      setMyReview(nextMyReview);
+      setCounterpartyReview(data?.counterparty_review || null);
+      setReviewWindowClosed(Boolean(data?.review_window_closed));
+      if (nextMyReview?.rating_overall) {
+        setReviewRating(Number(nextMyReview.rating_overall));
+      }
+      setReviewComment(nextMyReview?.comment || "");
+    } catch (err: any) {
+      setReviewError(err.message || "failed");
+    } finally {
+      setReviewLoading(false);
+    }
+  }
+
   async function applyToTask(event: React.FormEvent) {
     event.preventDefault();
     if (!task) return;
@@ -365,6 +428,38 @@ export default function TaskDetailClient() {
     }
   }
 
+  async function submitReview(event: React.FormEvent) {
+    event.preventDefault();
+    if (!task) return;
+    if (!isAssignedToMe || !canActAsHuman || task.status !== "completed") return;
+    setReviewSubmitting(true);
+    setReviewError(null);
+    try {
+      const payload: any = {
+        rating_overall: reviewRating,
+        comment: reviewComment.trim()
+      };
+      if (humanId && humanTestToken) {
+        payload.human_id = humanId;
+        payload.human_test_token = humanTestToken;
+      }
+      const res = await fetch(`/api/tasks/${task.id}/reviews`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.reason || data?.status || "failed");
+      setMyReview(data?.my_review || null);
+      setCounterpartyReview(data?.counterparty_review || null);
+      setReviewWindowClosed(Boolean(data?.review_window_closed));
+    } catch (err: any) {
+      setReviewError(err.message || "failed");
+    } finally {
+      setReviewSubmitting(false);
+    }
+  }
+
   if (status === "loading") {
     return <p>{strings.loading}</p>;
   }
@@ -385,6 +480,7 @@ export default function TaskDetailClient() {
   const isAssignedToMe = Boolean(task.human_id && humanId && task.human_id === humanId);
   const canActAsHuman = isLoggedIn || Boolean(humanId && humanTestToken);
   const canApply = canActAsHuman && task.status === "open" && Boolean(humanId);
+  const reviewLocked = Boolean(myReview?.published_at || reviewWindowClosed);
   const statusLabel =
     task.status === "open"
       ? strings.statusOpen
@@ -587,6 +683,75 @@ export default function TaskDetailClient() {
                   {sendingMessage ? strings.saving : strings.sendMessage}
                 </button>
               </form>
+            )}
+          </div>
+        )}
+
+        {canActAsHuman && isAssignedToMe && task.status === "completed" && (
+          <div className="card task-detail-section">
+            <h3>{strings.reviewTitle || (lang === "ja" ? "レビュー" : "Review")}</h3>
+            {reviewLoading && <p className="muted">{strings.loading}</p>}
+            {reviewError && (
+              <p className="muted">
+                {strings.failed}: {reviewError}
+              </p>
+            )}
+            {reviewWindowClosed && (
+              <p className="muted">
+                {strings.reviewWindowClosed || (lang === "ja" ? "レビュー期間は終了しました。" : "Review window is closed.")}
+              </p>
+            )}
+            {!counterpartyReview && !reviewWindowClosed && (
+              <p className="muted">
+                {strings.reviewCounterpartyHidden ||
+                  (lang === "ja"
+                    ? "相手のレビューは双方投稿または期限到来まで非表示です。"
+                    : "Counterparty review is hidden until both sides submit or deadline passes.")}
+              </p>
+            )}
+            <form className="task-apply-form" onSubmit={submitReview}>
+              <label>
+                {strings.reviewRating || (lang === "ja" ? "総合評価" : "Overall rating")}
+                <select
+                  value={reviewRating}
+                  onChange={(e) => setReviewRating(Number(e.target.value))}
+                  disabled={reviewLocked || reviewSubmitting}
+                >
+                  <option value={5}>5</option>
+                  <option value={4}>4</option>
+                  <option value={3}>3</option>
+                  <option value={2}>2</option>
+                  <option value={1}>1</option>
+                </select>
+              </label>
+              <label>
+                {strings.reviewComment || (lang === "ja" ? "コメント（任意）" : "Comment (optional)")}
+                <textarea
+                  value={reviewComment}
+                  onChange={(e) => setReviewComment(e.target.value)}
+                  rows={4}
+                  maxLength={500}
+                  disabled={reviewLocked || reviewSubmitting}
+                />
+              </label>
+              <button type="submit" disabled={reviewLocked || reviewSubmitting}>
+                {reviewSubmitting
+                  ? strings.saving
+                  : strings.reviewSubmit || (lang === "ja" ? "レビューを送信" : "Submit review")}
+              </button>
+            </form>
+            {myReview && (
+              <p className="muted">
+                {strings.reviewMine || (lang === "ja" ? "あなたのレビュー" : "Your review")}:{" "}
+                {myReview.rating_overall}/5
+              </p>
+            )}
+            {counterpartyReview && (
+              <p className="muted">
+                {strings.reviewCounterparty || (lang === "ja" ? "相手のレビュー" : "Counterparty review")}:{" "}
+                {counterpartyReview.rating_overall}/5
+                {counterpartyReview.comment ? ` - ${counterpartyReview.comment}` : ""}
+              </p>
             )}
           </div>
         )}

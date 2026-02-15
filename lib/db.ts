@@ -191,6 +191,8 @@ async function initPostgres() {
       deadline_minutes DOUBLE PRECISION,
       deadline_at TEXT,
       review_pending_deadline_at TEXT,
+      completed_at TEXT,
+      review_deadline_at TEXT,
       deleted_at TEXT,
       status TEXT NOT NULL,
       failure_reason TEXT,
@@ -333,6 +335,24 @@ async function initPostgres() {
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     )`,
+    `CREATE TABLE IF NOT EXISTS task_reviews (
+      id TEXT PRIMARY KEY,
+      task_id TEXT NOT NULL,
+      reviewer_type TEXT NOT NULL,
+      reviewer_id TEXT NOT NULL,
+      reviewee_type TEXT NOT NULL,
+      reviewee_id TEXT NOT NULL,
+      rating_overall INTEGER NOT NULL,
+      comment TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      published_at TEXT,
+      is_hidden INTEGER NOT NULL DEFAULT 0
+    )`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS task_reviews_task_reviewer_idx
+      ON task_reviews (task_id, reviewer_type)`,
+    `CREATE INDEX IF NOT EXISTS task_reviews_reviewee_published_idx
+      ON task_reviews (reviewee_type, reviewee_id, published_at)`,
     `CREATE TABLE IF NOT EXISTS task_applications (
       id TEXT PRIMARY KEY,
       task_id TEXT NOT NULL,
@@ -475,6 +495,8 @@ async function initPostgres() {
     `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS payee_paypal_email TEXT`,
     `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS deadline_at TEXT`,
     `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS review_pending_deadline_at TEXT`,
+    `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS completed_at TEXT`,
+    `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS review_deadline_at TEXT`,
     `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS failure_reason TEXT`,
     `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS submission_id TEXT`,
     `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS fee_rate DOUBLE PRECISION`,
@@ -517,6 +539,35 @@ async function initPostgres() {
     `ALTER TABLE task_review_guards ADD COLUMN IF NOT EXISTS review_note TEXT`,
     `ALTER TABLE task_review_guards ADD COLUMN IF NOT EXISTS created_at TEXT`,
     `ALTER TABLE task_review_guards ADD COLUMN IF NOT EXISTS updated_at TEXT`,
+    `CREATE TABLE IF NOT EXISTS task_reviews (
+      id TEXT PRIMARY KEY,
+      task_id TEXT NOT NULL,
+      reviewer_type TEXT NOT NULL,
+      reviewer_id TEXT NOT NULL,
+      reviewee_type TEXT NOT NULL,
+      reviewee_id TEXT NOT NULL,
+      rating_overall INTEGER NOT NULL,
+      comment TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      published_at TEXT,
+      is_hidden INTEGER NOT NULL DEFAULT 0
+    )`,
+    `ALTER TABLE task_reviews ADD COLUMN IF NOT EXISTS task_id TEXT`,
+    `ALTER TABLE task_reviews ADD COLUMN IF NOT EXISTS reviewer_type TEXT`,
+    `ALTER TABLE task_reviews ADD COLUMN IF NOT EXISTS reviewer_id TEXT`,
+    `ALTER TABLE task_reviews ADD COLUMN IF NOT EXISTS reviewee_type TEXT`,
+    `ALTER TABLE task_reviews ADD COLUMN IF NOT EXISTS reviewee_id TEXT`,
+    `ALTER TABLE task_reviews ADD COLUMN IF NOT EXISTS rating_overall INTEGER`,
+    `ALTER TABLE task_reviews ADD COLUMN IF NOT EXISTS comment TEXT`,
+    `ALTER TABLE task_reviews ADD COLUMN IF NOT EXISTS created_at TEXT`,
+    `ALTER TABLE task_reviews ADD COLUMN IF NOT EXISTS updated_at TEXT`,
+    `ALTER TABLE task_reviews ADD COLUMN IF NOT EXISTS published_at TEXT`,
+    `ALTER TABLE task_reviews ADD COLUMN IF NOT EXISTS is_hidden INTEGER`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS task_reviews_task_reviewer_idx
+      ON task_reviews (task_id, reviewer_type)`,
+    `CREATE INDEX IF NOT EXISTS task_reviews_reviewee_published_idx
+      ON task_reviews (reviewee_type, reviewee_id, published_at)`,
     `ALTER TABLE idempotency_keys ADD COLUMN IF NOT EXISTS status_code INTEGER`,
     `ALTER TABLE idempotency_keys ADD COLUMN IF NOT EXISTS response_body TEXT`,
     `ALTER TABLE webhook_endpoints ADD COLUMN IF NOT EXISTS events TEXT`,
@@ -603,6 +654,10 @@ async function initPostgres() {
          api_monthly_limit = COALESCE(api_monthly_limit, 50000),
          api_burst_per_minute = COALESCE(api_burst_per_minute, 60)`
   );
+  await db.query(
+    `UPDATE task_reviews
+     SET is_hidden = COALESCE(is_hidden, 0)`
+  );
 }
 
 async function initSqlite() {
@@ -671,6 +726,8 @@ async function initSqlite() {
       deadline_minutes REAL,
       deadline_at TEXT,
       review_pending_deadline_at TEXT,
+      completed_at TEXT,
+      review_deadline_at TEXT,
       deleted_at TEXT,
       status TEXT NOT NULL,
       failure_reason TEXT,
@@ -780,6 +837,21 @@ async function initSqlite() {
       updated_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS task_reviews (
+      id TEXT PRIMARY KEY,
+      task_id TEXT NOT NULL,
+      reviewer_type TEXT NOT NULL,
+      reviewer_id TEXT NOT NULL,
+      reviewee_type TEXT NOT NULL,
+      reviewee_id TEXT NOT NULL,
+      rating_overall INTEGER NOT NULL,
+      comment TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      published_at TEXT,
+      is_hidden INTEGER NOT NULL DEFAULT 0
+    );
+
     CREATE TABLE IF NOT EXISTS task_applications (
       id TEXT PRIMARY KEY,
       task_id TEXT NOT NULL,
@@ -887,6 +959,10 @@ async function initSqlite() {
       notified_at TEXT NOT NULL,
       PRIMARY KEY (ai_account_id, period_key, threshold_percent)
     );
+    CREATE UNIQUE INDEX IF NOT EXISTS task_reviews_task_reviewer_idx
+      ON task_reviews (task_id, reviewer_type);
+    CREATE INDEX IF NOT EXISTS task_reviews_reviewee_published_idx
+      ON task_reviews (reviewee_type, reviewee_id, published_at);
 
     CREATE TABLE IF NOT EXISTS orders (
       id TEXT NOT NULL,
@@ -944,6 +1020,8 @@ async function initSqlite() {
   ensureSqliteColumn(db, "tasks", "payee_paypal_email", "TEXT");
   ensureSqliteColumn(db, "tasks", "deadline_at", "TEXT");
   ensureSqliteColumn(db, "tasks", "review_pending_deadline_at", "TEXT");
+  ensureSqliteColumn(db, "tasks", "completed_at", "TEXT");
+  ensureSqliteColumn(db, "tasks", "review_deadline_at", "TEXT");
   ensureSqliteColumn(db, "tasks", "deleted_at", "TEXT");
   ensureSqliteColumn(db, "tasks", "failure_reason", "TEXT");
   ensureSqliteColumn(db, "tasks", "submission_id", "TEXT");
@@ -1013,6 +1091,17 @@ async function initSqlite() {
   ensureSqliteColumn(db, "task_review_guards", "review_note", "TEXT");
   ensureSqliteColumn(db, "task_review_guards", "created_at", "TEXT");
   ensureSqliteColumn(db, "task_review_guards", "updated_at", "TEXT");
+  ensureSqliteColumn(db, "task_reviews", "task_id", "TEXT");
+  ensureSqliteColumn(db, "task_reviews", "reviewer_type", "TEXT");
+  ensureSqliteColumn(db, "task_reviews", "reviewer_id", "TEXT");
+  ensureSqliteColumn(db, "task_reviews", "reviewee_type", "TEXT");
+  ensureSqliteColumn(db, "task_reviews", "reviewee_id", "TEXT");
+  ensureSqliteColumn(db, "task_reviews", "rating_overall", "INTEGER");
+  ensureSqliteColumn(db, "task_reviews", "comment", "TEXT");
+  ensureSqliteColumn(db, "task_reviews", "created_at", "TEXT");
+  ensureSqliteColumn(db, "task_reviews", "updated_at", "TEXT");
+  ensureSqliteColumn(db, "task_reviews", "published_at", "TEXT");
+  ensureSqliteColumn(db, "task_reviews", "is_hidden", "INTEGER");
   ensureSqliteColumn(db, "orders", "provider_error", "TEXT");
   ensureSqliteColumn(db, "orders", "intl_surcharge_minor", "INTEGER");
   ensureSqliteColumn(db, "orders", "refund_status", "TEXT");
@@ -1032,6 +1121,10 @@ async function initSqlite() {
      SET api_access_status = COALESCE(NULLIF(api_access_status, ''), 'active'),
          api_monthly_limit = COALESCE(api_monthly_limit, 50000),
          api_burst_per_minute = COALESCE(api_burst_per_minute, 60)`
+  );
+  db.exec(
+    `UPDATE task_reviews
+     SET is_hidden = COALESCE(is_hidden, 0)`
   );
 }
 
@@ -1223,6 +1316,8 @@ export type Task = {
   deadline_minutes: number | null;
   deadline_at: string | null;
   review_pending_deadline_at: string | null;
+  completed_at: string | null;
+  review_deadline_at: string | null;
   status: "open" | "accepted" | "review_pending" | "completed" | "failed";
   failure_reason: FailureReason | null;
   human_id: string | null;
@@ -1320,4 +1415,19 @@ export type TaskReviewGuard = {
   review_note: string | null;
   created_at: string;
   updated_at: string;
+};
+
+export type TaskReview = {
+  id: string;
+  task_id: string;
+  reviewer_type: "ai" | "human";
+  reviewer_id: string;
+  reviewee_type: "ai" | "human";
+  reviewee_id: string;
+  rating_overall: number;
+  comment: string | null;
+  created_at: string;
+  updated_at: string;
+  published_at: string | null;
+  is_hidden: 0 | 1;
 };

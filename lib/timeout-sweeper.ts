@@ -2,6 +2,7 @@ import type { DbClient } from "@/lib/db";
 import { dispatchTaskEvent } from "@/lib/webhooks";
 import { closeContactChannel } from "@/lib/contact-channel";
 import { computeReviewPendingDeadline } from "@/lib/review-pending";
+import { computeReviewDeadlineAt } from "@/lib/task-reviews";
 
 type TaskRow = {
   id: string;
@@ -62,14 +63,17 @@ async function sweepTimeouts(db: DbClient) {
       if (!Number.isFinite(reviewDeadlineMs) || now <= reviewDeadlineMs) {
         continue;
       }
+      const completedAt = nowIso();
       const updated = await db
         .prepare(
           `UPDATE tasks
            SET status = 'completed',
-               review_pending_deadline_at = NULL
+               review_pending_deadline_at = NULL,
+               completed_at = ?,
+               review_deadline_at = ?
            WHERE id = ? AND status = 'review_pending'`
         )
-        .run(task.id);
+        .run(completedAt, computeReviewDeadlineAt(completedAt), task.id);
       if (updated > 0) {
         void dispatchTaskEvent(db, { eventType: "task.completed", taskId: task.id }).catch(() => {});
       }
