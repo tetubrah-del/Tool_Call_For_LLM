@@ -368,6 +368,184 @@
         }
       }
     },
+    "/api/tasks/{taskId}/reviews": {
+      "get": {
+        "summary": "Get task reviews (my review + counterparty visibility)",
+        "parameters": [
+          {
+            "name": "taskId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "human_id",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "human_test_token",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Task reviews",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/GetTaskReviewsResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "404": {
+            "description": "Task not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "409": {
+            "description": "Task is not reviewable",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create or update task review",
+        "parameters": [
+          {
+            "name": "taskId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/TaskReviewPayload" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Review created or updated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/UpsertTaskReviewResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "404": {
+            "description": "Task not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "409": {
+            "description": "Review not allowed in current state",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/reviews/summary": {
+      "get": {
+        "summary": "Get human review summary",
+        "responses": {
+          "200": {
+            "description": "Review summary",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/MeReviewSummaryResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ai/reviews/summary": {
+      "get": {
+        "summary": "Get AI account review summary",
+        "parameters": [
+          { "name": "ai_account_id", "in": "query", "required": true, "schema": { "type": "string" } },
+          { "name": "ai_api_key", "in": "query", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Review summary",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AiReviewSummaryResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/webhooks": {
       "post": {
         "summary": "Register webhook endpoint",
@@ -454,7 +632,11 @@
           "unknown",
           "idempotency_key_conflict",
           "request_in_progress",
-          "invalid_credentials"
+          "invalid_credentials",
+          "not_reviewable",
+          "review_window_closed",
+          "review_already_published",
+          "counterparty_missing"
         ]
       },
       "FailureReason": {
@@ -610,6 +792,8 @@
           "deliverable",
           "deadline_at",
           "review_pending_deadline_at",
+          "completed_at",
+          "review_deadline_at",
           "status",
           "failure_reason",
           "human_id",
@@ -640,6 +824,8 @@
           "deliverable": { "$ref": "#/components/schemas/Deliverable" },
           "deadline_at": { "type": ["string", "null"], "format": "date-time" },
           "review_pending_deadline_at": { "type": ["string", "null"], "format": "date-time" },
+          "completed_at": { "type": ["string", "null"], "format": "date-time" },
+          "review_deadline_at": { "type": ["string", "null"], "format": "date-time" },
           "status": { "$ref": "#/components/schemas/TaskStatus" },
           "failure_reason": {
             "anyOf": [
@@ -695,6 +881,147 @@
           "tasks": {
             "type": "array",
             "items": { "$ref": "#/components/schemas/TaskListItem" }
+          }
+        }
+      },
+      "TaskReview": {
+        "type": "object",
+        "required": [
+          "id",
+          "task_id",
+          "reviewer_type",
+          "reviewee_type",
+          "rating_overall",
+          "comment",
+          "created_at",
+          "updated_at",
+          "published_at"
+        ],
+        "properties": {
+          "id": { "type": "string" },
+          "task_id": { "type": "string" },
+          "reviewer_type": { "type": "string", "enum": ["ai", "human"] },
+          "reviewee_type": { "type": "string", "enum": ["ai", "human"] },
+          "rating_overall": { "type": "integer", "minimum": 1, "maximum": 5 },
+          "comment": { "type": ["string", "null"] },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" },
+          "published_at": { "type": ["string", "null"], "format": "date-time" }
+        }
+      },
+      "TaskReviewPayload": {
+        "type": "object",
+        "required": ["rating_overall"],
+        "properties": {
+          "rating_overall": { "type": "integer", "minimum": 1, "maximum": 5 },
+          "comment": { "type": "string", "maxLength": 500 },
+          "human_id": { "type": "string" },
+          "human_test_token": { "type": "string" }
+        }
+      },
+      "GetTaskReviewsResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "task_id",
+          "review_deadline_at",
+          "review_window_closed",
+          "my_review",
+          "counterparty_review"
+        ],
+        "properties": {
+          "status": { "type": "string", "enum": ["ok"] },
+          "task_id": { "type": "string" },
+          "review_deadline_at": { "type": ["string", "null"], "format": "date-time" },
+          "review_window_closed": { "type": "boolean" },
+          "my_review": {
+            "anyOf": [
+              { "$ref": "#/components/schemas/TaskReview" },
+              { "type": "null" }
+            ]
+          },
+          "counterparty_review": {
+            "anyOf": [
+              { "$ref": "#/components/schemas/TaskReview" },
+              { "type": "null" }
+            ]
+          }
+        }
+      },
+      "UpsertTaskReviewResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "task_id",
+          "review_deadline_at",
+          "review_window_closed",
+          "my_review",
+          "counterparty_review"
+        ],
+        "properties": {
+          "status": { "type": "string", "enum": ["created", "updated"] },
+          "task_id": { "type": "string" },
+          "review_deadline_at": { "type": ["string", "null"], "format": "date-time" },
+          "review_window_closed": { "type": "boolean" },
+          "my_review": {
+            "anyOf": [
+              { "$ref": "#/components/schemas/TaskReview" },
+              { "type": "null" }
+            ]
+          },
+          "counterparty_review": {
+            "anyOf": [
+              { "$ref": "#/components/schemas/TaskReview" },
+              { "type": "null" }
+            ]
+          }
+        }
+      },
+      "MeReviewSummaryResponse": {
+        "type": "object",
+        "required": ["human_id", "review_count", "avg_rating", "latest"],
+        "properties": {
+          "human_id": { "type": "string" },
+          "review_count": { "type": "integer" },
+          "avg_rating": { "type": ["number", "null"] },
+          "latest": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "task_id", "rating_overall", "comment", "created_at", "reviewer_type"],
+              "properties": {
+                "id": { "type": "string" },
+                "task_id": { "type": "string" },
+                "rating_overall": { "type": "integer", "minimum": 1, "maximum": 5 },
+                "comment": { "type": ["string", "null"] },
+                "created_at": { "type": "string", "format": "date-time" },
+                "reviewer_type": { "type": "string", "enum": ["ai", "human"] }
+              }
+            }
+          }
+        }
+      },
+      "AiReviewSummaryResponse": {
+        "type": "object",
+        "required": ["ai_account_id", "review_count", "avg_rating", "latest"],
+        "properties": {
+          "ai_account_id": { "type": "string" },
+          "review_count": { "type": "integer" },
+          "avg_rating": { "type": ["number", "null"] },
+          "latest": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "task_id", "rating_overall", "comment", "created_at", "reviewer_type"],
+              "properties": {
+                "id": { "type": "string" },
+                "task_id": { "type": "string" },
+                "rating_overall": { "type": "integer", "minimum": 1, "maximum": 5 },
+                "comment": { "type": ["string", "null"] },
+                "created_at": { "type": "string", "format": "date-time" },
+                "reviewer_type": { "type": "string", "enum": ["ai", "human"] }
+              }
+            }
           }
         }
       },
