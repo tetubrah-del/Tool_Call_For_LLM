@@ -12,10 +12,14 @@ export default function AuthClient() {
   const { data: session, status } = useSession();
 
   const callbackUrl = useMemo(() => {
+    const requested = (searchParams.get("next") || "").trim();
+    if (requested.startsWith("/") && !requested.startsWith("//")) {
+      return requested;
+    }
     const params = new URLSearchParams();
     params.set("lang", lang);
     return `/register?${params.toString()}`;
-  }, [lang]);
+  }, [lang, searchParams]);
 
   return (
     <div className="auth">
