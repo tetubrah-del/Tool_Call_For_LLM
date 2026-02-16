@@ -669,6 +669,184 @@
           }
         }
       }
+    },
+    "/api/marketing/jobs": {
+      "post": {
+        "summary": "Enqueue marketing generation job",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "Bearer <MARKETING_API_KEY>"
+          },
+          {
+            "name": "X-Marketing-Api-Key",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateMarketingGenerationJobPayload" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Queued",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CreateMarketingGenerationJobResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "503": {
+            "description": "Marketing API key not configured",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "List marketing generation jobs or fetch by job_id",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "Bearer <MARKETING_API_KEY>"
+          },
+          {
+            "name": "X-Marketing-Api-Key",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string" }
+          },
+          { "name": "job_id", "in": "query", "required": false, "schema": { "type": "string" } },
+          { "name": "content_id", "in": "query", "required": false, "schema": { "type": "string" } },
+          { "name": "status", "in": "query", "required": false, "schema": { "type": "string" } },
+          { "name": "limit", "in": "query", "required": false, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Jobs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    { "$ref": "#/components/schemas/GetMarketingGenerationJobResponse" },
+                    { "$ref": "#/components/schemas/ListMarketingGenerationJobsResponse" }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "503": {
+            "description": "Marketing API key not configured",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/marketing/jobs/{jobId}": {
+      "get": {
+        "summary": "Get marketing generation job status with related content",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "Bearer <MARKETING_API_KEY>"
+          },
+          {
+            "name": "X-Marketing-Api-Key",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string" }
+          },
+          { "name": "jobId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Job status",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/GetMarketingGenerationJobDetailResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "503": {
+            "description": "Marketing API key not configured",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1265,6 +1443,128 @@
           "webhooks": {
             "type": "array",
             "items": { "$ref": "#/components/schemas/Webhook" }
+          }
+        }
+      },
+      "MarketingGenerationAssetType": {
+        "type": "string",
+        "enum": ["image", "video"]
+      },
+      "MarketingGenerationJob": {
+        "type": "object",
+        "required": [
+          "id",
+          "content_id",
+          "asset_type",
+          "provider",
+          "model",
+          "status",
+          "attempt_count",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "id": { "type": "string" },
+          "content_id": { "type": "string" },
+          "asset_type": { "$ref": "#/components/schemas/MarketingGenerationAssetType" },
+          "provider": { "type": "string" },
+          "model": { "type": "string" },
+          "status": { "type": "string", "enum": ["queued", "processing", "succeeded", "failed"] },
+          "error_code": { "type": ["string", "null"] },
+          "error_message": { "type": ["string", "null"] },
+          "retryable": { "type": ["integer", "null"] },
+          "attempt_count": { "type": "integer" },
+          "next_attempt_at": { "type": ["string", "null"], "format": "date-time" },
+          "latency_ms": { "type": ["integer", "null"] },
+          "cost_jpy": { "type": ["integer", "null"] },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" },
+          "finished_at": { "type": ["string", "null"], "format": "date-time" }
+        }
+      },
+      "MarketingContentGenerationSummary": {
+        "type": "object",
+        "required": ["id", "status"],
+        "properties": {
+          "id": { "type": "string" },
+          "status": { "type": "string" },
+          "generation_status": { "type": ["string", "null"] },
+          "generation_error_code": { "type": ["string", "null"] },
+          "generation_error_message": { "type": ["string", "null"] },
+          "generation_provider": { "type": ["string", "null"] },
+          "generation_model": { "type": ["string", "null"] },
+          "generation_prompt": { "type": ["string", "null"] },
+          "media_asset_url": { "type": ["string", "null"] },
+          "media_thumb_url": { "type": ["string", "null"] },
+          "media_mime_type": { "type": ["string", "null"] },
+          "generation_latency_ms": { "type": ["integer", "null"] },
+          "generation_cost_jpy": { "type": ["integer", "null"] }
+        }
+      },
+      "CreateMarketingGenerationJobPayload": {
+        "type": "object",
+        "required": ["content_id", "asset_type", "prompt"],
+        "properties": {
+          "content_id": { "type": "string" },
+          "asset_type": { "$ref": "#/components/schemas/MarketingGenerationAssetType" },
+          "provider": { "type": "string" },
+          "model": { "type": "string" },
+          "prompt": { "type": "string" },
+          "prompt_negative": { "type": "string" },
+          "seed": { "type": "integer" },
+          "request": { "type": "object", "additionalProperties": true }
+        }
+      },
+      "CreateMarketingGenerationJobResponse": {
+        "type": "object",
+        "required": ["status", "job"],
+        "properties": {
+          "status": { "type": "string", "enum": ["queued"] },
+          "job": {
+            "type": "object",
+            "required": ["id", "content_id", "asset_type", "provider", "model", "generation_status", "created_at"],
+            "properties": {
+              "id": { "type": "string" },
+              "content_id": { "type": "string" },
+              "asset_type": { "$ref": "#/components/schemas/MarketingGenerationAssetType" },
+              "provider": { "type": "string" },
+              "model": { "type": "string" },
+              "generation_status": { "type": "string", "enum": ["queued"] },
+              "created_at": { "type": "string", "format": "date-time" }
+            }
+          }
+        }
+      },
+      "GetMarketingGenerationJobResponse": {
+        "type": "object",
+        "required": ["status", "job"],
+        "properties": {
+          "status": { "type": "string", "enum": ["ok"] },
+          "job": { "$ref": "#/components/schemas/MarketingGenerationJob" }
+        }
+      },
+      "ListMarketingGenerationJobsResponse": {
+        "type": "object",
+        "required": ["status", "jobs"],
+        "properties": {
+          "status": { "type": "string", "enum": ["ok"] },
+          "jobs": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/MarketingGenerationJob" }
+          }
+        }
+      },
+      "GetMarketingGenerationJobDetailResponse": {
+        "type": "object",
+        "required": ["status", "job", "content"],
+        "properties": {
+          "status": { "type": "string", "enum": ["ok"] },
+          "job": { "$ref": "#/components/schemas/MarketingGenerationJob" },
+          "content": {
+            "anyOf": [
+              { "$ref": "#/components/schemas/MarketingContentGenerationSummary" },
+              { "type": "null" }
+            ]
           }
         }
       }

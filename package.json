@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "eslint .",
     "stripe:webhook-worker": "node scripts/stripe-webhook-worker.mjs",
-    "notifications:worker": "node scripts/email-notification-worker.mjs"
+    "notifications:worker": "node scripts/email-notification-worker.mjs",
+    "marketing:generation-worker": "node scripts/marketing-generation-worker.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.990.0",

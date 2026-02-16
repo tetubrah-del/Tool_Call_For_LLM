@@ -516,6 +516,39 @@ When set, uploads (submission attachments / message attachments / profile photos
 
 Uploaded files are returned as app URLs: `/api/storage/<object-key>`.
 
+### Optional marketing generation API (isolated)
+
+Marketing job APIs are isolated from core Sinkai task/payment flows and require a separate API key.
+
+- `POST /api/marketing/jobs` enqueue generation job
+- `GET /api/marketing/jobs?job_id=<JOB_ID>` get job status
+- `GET /api/marketing/jobs/<JOB_ID>` get job + related content status
+
+Required env for API auth:
+
+- `MARKETING_API_KEY`
+
+Worker safety flags (default OFF):
+
+- `MARKETING_GENERATION_WORKER_ENABLED=true` to enable worker process
+- `MARKETING_GENERATION_PLACEHOLDER_EXECUTE=true` to execute provider calls (second safety gate)
+
+Provider env (required for execution):
+
+- `SEEDREAM_API_KEY`, `SEEDREAM_BASE_URL`, `SEEDREAM_MODEL` (image)
+- `SEEDANCE_API_KEY`, `SEEDANCE_BASE_URL`, `SEEDANCE_MODEL` (video)
+
+Optional worker tuning:
+
+- `MARKETING_GENERATION_WORKER_CONTINUOUS=true`
+- `MARKETING_GENERATION_WORKER_POLL_MS` (default `15000`)
+- `MARKETING_GENERATION_WORKER_BATCH_SIZE` (default `10`)
+- `MARKETING_GENERATION_MAX_ATTEMPTS` (default `5`)
+- `SEEDREAM_IMAGE_ENDPOINT` (default `/images/generations`)
+- `SEEDANCE_VIDEO_ENDPOINT` (default `/videos/generations`)
+- `SEEDREAM_TIMEOUT_MS` (default `60000`)
+- `SEEDANCE_TIMEOUT_MS` (default `120000`)
+
 Stripe dashboard:
 
 - Set webhook endpoint to `/webhooks/stripe` and include the event types used by the worker:

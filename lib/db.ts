@@ -510,7 +510,139 @@ async function initPostgres() {
       sent_at TEXT
     )`,
     `CREATE INDEX IF NOT EXISTS email_deliveries_status_next_attempt_idx
-      ON email_deliveries (status, next_attempt_at)`
+      ON email_deliveries (status, next_attempt_at)`,
+    `CREATE TABLE IF NOT EXISTS marketing_campaigns (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      objective TEXT NOT NULL,
+      target_persona TEXT NOT NULL,
+      primary_cta TEXT NOT NULL,
+      status TEXT NOT NULL,
+      created_by TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS marketing_briefs (
+      id TEXT PRIMARY KEY,
+      campaign_id TEXT NOT NULL,
+      channel TEXT NOT NULL,
+      angle TEXT NOT NULL,
+      hook TEXT NOT NULL,
+      proof_points_json TEXT NOT NULL,
+      cta TEXT NOT NULL,
+      language TEXT NOT NULL DEFAULT 'ja',
+      planned_for TEXT,
+      status TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS marketing_contents (
+      id TEXT PRIMARY KEY,
+      brief_id TEXT NOT NULL,
+      channel TEXT NOT NULL,
+      format TEXT NOT NULL,
+      title TEXT,
+      body_text TEXT NOT NULL,
+      asset_manifest_json TEXT,
+      hashtags_json TEXT,
+      metadata_json TEXT,
+      version INTEGER NOT NULL DEFAULT 1,
+      status TEXT NOT NULL,
+      generation_provider TEXT,
+      generation_model TEXT,
+      generation_prompt TEXT,
+      generation_seed INTEGER,
+      generation_status TEXT,
+      generation_error_code TEXT,
+      generation_error_message TEXT,
+      generation_latency_ms INTEGER,
+      generation_cost_jpy INTEGER,
+      generation_raw_response_json TEXT,
+      media_asset_url TEXT,
+      media_thumb_url TEXT,
+      media_duration_sec DOUBLE PRECISION,
+      media_width INTEGER,
+      media_height INTEGER,
+      media_mime_type TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS marketing_approvals (
+      id TEXT PRIMARY KEY,
+      content_id TEXT NOT NULL,
+      reviewer_type TEXT NOT NULL,
+      reviewer_id TEXT,
+      decision TEXT NOT NULL,
+      reason TEXT,
+      created_at TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS marketing_publish_jobs (
+      id TEXT PRIMARY KEY,
+      content_id TEXT NOT NULL,
+      channel TEXT NOT NULL,
+      scheduled_at TEXT NOT NULL,
+      status TEXT NOT NULL,
+      attempt_count INTEGER NOT NULL DEFAULT 0,
+      next_attempt_at TEXT,
+      last_error TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS marketing_posts (
+      id TEXT PRIMARY KEY,
+      content_id TEXT NOT NULL,
+      channel TEXT NOT NULL,
+      external_post_id TEXT NOT NULL,
+      post_url TEXT,
+      published_at TEXT NOT NULL,
+      raw_response_json TEXT
+    )`,
+    `CREATE TABLE IF NOT EXISTS marketing_metrics_daily (
+      id TEXT PRIMARY KEY,
+      post_id TEXT NOT NULL,
+      metric_date TEXT NOT NULL,
+      impressions INTEGER NOT NULL DEFAULT 0,
+      engagements INTEGER NOT NULL DEFAULT 0,
+      clicks INTEGER NOT NULL DEFAULT 0,
+      profile_visits INTEGER NOT NULL DEFAULT 0,
+      conversions INTEGER NOT NULL DEFAULT 0,
+      cost_jpy INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS marketing_generation_jobs (
+      id TEXT PRIMARY KEY,
+      content_id TEXT NOT NULL,
+      asset_type TEXT NOT NULL,
+      provider TEXT NOT NULL,
+      model TEXT NOT NULL,
+      status TEXT NOT NULL,
+      prompt TEXT NOT NULL,
+      prompt_negative TEXT,
+      seed INTEGER,
+      request_json TEXT,
+      response_json TEXT,
+      error_code TEXT,
+      error_message TEXT,
+      retryable INTEGER NOT NULL DEFAULT 0,
+      attempt_count INTEGER NOT NULL DEFAULT 0,
+      next_attempt_at TEXT,
+      latency_ms INTEGER,
+      cost_jpy INTEGER,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      finished_at TEXT
+    )`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS marketing_metrics_daily_post_date_idx
+      ON marketing_metrics_daily (post_id, metric_date)`,
+    `CREATE INDEX IF NOT EXISTS marketing_publish_jobs_status_next_attempt_idx
+      ON marketing_publish_jobs (status, next_attempt_at)`,
+    `CREATE INDEX IF NOT EXISTS marketing_briefs_campaign_channel_status_idx
+      ON marketing_briefs (campaign_id, channel, status)`,
+    `CREATE INDEX IF NOT EXISTS marketing_generation_jobs_status_next_attempt_idx
+      ON marketing_generation_jobs (status, next_attempt_at)`,
+    `CREATE INDEX IF NOT EXISTS marketing_generation_jobs_content_idx
+      ON marketing_generation_jobs (content_id, created_at)`
   ];
 
   for (const statement of statements) {
@@ -769,7 +901,156 @@ async function initPostgres() {
     `ALTER TABLE oauth_users ADD COLUMN IF NOT EXISTS image TEXT`,
     `ALTER TABLE oauth_users ADD COLUMN IF NOT EXISTS provider TEXT`,
     `ALTER TABLE oauth_users ADD COLUMN IF NOT EXISTS first_seen_at TEXT`,
-    `ALTER TABLE oauth_users ADD COLUMN IF NOT EXISTS last_seen_at TEXT`
+    `ALTER TABLE oauth_users ADD COLUMN IF NOT EXISTS last_seen_at TEXT`,
+    `CREATE TABLE IF NOT EXISTS marketing_campaigns (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      objective TEXT NOT NULL,
+      target_persona TEXT NOT NULL,
+      primary_cta TEXT NOT NULL,
+      status TEXT NOT NULL,
+      created_by TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS marketing_briefs (
+      id TEXT PRIMARY KEY,
+      campaign_id TEXT NOT NULL,
+      channel TEXT NOT NULL,
+      angle TEXT NOT NULL,
+      hook TEXT NOT NULL,
+      proof_points_json TEXT NOT NULL,
+      cta TEXT NOT NULL,
+      language TEXT NOT NULL DEFAULT 'ja',
+      planned_for TEXT,
+      status TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS marketing_contents (
+      id TEXT PRIMARY KEY,
+      brief_id TEXT NOT NULL,
+      channel TEXT NOT NULL,
+      format TEXT NOT NULL,
+      title TEXT,
+      body_text TEXT NOT NULL,
+      asset_manifest_json TEXT,
+      hashtags_json TEXT,
+      metadata_json TEXT,
+      version INTEGER NOT NULL DEFAULT 1,
+      status TEXT NOT NULL,
+      generation_provider TEXT,
+      generation_model TEXT,
+      generation_prompt TEXT,
+      generation_seed INTEGER,
+      generation_status TEXT,
+      generation_error_code TEXT,
+      generation_error_message TEXT,
+      generation_latency_ms INTEGER,
+      generation_cost_jpy INTEGER,
+      generation_raw_response_json TEXT,
+      media_asset_url TEXT,
+      media_thumb_url TEXT,
+      media_duration_sec DOUBLE PRECISION,
+      media_width INTEGER,
+      media_height INTEGER,
+      media_mime_type TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS marketing_approvals (
+      id TEXT PRIMARY KEY,
+      content_id TEXT NOT NULL,
+      reviewer_type TEXT NOT NULL,
+      reviewer_id TEXT,
+      decision TEXT NOT NULL,
+      reason TEXT,
+      created_at TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS marketing_publish_jobs (
+      id TEXT PRIMARY KEY,
+      content_id TEXT NOT NULL,
+      channel TEXT NOT NULL,
+      scheduled_at TEXT NOT NULL,
+      status TEXT NOT NULL,
+      attempt_count INTEGER NOT NULL DEFAULT 0,
+      next_attempt_at TEXT,
+      last_error TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS marketing_posts (
+      id TEXT PRIMARY KEY,
+      content_id TEXT NOT NULL,
+      channel TEXT NOT NULL,
+      external_post_id TEXT NOT NULL,
+      post_url TEXT,
+      published_at TEXT NOT NULL,
+      raw_response_json TEXT
+    )`,
+    `CREATE TABLE IF NOT EXISTS marketing_metrics_daily (
+      id TEXT PRIMARY KEY,
+      post_id TEXT NOT NULL,
+      metric_date TEXT NOT NULL,
+      impressions INTEGER NOT NULL DEFAULT 0,
+      engagements INTEGER NOT NULL DEFAULT 0,
+      clicks INTEGER NOT NULL DEFAULT 0,
+      profile_visits INTEGER NOT NULL DEFAULT 0,
+      conversions INTEGER NOT NULL DEFAULT 0,
+      cost_jpy INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS marketing_generation_jobs (
+      id TEXT PRIMARY KEY,
+      content_id TEXT NOT NULL,
+      asset_type TEXT NOT NULL,
+      provider TEXT NOT NULL,
+      model TEXT NOT NULL,
+      status TEXT NOT NULL,
+      prompt TEXT NOT NULL,
+      prompt_negative TEXT,
+      seed INTEGER,
+      request_json TEXT,
+      response_json TEXT,
+      error_code TEXT,
+      error_message TEXT,
+      retryable INTEGER NOT NULL DEFAULT 0,
+      attempt_count INTEGER NOT NULL DEFAULT 0,
+      next_attempt_at TEXT,
+      latency_ms INTEGER,
+      cost_jpy INTEGER,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      finished_at TEXT
+    )`,
+    `ALTER TABLE marketing_contents ADD COLUMN IF NOT EXISTS generation_provider TEXT`,
+    `ALTER TABLE marketing_contents ADD COLUMN IF NOT EXISTS generation_model TEXT`,
+    `ALTER TABLE marketing_contents ADD COLUMN IF NOT EXISTS generation_prompt TEXT`,
+    `ALTER TABLE marketing_contents ADD COLUMN IF NOT EXISTS generation_seed INTEGER`,
+    `ALTER TABLE marketing_contents ADD COLUMN IF NOT EXISTS generation_status TEXT`,
+    `ALTER TABLE marketing_contents ADD COLUMN IF NOT EXISTS generation_error_code TEXT`,
+    `ALTER TABLE marketing_contents ADD COLUMN IF NOT EXISTS generation_error_message TEXT`,
+    `ALTER TABLE marketing_contents ADD COLUMN IF NOT EXISTS generation_latency_ms INTEGER`,
+    `ALTER TABLE marketing_contents ADD COLUMN IF NOT EXISTS generation_cost_jpy INTEGER`,
+    `ALTER TABLE marketing_contents ADD COLUMN IF NOT EXISTS generation_raw_response_json TEXT`,
+    `ALTER TABLE marketing_contents ADD COLUMN IF NOT EXISTS media_asset_url TEXT`,
+    `ALTER TABLE marketing_contents ADD COLUMN IF NOT EXISTS media_thumb_url TEXT`,
+    `ALTER TABLE marketing_contents ADD COLUMN IF NOT EXISTS media_duration_sec DOUBLE PRECISION`,
+    `ALTER TABLE marketing_contents ADD COLUMN IF NOT EXISTS media_width INTEGER`,
+    `ALTER TABLE marketing_contents ADD COLUMN IF NOT EXISTS media_height INTEGER`,
+    `ALTER TABLE marketing_contents ADD COLUMN IF NOT EXISTS media_mime_type TEXT`,
+    `ALTER TABLE marketing_contents ADD COLUMN IF NOT EXISTS updated_at TEXT`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS marketing_metrics_daily_post_date_idx
+      ON marketing_metrics_daily (post_id, metric_date)`,
+    `CREATE INDEX IF NOT EXISTS marketing_publish_jobs_status_next_attempt_idx
+      ON marketing_publish_jobs (status, next_attempt_at)`,
+    `CREATE INDEX IF NOT EXISTS marketing_briefs_campaign_channel_status_idx
+      ON marketing_briefs (campaign_id, channel, status)`,
+    `CREATE INDEX IF NOT EXISTS marketing_generation_jobs_status_next_attempt_idx
+      ON marketing_generation_jobs (status, next_attempt_at)`,
+    `CREATE INDEX IF NOT EXISTS marketing_generation_jobs_content_idx
+      ON marketing_generation_jobs (content_id, created_at)`
   ];
 
   for (const statement of migrationStatements) {
@@ -1174,6 +1455,138 @@ async function initSqlite() {
     );
     CREATE INDEX IF NOT EXISTS email_deliveries_status_next_attempt_idx
       ON email_deliveries (status, next_attempt_at);
+    CREATE TABLE IF NOT EXISTS marketing_campaigns (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      objective TEXT NOT NULL,
+      target_persona TEXT NOT NULL,
+      primary_cta TEXT NOT NULL,
+      status TEXT NOT NULL,
+      created_by TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS marketing_briefs (
+      id TEXT PRIMARY KEY,
+      campaign_id TEXT NOT NULL,
+      channel TEXT NOT NULL,
+      angle TEXT NOT NULL,
+      hook TEXT NOT NULL,
+      proof_points_json TEXT NOT NULL,
+      cta TEXT NOT NULL,
+      language TEXT NOT NULL DEFAULT 'ja',
+      planned_for TEXT,
+      status TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS marketing_contents (
+      id TEXT PRIMARY KEY,
+      brief_id TEXT NOT NULL,
+      channel TEXT NOT NULL,
+      format TEXT NOT NULL,
+      title TEXT,
+      body_text TEXT NOT NULL,
+      asset_manifest_json TEXT,
+      hashtags_json TEXT,
+      metadata_json TEXT,
+      version INTEGER NOT NULL DEFAULT 1,
+      status TEXT NOT NULL,
+      generation_provider TEXT,
+      generation_model TEXT,
+      generation_prompt TEXT,
+      generation_seed INTEGER,
+      generation_status TEXT,
+      generation_error_code TEXT,
+      generation_error_message TEXT,
+      generation_latency_ms INTEGER,
+      generation_cost_jpy INTEGER,
+      generation_raw_response_json TEXT,
+      media_asset_url TEXT,
+      media_thumb_url TEXT,
+      media_duration_sec REAL,
+      media_width INTEGER,
+      media_height INTEGER,
+      media_mime_type TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS marketing_approvals (
+      id TEXT PRIMARY KEY,
+      content_id TEXT NOT NULL,
+      reviewer_type TEXT NOT NULL,
+      reviewer_id TEXT,
+      decision TEXT NOT NULL,
+      reason TEXT,
+      created_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS marketing_publish_jobs (
+      id TEXT PRIMARY KEY,
+      content_id TEXT NOT NULL,
+      channel TEXT NOT NULL,
+      scheduled_at TEXT NOT NULL,
+      status TEXT NOT NULL,
+      attempt_count INTEGER NOT NULL DEFAULT 0,
+      next_attempt_at TEXT,
+      last_error TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS marketing_posts (
+      id TEXT PRIMARY KEY,
+      content_id TEXT NOT NULL,
+      channel TEXT NOT NULL,
+      external_post_id TEXT NOT NULL,
+      post_url TEXT,
+      published_at TEXT NOT NULL,
+      raw_response_json TEXT
+    );
+    CREATE TABLE IF NOT EXISTS marketing_metrics_daily (
+      id TEXT PRIMARY KEY,
+      post_id TEXT NOT NULL,
+      metric_date TEXT NOT NULL,
+      impressions INTEGER NOT NULL DEFAULT 0,
+      engagements INTEGER NOT NULL DEFAULT 0,
+      clicks INTEGER NOT NULL DEFAULT 0,
+      profile_visits INTEGER NOT NULL DEFAULT 0,
+      conversions INTEGER NOT NULL DEFAULT 0,
+      cost_jpy INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS marketing_generation_jobs (
+      id TEXT PRIMARY KEY,
+      content_id TEXT NOT NULL,
+      asset_type TEXT NOT NULL,
+      provider TEXT NOT NULL,
+      model TEXT NOT NULL,
+      status TEXT NOT NULL,
+      prompt TEXT NOT NULL,
+      prompt_negative TEXT,
+      seed INTEGER,
+      request_json TEXT,
+      response_json TEXT,
+      error_code TEXT,
+      error_message TEXT,
+      retryable INTEGER NOT NULL DEFAULT 0,
+      attempt_count INTEGER NOT NULL DEFAULT 0,
+      next_attempt_at TEXT,
+      latency_ms INTEGER,
+      cost_jpy INTEGER,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      finished_at TEXT
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS marketing_metrics_daily_post_date_idx
+      ON marketing_metrics_daily (post_id, metric_date);
+    CREATE INDEX IF NOT EXISTS marketing_publish_jobs_status_next_attempt_idx
+      ON marketing_publish_jobs (status, next_attempt_at);
+    CREATE INDEX IF NOT EXISTS marketing_briefs_campaign_channel_status_idx
+      ON marketing_briefs (campaign_id, channel, status);
+    CREATE INDEX IF NOT EXISTS marketing_generation_jobs_status_next_attempt_idx
+      ON marketing_generation_jobs (status, next_attempt_at);
+    CREATE INDEX IF NOT EXISTS marketing_generation_jobs_content_idx
+      ON marketing_generation_jobs (content_id, created_at);
     CREATE UNIQUE INDEX IF NOT EXISTS task_reviews_task_reviewer_idx
       ON task_reviews (task_id, reviewer_type);
     CREATE INDEX IF NOT EXISTS task_reviews_reviewee_published_idx
@@ -1356,6 +1769,43 @@ async function initSqlite() {
   ensureSqliteColumn(db, "orders", "refund_id", "TEXT");
   ensureSqliteColumn(db, "orders", "refunded_at", "TEXT");
   ensureSqliteColumn(db, "orders", "refund_error_message", "TEXT");
+  ensureSqliteColumn(db, "marketing_contents", "generation_provider", "TEXT");
+  ensureSqliteColumn(db, "marketing_contents", "generation_model", "TEXT");
+  ensureSqliteColumn(db, "marketing_contents", "generation_prompt", "TEXT");
+  ensureSqliteColumn(db, "marketing_contents", "generation_seed", "INTEGER");
+  ensureSqliteColumn(db, "marketing_contents", "generation_status", "TEXT");
+  ensureSqliteColumn(db, "marketing_contents", "generation_error_code", "TEXT");
+  ensureSqliteColumn(db, "marketing_contents", "generation_error_message", "TEXT");
+  ensureSqliteColumn(db, "marketing_contents", "generation_latency_ms", "INTEGER");
+  ensureSqliteColumn(db, "marketing_contents", "generation_cost_jpy", "INTEGER");
+  ensureSqliteColumn(db, "marketing_contents", "generation_raw_response_json", "TEXT");
+  ensureSqliteColumn(db, "marketing_contents", "media_asset_url", "TEXT");
+  ensureSqliteColumn(db, "marketing_contents", "media_thumb_url", "TEXT");
+  ensureSqliteColumn(db, "marketing_contents", "media_duration_sec", "REAL");
+  ensureSqliteColumn(db, "marketing_contents", "media_width", "INTEGER");
+  ensureSqliteColumn(db, "marketing_contents", "media_height", "INTEGER");
+  ensureSqliteColumn(db, "marketing_contents", "media_mime_type", "TEXT");
+  ensureSqliteColumn(db, "marketing_contents", "updated_at", "TEXT");
+  ensureSqliteColumn(db, "marketing_generation_jobs", "content_id", "TEXT");
+  ensureSqliteColumn(db, "marketing_generation_jobs", "asset_type", "TEXT");
+  ensureSqliteColumn(db, "marketing_generation_jobs", "provider", "TEXT");
+  ensureSqliteColumn(db, "marketing_generation_jobs", "model", "TEXT");
+  ensureSqliteColumn(db, "marketing_generation_jobs", "status", "TEXT");
+  ensureSqliteColumn(db, "marketing_generation_jobs", "prompt", "TEXT");
+  ensureSqliteColumn(db, "marketing_generation_jobs", "prompt_negative", "TEXT");
+  ensureSqliteColumn(db, "marketing_generation_jobs", "seed", "INTEGER");
+  ensureSqliteColumn(db, "marketing_generation_jobs", "request_json", "TEXT");
+  ensureSqliteColumn(db, "marketing_generation_jobs", "response_json", "TEXT");
+  ensureSqliteColumn(db, "marketing_generation_jobs", "error_code", "TEXT");
+  ensureSqliteColumn(db, "marketing_generation_jobs", "error_message", "TEXT");
+  ensureSqliteColumn(db, "marketing_generation_jobs", "retryable", "INTEGER");
+  ensureSqliteColumn(db, "marketing_generation_jobs", "attempt_count", "INTEGER");
+  ensureSqliteColumn(db, "marketing_generation_jobs", "next_attempt_at", "TEXT");
+  ensureSqliteColumn(db, "marketing_generation_jobs", "latency_ms", "INTEGER");
+  ensureSqliteColumn(db, "marketing_generation_jobs", "cost_jpy", "INTEGER");
+  ensureSqliteColumn(db, "marketing_generation_jobs", "created_at", "TEXT");
+  ensureSqliteColumn(db, "marketing_generation_jobs", "updated_at", "TEXT");
+  ensureSqliteColumn(db, "marketing_generation_jobs", "finished_at", "TEXT");
 
   try {
     const legacyAiAccounts = db
