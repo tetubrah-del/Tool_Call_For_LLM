@@ -48,6 +48,7 @@ export default function TasksClient() {
   const [sortKey, setSortKey] = useState<"new" | "popular">("new");
   const [minBudget, setMinBudget] = useState("");
   const [maxBudget, setMaxBudget] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileCountry, setProfileCountry] = useState<string | null>(null);
@@ -76,6 +77,22 @@ export default function TasksClient() {
     }
     return Array.from(set).sort();
   }, [tasks]);
+
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (selectedLabel !== "all") count += 1;
+    if (selectedOriginCountry !== "all") count += 1;
+    if (selectedDeliverable !== "all") count += 1;
+    if (selectedStatus !== "all") count += 1;
+    if (minBudget.trim() !== "") count += 1;
+    if (maxBudget.trim() !== "") count += 1;
+    return count;
+  }, [selectedLabel, selectedOriginCountry, selectedDeliverable, selectedStatus, minBudget, maxBudget]);
+
+  const filterToggleLabel = useMemo(() => {
+    const base = filtersOpen ? strings.hideFilters : strings.showFilters;
+    return activeFilterCount > 0 ? `${base} (${activeFilterCount})` : base;
+  }, [filtersOpen, strings.hideFilters, strings.showFilters, activeFilterCount]);
 
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
@@ -231,7 +248,7 @@ export default function TasksClient() {
         </div>
       </div>
 
-      <div className="card filter-card">
+      <div className={`card filter-card ${filtersOpen ? "filters-open" : ""}`}>
         {showBestEffort && (
           <p className="muted">
             {strings.bestEffort} | {strings.noTimeGuarantee}
@@ -245,91 +262,106 @@ export default function TasksClient() {
             placeholder={strings.searchKeywordPlaceholder}
           />
         </label>
-        <label className="filter-label">
-          {strings.taskLabel}
-          <select
-            value={selectedLabel}
-            onChange={(e) => setSelectedLabel(e.target.value as "all" | TaskLabel)}
+        <div className="row filter-mobile-controls">
+          <button
+            type="button"
+            className="secondary filter-toggle"
+            onClick={() => setFiltersOpen((v) => !v)}
           >
-            <option value="all">{strings.allLabels}</option>
-            {TASK_LABELS.map((label) => (
-              <option key={label} value={label}>
-                {TASK_LABEL_TEXT[label][lang]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="filter-country">
-          {strings.originCountry}
-          <select
-            value={selectedOriginCountry}
-            onChange={(e) => setSelectedOriginCountry(e.target.value as "all" | string)}
+            {filterToggleLabel}
+          </button>
+          <button
+            type="button"
+            onClick={() => loadTasks(humanId || undefined)}
+            disabled={loading || profileLoading}
           >
-            <option value="all">{strings.allCountries}</option>
-            {originCountryOptions.map((code) => (
-              <option key={code} value={code}>
-                {code}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="filter-deliverable">
-          {strings.deliverable}
-          <select
-            value={selectedDeliverable}
-            onChange={(e) =>
-              setSelectedDeliverable(e.target.value as "all" | "photo" | "video" | "text")
-            }
-          >
-            <option value="all">{strings.allDeliverables}</option>
-            <option value="text">text</option>
-            <option value="photo">photo</option>
-            <option value="video">video</option>
-          </select>
-        </label>
-        <label className="filter-status">
-          {strings.status}
-          <select
-            value={selectedStatus}
-            onChange={(e) => setSelectedStatus(e.target.value as "all" | Task["status"])}
-          >
-            <option value="all">{strings.allStatuses}</option>
-            <option value="open">{strings.statusOpen}</option>
-            <option value="accepted">{strings.statusAccepted}</option>
-            <option value="review_pending">{strings.statusReviewPending}</option>
-            <option value="completed">{strings.statusCompleted}</option>
-            <option value="failed">{strings.statusFailed}</option>
-          </select>
-        </label>
-        <label className="filter-minbudget">
-          {strings.minBudget}
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            value={minBudget}
-            onChange={(e) => setMinBudget(e.target.value)}
-          />
-        </label>
-        <label className="filter-maxbudget">
-          {strings.maxBudget}
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            value={maxBudget}
-            onChange={(e) => setMaxBudget(e.target.value)}
-          />
-        </label>
-        <div className="row filter-actions">
-          <button onClick={() => loadTasks(humanId || undefined)} disabled={loading || profileLoading}>
             {loading || profileLoading ? strings.loading : strings.refresh}
           </button>
-          <a href={`/auth?lang=${lang}`} className="text-link">
-            {strings.needAccount}
-          </a>
         </div>
-        {error && <p className="muted">{error}</p>}
+        <div className="filter-advanced">
+          <label className="filter-label">
+            {strings.taskLabel}
+            <select
+              value={selectedLabel}
+              onChange={(e) => setSelectedLabel(e.target.value as "all" | TaskLabel)}
+            >
+              <option value="all">{strings.allLabels}</option>
+              {TASK_LABELS.map((label) => (
+                <option key={label} value={label}>
+                  {TASK_LABEL_TEXT[label][lang]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="filter-country">
+            {strings.originCountry}
+            <select
+              value={selectedOriginCountry}
+              onChange={(e) => setSelectedOriginCountry(e.target.value as "all" | string)}
+            >
+              <option value="all">{strings.allCountries}</option>
+              {originCountryOptions.map((code) => (
+                <option key={code} value={code}>
+                  {code}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="filter-deliverable">
+            {strings.deliverable}
+            <select
+              value={selectedDeliverable}
+              onChange={(e) =>
+                setSelectedDeliverable(e.target.value as "all" | "photo" | "video" | "text")
+              }
+            >
+              <option value="all">{strings.allDeliverables}</option>
+              <option value="text">text</option>
+              <option value="photo">photo</option>
+              <option value="video">video</option>
+            </select>
+          </label>
+          <label className="filter-status">
+            {strings.status}
+            <select
+              value={selectedStatus}
+              onChange={(e) => setSelectedStatus(e.target.value as "all" | Task["status"])}
+            >
+              <option value="all">{strings.allStatuses}</option>
+              <option value="open">{strings.statusOpen}</option>
+              <option value="accepted">{strings.statusAccepted}</option>
+              <option value="review_pending">{strings.statusReviewPending}</option>
+              <option value="completed">{strings.statusCompleted}</option>
+              <option value="failed">{strings.statusFailed}</option>
+            </select>
+          </label>
+          <label className="filter-minbudget">
+            {strings.minBudget}
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={minBudget}
+              onChange={(e) => setMinBudget(e.target.value)}
+            />
+          </label>
+          <label className="filter-maxbudget">
+            {strings.maxBudget}
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={maxBudget}
+              onChange={(e) => setMaxBudget(e.target.value)}
+            />
+          </label>
+          <div className="row filter-actions">
+            <a href={`/auth?lang=${lang}`} className="text-link">
+              {strings.needAccount}
+            </a>
+          </div>
+          {error && <p className="muted">{error}</p>}
+        </div>
       </div>
 
       <div className="task-sort">

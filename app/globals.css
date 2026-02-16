@@ -1490,6 +1490,14 @@ button.tag:hover {
   margin-top: 2px;
 }
 
+.filter-mobile-controls {
+  display: none;
+}
+
+.filter-advanced {
+  display: contents;
+}
+
 @media (min-width: 860px) {
   .filter-card {
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1512,6 +1520,32 @@ button.tag:hover {
 
   .filter-card .filter-actions a {
     flex: 0 0 auto;
+  }
+}
+
+@media (max-width: 720px) {
+  .filter-mobile-controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .filter-mobile-controls button {
+    width: auto;
+    margin-top: 0;
+  }
+
+  .filter-mobile-controls .filter-toggle {
+    flex: 1 1 auto;
+  }
+
+  .filter-advanced {
+    display: grid;
+    gap: 10px;
+  }
+
+  .filter-card:not(.filters-open) .filter-advanced {
+    display: none;
   }
 }
 
