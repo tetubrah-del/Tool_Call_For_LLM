@@ -1671,6 +1671,15 @@ button.tag:hover {
   flex-wrap: wrap;
 }
 
+.task-detail-cta {
+  width: auto;
+  min-width: 148px;
+  padding: 12px 18px;
+  margin-top: 0;
+  font-size: 16px;
+  line-height: 1.1;
+}
+
 .task-actions-compact .row {
   flex: 0 1 auto;
 }

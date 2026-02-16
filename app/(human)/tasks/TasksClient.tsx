@@ -466,7 +466,7 @@ export default function TasksClient() {
                 </div>
 
                 <div className="task-actions-compact">
-                  <a className="text-link" href={`/tasks/${task.id}?lang=${lang}`}>
+                  <a className="button-link task-detail-cta" href={`/tasks/${task.id}?lang=${lang}`}>
                     {strings.details}
                   </a>
                 </div>
