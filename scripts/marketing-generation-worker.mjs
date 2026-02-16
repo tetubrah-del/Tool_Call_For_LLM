@@ -18,7 +18,11 @@ const BATCH_SIZE = Number(process.env.MARKETING_GENERATION_WORKER_BATCH_SIZE || 
 const MAX_ATTEMPTS = Number(process.env.MARKETING_GENERATION_MAX_ATTEMPTS || 5);
 
 const SEEDREAM_IMAGE_ENDPOINT = process.env.SEEDREAM_IMAGE_ENDPOINT || "/images/generations";
-const SEEDANCE_VIDEO_ENDPOINT = process.env.SEEDANCE_VIDEO_ENDPOINT || "/videos/generations";
+const SEEDANCE_VIDEO_ENDPOINT = process.env.SEEDANCE_VIDEO_ENDPOINT || "/contents/generations/tasks";
+const SEEDANCE_TASK_GET_ENDPOINT =
+  process.env.SEEDANCE_TASK_GET_ENDPOINT || "/contents/generations/tasks/{task_id}";
+const SEEDANCE_TASK_POLL_MS = Number(process.env.SEEDANCE_TASK_POLL_MS || 4000);
+const SEEDANCE_TASK_MAX_WAIT_MS = Number(process.env.SEEDANCE_TASK_MAX_WAIT_MS || 300000);
 const SEEDREAM_TIMEOUT_MS = Number(process.env.SEEDREAM_TIMEOUT_MS || 60000);
 const SEEDANCE_TIMEOUT_MS = Number(process.env.SEEDANCE_TIMEOUT_MS || 120000);
 
@@ -214,7 +218,7 @@ function buildProviderConfig(job) {
     return {
       provider: "seedance",
       apiKey,
-      baseUrl: baseUrl.replace(/\/$/, ""),
+      baseUrl: normalizeSeedanceBaseUrl(baseUrl),
       model,
       endpoint: SEEDANCE_VIDEO_ENDPOINT,
       timeoutMs: SEEDANCE_TIMEOUT_MS,
@@ -241,6 +245,29 @@ function buildProviderConfig(job) {
   };
 }
 
+function normalizeSeedanceBaseUrl(rawBaseUrl) {
+  const trimmed = String(rawBaseUrl || "").trim().replace(/\/$/, "");
+  if (!trimmed) return trimmed;
+
+  let next = trimmed;
+  // Many ModelArk snippets use byteplusapi host in console pages, but runtime APIs are on bytepluses host.
+  if (next.includes("ark.") && next.includes(".byteplusapi.com")) {
+    next = next.replace(".byteplusapi.com", ".bytepluses.com");
+  }
+
+  try {
+    const parsed = new URL(next);
+    if (!parsed.pathname || parsed.pathname === "/") {
+      parsed.pathname = "/api/v3";
+    } else if (!parsed.pathname.endsWith("/api/v3")) {
+      parsed.pathname = `${parsed.pathname.replace(/\/$/, "")}/api/v3`;
+    }
+    return parsed.toString().replace(/\/$/, "");
+  } catch {
+    return next;
+  }
+}
+
 function buildGenerationPayload(job, providerConfig) {
   const requestJson = safeJsonParse(job.request_json, {});
   const requestPatch =
@@ -251,17 +278,25 @@ function buildGenerationPayload(job, providerConfig) {
   const payload = {
     ...(requestPatch && typeof requestPatch === "object" ? requestPatch : {}),
     model: providerConfig.model,
-    prompt: job.prompt,
-    negative_prompt: job.prompt_negative || undefined,
     seed: Number.isInteger(job.seed) ? Number(job.seed) : undefined
   };
 
   if (providerConfig.assetType === "video") {
-    if (!payload.duration_sec) payload.duration_sec = 15;
-    if (!payload.aspect_ratio) payload.aspect_ratio = "9:16";
-    if (!payload.fps) payload.fps = 24;
+    if (!Array.isArray(payload.content) || payload.content.length < 1) {
+      payload.content = [{ type: "text", text: job.prompt }];
+    }
+    if (!payload.ratio) payload.ratio = payload.aspect_ratio || "9:16";
+    if (!payload.duration) payload.duration = payload.duration_sec || 5;
     if (!payload.resolution) payload.resolution = "720p";
+    if (job.prompt_negative && !payload.negative_prompt) {
+      payload.negative_prompt = job.prompt_negative;
+    }
+    delete payload.aspect_ratio;
+    delete payload.duration_sec;
+    delete payload.fps;
   } else {
+    payload.prompt = job.prompt;
+    payload.negative_prompt = job.prompt_negative || undefined;
     if (!payload.output_format) payload.output_format = "png";
   }
 
@@ -320,6 +355,31 @@ async function requestProvider(job) {
   const payload = buildGenerationPayload(job, provider);
   const startedAtMs = Date.now();
 
+  const parsed =
+    provider.provider === "seedance" && provider.assetType === "video"
+      ? await requestSeedanceTask(provider, payload, startedAtMs)
+      : await requestSyncProvider(provider, payload);
+
+  return {
+    provider: provider.provider,
+    model: provider.model,
+    assetType: provider.assetType,
+    sourcePrompt: job.prompt,
+    seed: parsed.providerSeed ?? (Number.isInteger(job.seed) ? Number(job.seed) : null),
+    outputUrl: parsed.outputUrl,
+    thumbUrl: provider.assetType === "image" ? parsed.thumbUrl : parsed.posterUrl,
+    mimeType: parsed.mimeType,
+    width: parsed.width,
+    height: parsed.height,
+    durationSec: parsed.durationSec,
+    latencyMs: Date.now() - startedAtMs,
+    costJpy: parsed.costJpy,
+    rawResponseJson: parsed.rawResponseJson,
+    requestJson: safeJsonStringify(payload)
+  };
+}
+
+async function requestSyncProvider(provider, payload) {
   let response;
   try {
     response = await fetch(`${provider.baseUrl}${provider.endpoint}`, {
@@ -351,25 +411,138 @@ async function requestProvider(job) {
     });
   }
 
-  const parsed = parseGenerationOutput(raw, provider.assetType);
+  return parseGenerationOutput(raw, provider.assetType);
+}
+
+function resolveTaskGetEndpoint(taskId) {
+  return SEEDANCE_TASK_GET_ENDPOINT.includes("{task_id}")
+    ? SEEDANCE_TASK_GET_ENDPOINT.replace("{task_id}", encodeURIComponent(taskId))
+    : `${SEEDANCE_TASK_GET_ENDPOINT.replace(/\/$/, "")}/${encodeURIComponent(taskId)}`;
+}
+
+function parseSeedanceTaskState(rawBody) {
+  const body = safeJsonParse(rawBody, {});
+  return {
+    taskId: pickFirstString([body?.id, body?.task_id]),
+    status: pickFirstString([body?.status]) || "unknown",
+    errorCode: pickFirstString([body?.error?.code]),
+    errorMessage: pickFirstString([body?.error?.message]),
+    rawBody,
+    body
+  };
+}
+
+function parseSeedanceSucceededTask(rawBody) {
+  const body = safeJsonParse(rawBody, {});
+  const content = body?.content || {};
+
+  const outputUrl = pickFirstString([content?.video_url, content?.file_url, body?.video_url, body?.file_url]);
+  if (!outputUrl) {
+    throw new ProviderRequestError("unknown", "seedance task response missing output url", {
+      retryable: false,
+      rawBody
+    });
+  }
 
   return {
-    provider: provider.provider,
-    model: provider.model,
-    assetType: provider.assetType,
-    sourcePrompt: job.prompt,
-    seed: parsed.providerSeed ?? (Number.isInteger(job.seed) ? Number(job.seed) : null),
-    outputUrl: parsed.outputUrl,
-    thumbUrl: provider.assetType === "image" ? parsed.thumbUrl : parsed.posterUrl,
-    mimeType: parsed.mimeType,
-    width: parsed.width,
-    height: parsed.height,
-    durationSec: parsed.durationSec,
-    latencyMs: Date.now() - startedAtMs,
-    costJpy: parsed.costJpy,
-    rawResponseJson: parsed.rawResponseJson,
-    requestJson: safeJsonStringify(payload)
+    outputUrl,
+    thumbUrl: pickFirstString([content?.last_frame_url, body?.last_frame_url]),
+    posterUrl: pickFirstString([content?.last_frame_url, body?.last_frame_url]),
+    mimeType: pickFirstString([body?.fileformat]),
+    width: null,
+    height: null,
+    durationSec: pickFirstNumber([body?.duration]),
+    costJpy: null,
+    providerSeed: pickFirstNumber([body?.seed]),
+    rawResponseJson: rawBody
   };
+}
+
+async function requestSeedanceTask(provider, payload, startedAtMs) {
+  let createResponse;
+  try {
+    createResponse = await fetch(`${provider.baseUrl}${provider.endpoint}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${provider.apiKey}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(provider.timeoutMs)
+    });
+  } catch (error) {
+    if (error?.name === "TimeoutError" || error?.name === "AbortError") {
+      throw new ProviderRequestError("timeout", "seedance create timeout", { retryable: true });
+    }
+    throw new ProviderRequestError("provider_unavailable", "seedance create request failed", { retryable: true });
+  }
+
+  const createRaw = await createResponse.text();
+  if (!createResponse.ok) {
+    const code = toErrorCodeFromHttp(createResponse.status);
+    const retryable = createResponse.status === 429 || createResponse.status >= 500;
+    throw new ProviderRequestError(code, `seedance create http ${createResponse.status}`, {
+      retryable,
+      httpStatus: createResponse.status,
+      rawBody: createRaw
+    });
+  }
+
+  const created = parseSeedanceTaskState(createRaw);
+  if (!created.taskId) {
+    throw new ProviderRequestError("unknown", "seedance create response missing task id", {
+      retryable: false,
+      rawBody: createRaw
+    });
+  }
+
+  const pollEndpoint = resolveTaskGetEndpoint(created.taskId);
+  while (Date.now() - startedAtMs < SEEDANCE_TASK_MAX_WAIT_MS) {
+    let getResponse;
+    try {
+      getResponse = await fetch(`${provider.baseUrl}${pollEndpoint}`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${provider.apiKey}`,
+          "Content-Type": "application/json"
+        },
+        signal: AbortSignal.timeout(provider.timeoutMs)
+      });
+    } catch (error) {
+      if (error?.name === "TimeoutError" || error?.name === "AbortError") {
+        throw new ProviderRequestError("timeout", "seedance get timeout", { retryable: true });
+      }
+      throw new ProviderRequestError("provider_unavailable", "seedance get request failed", { retryable: true });
+    }
+
+    const getRaw = await getResponse.text();
+    if (!getResponse.ok) {
+      const code = toErrorCodeFromHttp(getResponse.status);
+      const retryable = getResponse.status === 429 || getResponse.status >= 500;
+      throw new ProviderRequestError(code, `seedance get http ${getResponse.status}`, {
+        retryable,
+        httpStatus: getResponse.status,
+        rawBody: getRaw
+      });
+    }
+
+    const task = parseSeedanceTaskState(getRaw);
+    const status = task.status.toLowerCase();
+    if (status === "succeeded") {
+      return parseSeedanceSucceededTask(getRaw);
+    }
+    if (status === "failed" || status === "cancelled") {
+      throw new ProviderRequestError(
+        normalizeErrorCode(task.errorCode) === "unknown" ? "bad_request" : normalizeErrorCode(task.errorCode),
+        task.errorMessage || `seedance task ${status}`,
+        { retryable: false, rawBody: getRaw }
+      );
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, SEEDANCE_TASK_POLL_MS));
+  }
+
+  throw new ProviderRequestError("timeout", "seedance task polling timed out", { retryable: true });
 }
 
 async function claimQueuedJobs(db) {

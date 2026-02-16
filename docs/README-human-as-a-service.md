@@ -545,9 +545,17 @@ Optional worker tuning:
 - `MARKETING_GENERATION_WORKER_BATCH_SIZE` (default `10`)
 - `MARKETING_GENERATION_MAX_ATTEMPTS` (default `5`)
 - `SEEDREAM_IMAGE_ENDPOINT` (default `/images/generations`)
-- `SEEDANCE_VIDEO_ENDPOINT` (default `/videos/generations`)
+- `SEEDANCE_VIDEO_ENDPOINT` (default `/contents/generations/tasks`)
+- `SEEDANCE_TASK_GET_ENDPOINT` (default `/contents/generations/tasks/{task_id}`)
+- `SEEDANCE_TASK_POLL_MS` (default `4000`)
+- `SEEDANCE_TASK_MAX_WAIT_MS` (default `300000`)
 - `SEEDREAM_TIMEOUT_MS` (default `60000`)
 - `SEEDANCE_TIMEOUT_MS` (default `120000`)
+
+Seedance/ModelArk note:
+
+- `SEEDANCE_BASE_URL` should point to ModelArk runtime host (for example `https://ark.ap-southeast.bytepluses.com/api/v3`).
+- If you set `ark.<region>.byteplusapi.com`, worker normalizes it to the runtime host/path.
 
 Stripe dashboard:
 
