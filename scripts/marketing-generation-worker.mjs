@@ -190,6 +190,80 @@ function buildDb() {
   };
 }
 
+async function ensureMarketingTables(db) {
+  const statements = [
+    `CREATE TABLE IF NOT EXISTS marketing_contents (
+      id TEXT PRIMARY KEY,
+      ai_account_id TEXT NOT NULL,
+      campaign_id TEXT,
+      platform TEXT NOT NULL,
+      kind TEXT NOT NULL,
+      locale TEXT,
+      status TEXT NOT NULL,
+      source_idea_json TEXT,
+      source_context_json TEXT,
+      title TEXT,
+      body TEXT,
+      hashtags_json TEXT,
+      cta TEXT,
+      media_asset_url TEXT,
+      media_thumb_url TEXT,
+      media_duration_sec DOUBLE PRECISION,
+      media_width INTEGER,
+      media_height INTEGER,
+      media_mime_type TEXT,
+      generation_provider TEXT,
+      generation_model TEXT,
+      generation_prompt TEXT,
+      generation_seed INTEGER,
+      generation_status TEXT,
+      generation_error_code TEXT,
+      generation_error_message TEXT,
+      generation_latency_ms INTEGER,
+      generation_cost_jpy INTEGER,
+      generation_raw_response_json TEXT,
+      external_post_id TEXT,
+      external_post_url TEXT,
+      approved_at TEXT,
+      scheduled_at TEXT,
+      posted_at TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS marketing_generation_jobs (
+      id TEXT PRIMARY KEY,
+      content_id TEXT NOT NULL,
+      asset_type TEXT NOT NULL,
+      provider TEXT NOT NULL,
+      model TEXT NOT NULL,
+      status TEXT NOT NULL,
+      prompt TEXT NOT NULL,
+      prompt_negative TEXT,
+      seed INTEGER,
+      request_json TEXT,
+      response_json TEXT,
+      error_code TEXT,
+      error_message TEXT,
+      retryable INTEGER NOT NULL DEFAULT 0,
+      attempt_count INTEGER NOT NULL DEFAULT 0,
+      next_attempt_at TEXT,
+      latency_ms INTEGER,
+      cost_jpy INTEGER,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      finished_at TEXT
+    )`,
+    `CREATE INDEX IF NOT EXISTS marketing_generation_jobs_status_next_attempt_idx
+      ON marketing_generation_jobs (status, next_attempt_at)`,
+    `CREATE INDEX IF NOT EXISTS marketing_generation_jobs_content_idx
+      ON marketing_generation_jobs (content_id, created_at)`
+  ];
+
+  for (const sql of statements) {
+    await db.run(sql);
+  }
+}
+
 function isProviderConfigured() {
   const hasSeedance =
     Boolean((process.env.SEEDANCE_API_KEY || "").trim()) &&
@@ -747,6 +821,7 @@ async function main() {
 
   const db = buildDb();
   try {
+    await ensureMarketingTables(db);
     if (!CONTINUOUS) {
       await runOnce(db);
       return;
