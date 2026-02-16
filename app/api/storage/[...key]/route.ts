@@ -1,6 +1,22 @@
 import { NextResponse } from "next/server";
 import { readR2Upload } from "@/lib/storage";
 
+function isObjectNotFound(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const e = error as any;
+  const message = typeof e.message === "string" ? e.message : "";
+  const name = typeof e.name === "string" ? e.name : "";
+  const code = typeof e.Code === "string" ? e.Code : typeof e.code === "string" ? e.code : "";
+  const httpStatus = Number(e?.$metadata?.httpStatusCode);
+  return (
+    message === "object_not_found" ||
+    message === "NoSuchKey" ||
+    name === "NoSuchKey" ||
+    code === "NoSuchKey" ||
+    httpStatus === 404
+  );
+}
+
 export async function GET(
   _request: Request,
   context: { params: Promise<{ key: string[] }> }
@@ -28,7 +44,7 @@ export async function GET(
         { status: 503 }
       );
     }
-    if (message === "NoSuchKey" || message === "object_not_found") {
+    if (isObjectNotFound(error)) {
       return NextResponse.json({ status: "not_found" }, { status: 404 });
     }
     return NextResponse.json({ status: "error", reason: "storage_read_failed" }, { status: 500 });
