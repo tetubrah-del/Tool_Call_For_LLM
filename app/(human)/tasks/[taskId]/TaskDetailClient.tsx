@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, usePathname, useSearchParams } from "next/navigation";
 import { normalizeLang, UI_STRINGS, type UiLang } from "@/lib/i18n";
 import { calculateFeeAmount } from "@/lib/payments";
 import { chooseDisplayCurrency, formatUsdForDisplay } from "@/lib/currency-display";
@@ -83,8 +83,19 @@ function formatRelativeTime(iso: string, lang: UiLang): string {
 export default function TaskDetailClient() {
   const params = useParams<{ taskId: string }>();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
   const lang = useMemo(() => normalizeLang(searchParams.get("lang")), [searchParams]);
   const strings = UI_STRINGS[lang];
+  const herePath = useMemo(() => {
+    const qs = searchParams.toString();
+    return qs ? `${pathname}?${qs}` : pathname;
+  }, [pathname, searchParams]);
+  const authHref = useMemo(() => {
+    const qs = new URLSearchParams();
+    qs.set("lang", lang);
+    qs.set("next", herePath);
+    return `/auth?${qs.toString()}`;
+  }, [lang, herePath]);
 
   const [humanId, setHumanId] = useState(searchParams.get("human_id") || "");
   const humanTestToken = useMemo(
@@ -566,7 +577,7 @@ export default function TaskDetailClient() {
           {!isLoggedIn && (
             <div className="comment-login-callout">
               <p className="muted">{strings.commentLoginOnly}</p>
-              <a className="text-link" href={`/auth?lang=${lang}`}>
+              <a className="text-link" href={authHref}>
                 {strings.signIn}
               </a>
             </div>
@@ -805,7 +816,7 @@ export default function TaskDetailClient() {
           {task.status === "open" && !canApply && (
             <div className="comment-login-callout">
               <p className="muted">{strings.needAccount}</p>
-              <a className="text-link" href={`/auth?lang=${lang}`}>
+              <a className="text-link" href={authHref}>
                 {strings.signIn}
               </a>
             </div>

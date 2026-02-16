@@ -25,6 +25,10 @@ export default function GlobalNav() {
     params.set("lang", lang);
     return params.toString();
   }, [lang]);
+  const herePath = useMemo(() => {
+    const qs = searchParams.toString();
+    return qs ? `${pathname}?${qs}` : pathname;
+  }, [pathname, searchParams]);
   const navItems = useMemo(
     () => [
       {
@@ -51,12 +55,28 @@ export default function GlobalNav() {
       {
         key: "account",
         label: session?.user ? strings.myPage : strings.register,
-        href: session?.user ? `/me?${query}` : `/auth?${query}`,
+        href: session?.user
+          ? `/me?${query}`
+          : `/auth?${new URLSearchParams({
+              lang,
+              next: pathname.startsWith("/auth") ? `/tasks?lang=${lang}` : herePath
+            }).toString()}`,
         isActive: session?.user ? pathname.startsWith("/me") : pathname.startsWith("/auth"),
         role: "human" as const
       }
     ],
-    [pathname, query, session?.user, strings.aiConnect, strings.forAgents, strings.myPage, strings.register, strings.tasks]
+    [
+      pathname,
+      query,
+      session?.user,
+      strings.aiConnect,
+      strings.forAgents,
+      strings.myPage,
+      strings.register,
+      strings.tasks,
+      herePath,
+      lang
+    ]
   );
   const groupedNav = useMemo(() => {
     const ai = navItems.filter((item) => item.role === "ai");

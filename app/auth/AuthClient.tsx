@@ -32,9 +32,11 @@ export default function AuthClient() {
       }
     }
 
+    // Default: go back to task list (and let the UI prompt for profile completion when needed),
+    // instead of forcing profile setup immediately.
     const params = new URLSearchParams();
     params.set("lang", lang);
-    return `/register?${params.toString()}`;
+    return `/tasks?${params.toString()}`;
   }, [lang, searchParams]);
   const hasExplicitTarget = useMemo(() => {
     const nextRequested = (searchParams.get("next") || "").trim();

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { normalizeLang, UI_STRINGS, type UiLang } from "@/lib/i18n";
 import { calculateFeeAmount } from "@/lib/payments";
 import { chooseDisplayCurrency, formatUsdForDisplay } from "@/lib/currency-display";
@@ -34,6 +34,7 @@ type Task = {
 export default function TasksClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
   const initialLang = useMemo(() => normalizeLang(searchParams.get("lang")), [searchParams]);
   const initialHumanId = useMemo(() => searchParams.get("human_id") || "", [searchParams]);
 
@@ -57,6 +58,16 @@ export default function TasksClient() {
 
   const strings = UI_STRINGS[lang];
   const showBestEffort = Boolean(strings.bestEffort && strings.noTimeGuarantee);
+  const herePath = useMemo(() => {
+    const qs = searchParams.toString();
+    return qs ? `${pathname}?${qs}` : pathname;
+  }, [pathname, searchParams]);
+  const authHref = useMemo(() => {
+    const qs = new URLSearchParams();
+    qs.set("lang", lang);
+    qs.set("next", herePath);
+    return `/auth?${qs.toString()}`;
+  }, [lang, herePath]);
   const statusLabels: Record<Task["status"], string> = {
     open: strings.statusOpen,
     accepted: strings.statusAccepted,
@@ -356,7 +367,7 @@ export default function TasksClient() {
             />
           </label>
           <div className="row filter-actions">
-            <a href={`/auth?lang=${lang}`} className="text-link">
+            <a href={authHref} className="text-link">
               {strings.needAccount}
             </a>
           </div>

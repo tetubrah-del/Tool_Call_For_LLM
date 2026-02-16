@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { normalizeLang, UI_STRINGS, type UiLang } from "@/lib/i18n";
 import { TASK_LABEL_TEXT, type TaskLabel } from "@/lib/task-labels";
 import BrandLogo from "./BrandLogo";
@@ -22,10 +22,21 @@ type TaskPreview = {
 export default function HomeClient() {
   const [lang, setLang] = useState<UiLang>("en");
   const searchParams = useSearchParams();
+  const pathname = usePathname();
   const [tasks, setTasks] = useState<TaskPreview[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const strings = UI_STRINGS[lang];
+  const herePath = useMemo(() => {
+    const qs = searchParams.toString();
+    return qs ? `${pathname}?${qs}` : pathname;
+  }, [pathname, searchParams]);
+  const authHref = useMemo(() => {
+    const qs = new URLSearchParams();
+    qs.set("lang", lang);
+    qs.set("next", herePath);
+    return `/auth?${qs.toString()}`;
+  }, [lang, herePath]);
   const locale = lang === "ja" ? "ja-JP" : "en-US";
   const latestTasks = useMemo(() => tasks.slice(0, 6), [tasks]);
   const showHumanUiOnly = Boolean(strings.humanUiOnly);
@@ -147,7 +158,7 @@ export default function HomeClient() {
       </section>
 
       <section className="cta-grid">
-        <a className="cta" href={`/auth?lang=${lang}`}>
+        <a className="cta" href={authHref}>
           <div>
             <h2>{strings.register}</h2>
             <p>{strings.registerDesc}</p>
