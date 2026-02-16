@@ -1990,6 +1990,6 @@ button.tag:hover {
   }
 
   .site-footer-inner {
-    padding: 12px 18px calc(14px + env(safe-area-inset-bottom));
+    padding: 12px 18px calc(92px + env(safe-area-inset-bottom));
   }
 }
