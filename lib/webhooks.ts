@@ -1,8 +1,19 @@
 import crypto from "crypto";
+import dns from "dns/promises";
+import net from "net";
 import type { DbClient } from "@/lib/db";
 import { getNormalizedTask } from "@/lib/task-api";
 
 export type WebhookEventType = "task.accepted" | "task.completed" | "task.failed";
+
+const PRIVATE_IPV4_BLOCKS: Array<[number, number]> = [
+  [0x0a000000, 0x0affffff],
+  [0xac100000, 0xac1fffff],
+  [0xc0a80000, 0xc0a8ffff],
+  [0x7f000000, 0x7fffffff],
+  [0xa9fe0000, 0xa9feffff],
+  [0x00000000, 0x00ffffff]
+];
 
 type WebhookEndpoint = {
   id: string;
@@ -24,6 +35,44 @@ function wantsEvent(endpoint: WebhookEndpoint, eventType: WebhookEventType) {
 
 function parseTaskId(task: any): string {
   return typeof task?.id === "string" ? task.id : "";
+}
+
+function ipv4ToInt(ip: string): number {
+  return ip.split(".").reduce((acc, part) => (acc << 8) + Number(part), 0) >>> 0;
+}
+
+function isPrivateIp(ip: string): boolean {
+  const version = net.isIP(ip);
+  if (version === 4) {
+    const n = ipv4ToInt(ip);
+    return PRIVATE_IPV4_BLOCKS.some(([start, end]) => n >= start && n <= end);
+  }
+  if (version === 6) {
+    const v = ip.toLowerCase();
+    return (
+      v === "::1" ||
+      v.startsWith("fc") ||
+      v.startsWith("fd") ||
+      v.startsWith("fe80:") ||
+      v === "::"
+    );
+  }
+  return true;
+}
+
+async function isDispatchSafeWebhookUrl(url: string): Promise<boolean> {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:") return false;
+    const host = parsed.hostname.trim().toLowerCase();
+    if (!host || host === "localhost" || host.endsWith(".local")) return false;
+    if (net.isIP(host)) return !isPrivateIp(host);
+    const resolved = await dns.lookup(host, { all: true });
+    if (!resolved.length) return false;
+    return resolved.every((entry) => !isPrivateIp(entry.address));
+  } catch {
+    return false;
+  }
 }
 
 export async function dispatchTaskEvent(
@@ -61,6 +110,26 @@ export async function dispatchTaskEvent(
     endpoints
       .filter((endpoint) => wantsEvent(endpoint, eventType))
       .map(async (endpoint) => {
+        const safe = await isDispatchSafeWebhookUrl(endpoint.url);
+        if (!safe) {
+          await db.prepare(
+            `INSERT INTO webhook_deliveries
+             (id, webhook_id, event_id, event_type, task_id, status_code, response_body, error, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          ).run(
+            crypto.randomUUID(),
+            endpoint.id,
+            eventId,
+            eventType,
+            parseTaskId(task),
+            null,
+            null,
+            "webhook_url_revalidation_failed",
+            createdAt
+          );
+          return;
+        }
+
         const signature = crypto
           .createHmac("sha256", endpoint.secret)
           .update(rawPayload)

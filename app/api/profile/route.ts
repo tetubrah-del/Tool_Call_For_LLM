@@ -7,6 +7,7 @@ import { normalizeCountry } from "@/lib/country";
 import { authenticateHumanRequest, finalizeHumanAuthResponse } from "@/lib/human-api-auth";
 import { normalizePaypalEmail } from "@/lib/paypal";
 import { getRequestCountry } from "@/lib/request-country";
+import { isSameOriginRequest } from "@/lib/same-origin";
 
 function normalizeOptionalString(value: unknown, maxLen: number): string | null {
   if (typeof value !== "string") return null;
@@ -104,6 +105,10 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    if (!isSameOriginRequest(request)) {
+      return NextResponse.json({ status: "error", reason: "forbidden" }, { status: 403 });
+    }
+
     const session = await getServerSession(authOptions);
     const email = session?.user?.email;
     if (!email) {

@@ -24,6 +24,7 @@ export type AiActorAuthResult =
 
 function verifyTestHumanToken(humanId: string, token: string): boolean {
   if (!humanId || !token) return false;
+  if (process.env.NODE_ENV === "production") return false;
   if (process.env.ENABLE_TEST_HUMAN_AUTH !== "true") return false;
   const secret = process.env.TEST_HUMAN_AUTH_SECRET || "";
   if (!secret) return false;

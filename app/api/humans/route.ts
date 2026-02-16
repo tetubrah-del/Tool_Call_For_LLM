@@ -4,6 +4,7 @@ import { getDb } from "@/lib/db";
 import { normalizeCountry } from "@/lib/country";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { isSameOriginRequest } from "@/lib/same-origin";
 
 async function parseRequest(request: Request) {
   const contentType = request.headers.get("content-type") || "";
@@ -15,6 +16,10 @@ async function parseRequest(request: Request) {
 }
 
 export async function POST(request: Request) {
+  if (!isSameOriginRequest(request)) {
+    return NextResponse.json({ status: "error", reason: "forbidden" }, { status: 403 });
+  }
+
   const session = await getServerSession(authOptions);
   const email = session?.user?.email;
   if (!email) {
@@ -57,11 +62,31 @@ export async function POST(request: Request) {
 export async function GET() {
   const db = getDb();
   const humans = await db
-    .prepare(`SELECT * FROM humans WHERE deleted_at IS NULL ORDER BY created_at DESC`)
+    .prepare(
+      `SELECT
+         id,
+         name,
+         country,
+         location,
+         headline,
+         gender,
+         bio,
+         city,
+         region,
+         timezone,
+         hourly_rate_usd,
+         skills_json,
+         twitter_url,
+         github_url,
+         instagram_url,
+         linkedin_url,
+         website_url,
+         youtube_url,
+         created_at
+       FROM humans
+       WHERE deleted_at IS NULL
+       ORDER BY created_at DESC`
+    )
     .all();
-  const sanitized = humans.map((row: any) => {
-    const { status: _status, ...rest } = row;
-    return rest;
-  });
-  return NextResponse.json({ humans: sanitized });
+  return NextResponse.json({ humans });
 }
