@@ -780,6 +780,19 @@ export default function TaskDetailClient() {
         </div>
 
         <div className="card task-side-card">
+          <h3>{strings.deadline}</h3>
+          <p className="muted">
+            {task.deadline_at
+              ? new Date(task.deadline_at).toLocaleDateString(lang, {
+                  year: "numeric",
+                  month: "2-digit",
+                  day: "2-digit"
+                })
+              : strings.any}
+          </p>
+        </div>
+
+        <div className="card task-side-card">
           <h3>{strings.status}</h3>
           <p className="muted">{statusLabel}</p>
         </div>
