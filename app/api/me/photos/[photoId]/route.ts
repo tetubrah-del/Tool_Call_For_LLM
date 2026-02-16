@@ -79,7 +79,7 @@ export async function DELETE(
   }
 
   await db.prepare(`DELETE FROM human_photos WHERE id = ?`).run(photoId);
-  deleteUpload(current.photo_url);
+  await deleteUpload(current.photo_url);
 
   return NextResponse.json({ status: "deleted", id: photoId });
 }

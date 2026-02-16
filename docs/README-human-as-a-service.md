@@ -503,6 +503,19 @@ Env vars (optional, defaults exist):
 - `STRIPE_WEBHOOK_SECRET`
 - `APP_BASE_URL` (used to validate checkout success/cancel redirect URLs)
 
+### Optional object storage (Cloudflare R2)
+
+When set, uploads (submission attachments / message attachments / profile photos) are stored in R2 instead of local `public/uploads`.
+
+- `R2_ACCOUNT_ID`
+- `R2_BUCKET`
+- `R2_ACCESS_KEY_ID`
+- `R2_SECRET_ACCESS_KEY`
+- Optional: `R2_ENDPOINT` (default: `https://<R2_ACCOUNT_ID>.r2.cloudflarestorage.com`)
+- Optional: `R2_KEY_PREFIX` (default: `uploads`)
+
+Uploaded files are returned as app URLs: `/api/storage/<object-key>`.
+
 Stripe dashboard:
 
 - Set webhook endpoint to `/webhooks/stripe` and include the event types used by the worker:
