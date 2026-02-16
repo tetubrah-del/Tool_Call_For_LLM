@@ -227,9 +227,11 @@ export default function PaymentsPanel({ lang }: { lang: UiLang }) {
             >
               {stripeStarting
                 ? strings.stripeConnectStarting
-                : stripeAccountId
-                  ? strings.stripeConnectCtaContinue
-                  : strings.stripeConnectCta}
+                : stripeReady
+                  ? strings.stripeConnectCtaReview
+                  : stripeAccountId
+                    ? strings.stripeConnectCtaComplete
+                    : strings.stripeConnectCta}
             </button>
           </div>
         </div>
