@@ -11,6 +11,7 @@ function isObjectNotFound(error: unknown): boolean {
   return (
     message === "object_not_found" ||
     message === "NoSuchKey" ||
+    message.includes("does not exist") ||
     name === "NoSuchKey" ||
     code === "NoSuchKey" ||
     httpStatus === 404
