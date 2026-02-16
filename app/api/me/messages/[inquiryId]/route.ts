@@ -17,8 +17,9 @@ function resolveBool(value: unknown): boolean | null {
 
 export async function PATCH(
   request: Request,
-  { params }: any
+  context: { params: Promise<{ inquiryId: string }> }
 ) {
+  const { inquiryId } = await context.params;
   const session = await getServerSession(authOptions);
   const email = session?.user?.email;
   if (!email) {
@@ -39,19 +40,19 @@ export async function PATCH(
   const db = getDb();
   const current = await db
     .prepare(`SELECT id FROM human_inquiries WHERE id = ? AND human_id = ?`)
-    .get(params.inquiryId, humanId) as { id: string } | undefined;
+    .get(inquiryId, humanId) as { id: string } | undefined;
   if (!current?.id) {
     return NextResponse.json({ status: "not_found" }, { status: 404 });
   }
 
   await db.prepare(`UPDATE human_inquiries SET is_read = ? WHERE id = ?`).run(
     isRead ? 1 : 0,
-    params.inquiryId
+    inquiryId
   );
 
   return NextResponse.json({
     status: "updated",
-    id: params.inquiryId,
+    id: inquiryId,
     is_read: isRead ? 1 : 0
   });
 }

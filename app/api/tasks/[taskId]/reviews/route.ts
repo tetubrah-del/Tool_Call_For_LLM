@@ -116,8 +116,9 @@ async function loadTaskReviews(db: DbClient, taskId: string): Promise<TaskReview
 
 export async function GET(
   request: Request,
-  { params }: any
+  context: { params: Promise<{ taskId: string }> }
 ) {
+  const { taskId } = await context.params;
   const db = getDb();
   const task = await db
     .prepare(
@@ -125,7 +126,7 @@ export async function GET(
        FROM tasks
        WHERE id = ? AND deleted_at IS NULL`
     )
-    .get<TaskRow>(params.taskId);
+    .get<TaskRow>(taskId);
   if (!task?.id) {
     return NextResponse.json({ status: "not_found" }, { status: 404 });
   }
@@ -166,8 +167,9 @@ export async function GET(
 
 export async function POST(
   request: Request,
-  { params }: any
+  context: { params: Promise<{ taskId: string }> }
 ) {
+  const { taskId } = await context.params;
   const payload: any = await request.json().catch(() => null);
   const ratingOverall = normalizeRating(payload?.rating_overall);
   const comment = normalizeComment(payload?.comment);
@@ -182,7 +184,7 @@ export async function POST(
        FROM tasks
        WHERE id = ? AND deleted_at IS NULL`
     )
-    .get<TaskRow>(params.taskId);
+    .get<TaskRow>(taskId);
   if (!task?.id) {
     return NextResponse.json({ status: "not_found" }, { status: 404 });
   }

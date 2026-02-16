@@ -29,8 +29,9 @@ function parseRefundReason(value: unknown): RefundReason | null {
 
 export async function POST(
   request: Request,
-  { params }: any
+  context: { params: Promise<{ orderId: string }> }
 ) {
+  const { orderId } = await context.params;
   const authError = await requireAdmin(request);
   if (authError) return authError;
 
@@ -49,7 +50,7 @@ export async function POST(
     const db = getDb();
     const order = await db
       .prepare(`SELECT * FROM orders WHERE id = ? AND version = ?`)
-      .get<any>(params.orderId, version);
+      .get<any>(orderId, version);
     if (!order) {
       return NextResponse.json({ status: "not_found" }, { status: 404 });
     }
@@ -107,7 +108,7 @@ export async function POST(
       }
     }
 
-    const idemKey = buildIdempotencyKey("order_refund_create", params.orderId, version);
+    const idemKey = buildIdempotencyKey("order_refund_create", orderId, version);
     const refund = await runWithFallback((client) =>
       client.refunds.create(
         {
@@ -116,7 +117,7 @@ export async function POST(
           payment_intent: paymentIntentId || undefined,
           charge: paymentIntentId ? undefined : chargeId || undefined,
           metadata: {
-            order_id: params.orderId,
+            order_id: orderId,
             version: String(version)
           }
         },
@@ -159,13 +160,13 @@ export async function POST(
       succeeded ? now : null,
       failed ? "refund_failed" : null,
       now,
-      params.orderId,
+      orderId,
       version
     );
 
     const updatedOrder = await db
       .prepare(`SELECT * FROM orders WHERE id = ? AND version = ?`)
-      .get(params.orderId, version);
+      .get(orderId, version);
 
     return NextResponse.json({
       status: "ok",

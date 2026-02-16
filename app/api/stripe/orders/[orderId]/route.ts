@@ -3,10 +3,10 @@ import { getDb } from "@/lib/db";
 
 export async function GET(
   _request: Request,
-  { params }: any
+  context: { params: Promise<{ orderId: string }> }
 ) {
+  const { orderId } = await context.params;
   try {
-    const orderId = params.orderId;
     const url = new URL(_request.url);
     const version = url.searchParams.get("version");
     const v = version == null ? 1 : Number(version);
@@ -27,4 +27,3 @@ export async function GET(
     return NextResponse.json({ status: "error", reason: "internal_error" }, { status: 500 });
   }
 }
-

@@ -12,14 +12,15 @@ import {
 
 export async function GET(
   request: Request,
-  { params }: any
+  context: { params: Promise<{ taskId: string }> }
 ) {
+  const { taskId } = await context.params;
   const db = getDb();
   const requestCountry = getRequestCountry(request);
   const url = new URL(request.url);
   const lang = url.searchParams.get("lang");
   const humanId = url.searchParams.get("human_id");
-  const task = await getNormalizedTask(db, params.taskId, lang);
+  const task = await getNormalizedTask(db, taskId, lang);
   if (!task) {
     return NextResponse.json({ status: "not_found" }, { status: 404 });
   }

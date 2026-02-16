@@ -15,8 +15,9 @@ function normalizeBoolean(value: unknown): boolean | null {
 
 export async function POST(
   request: Request,
-  { params }: any
+  context: { params: Promise<{ taskId: string }> }
 ) {
+  const { taskId } = await context.params;
   const payload: any = await request.json().catch(() => null);
   const aiAccountId = normalizeText(payload?.ai_account_id);
   const aiApiKey = normalizeText(payload?.ai_api_key);
@@ -45,7 +46,7 @@ export async function POST(
 
   const task = await db
     .prepare(`SELECT id, ai_account_id, status FROM tasks WHERE id = ? AND deleted_at IS NULL`)
-    .get<{ id: string; ai_account_id: string | null; status: string }>(params.taskId);
+    .get<{ id: string; ai_account_id: string | null; status: string }>(taskId);
   if (!task?.id) {
     return NextResponse.json({ status: "not_found" }, { status: 404 });
   }

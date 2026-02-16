@@ -32,8 +32,9 @@ async function safeReadJson(response: Response): Promise<any> {
 
 export async function POST(
   request: Request,
-  { params }: any
+  context: { params: Promise<{ taskId: string }> }
 ) {
+  const { taskId } = await context.params;
   const payload: any = await request.json().catch(() => null);
   const aiAccountId = normalizeText(payload?.ai_account_id);
   const aiApiKey = normalizeText(payload?.ai_api_key);
@@ -55,7 +56,7 @@ export async function POST(
       total_amount_jpy: number;
       status: string;
       checkout_session_id: string | null;
-    }>(params.taskId);
+    }>(taskId);
 
   const task = await db
     .prepare(`SELECT id, ai_account_id, status, submission_id, deliverable, human_id, budget_usd, quote_currency, quote_amount_minor FROM tasks WHERE id = ? AND deleted_at IS NULL`)
@@ -70,7 +71,7 @@ export async function POST(
       quote_currency: string | null;
       quote_amount_minor: number | null;
     }>(
-      params.taskId
+      taskId
     );
   if (!task?.id) {
     return NextResponse.json({ status: "not_found" }, { status: 404 });
@@ -241,7 +242,9 @@ export async function POST(
       cancel_url: `${baseUrl}/for-agents?status=cancel&task_id=${encodeURIComponent(task.id)}`
     })
   });
-  const checkoutResponse = await createCheckoutRoute(checkoutRequest, { params: { orderId } });
+  const checkoutResponse = await createCheckoutRoute(checkoutRequest, {
+    params: Promise.resolve({ orderId })
+  });
   const checkoutBody = await safeReadJson(checkoutResponse);
   if (!checkoutResponse.ok) {
     return NextResponse.json({

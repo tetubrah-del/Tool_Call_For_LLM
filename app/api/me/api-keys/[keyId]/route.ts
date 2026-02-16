@@ -13,12 +13,13 @@ async function resolveSessionHumanId() {
 
 export async function DELETE(
   _request: Request,
-  { params }: any
+  context: { params: Promise<{ keyId: string }> }
 ) {
+  const { keyId: rawKeyId } = await context.params;
   const humanId = await resolveSessionHumanId();
   if (!humanId) return NextResponse.json({ status: "unauthorized" }, { status: 401 });
 
-  const keyId = (params.keyId || "").trim();
+  const keyId = (rawKeyId || "").trim();
   if (!keyId) {
     return NextResponse.json({ status: "error", reason: "invalid_request" }, { status: 400 });
   }

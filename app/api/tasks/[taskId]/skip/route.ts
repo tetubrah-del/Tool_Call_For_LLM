@@ -13,8 +13,9 @@ async function parseRequest(request: Request) {
 
 export async function POST(
   request: Request,
-  { params }: any
+  context: { params: Promise<{ taskId: string }> }
 ) {
+  const { taskId } = await context.params;
   const payload: any = await parseRequest(request);
   const humanId = typeof payload?.human_id === "string" ? payload.human_id : "";
 
@@ -25,7 +26,7 @@ export async function POST(
   const db = getDb();
   const task = await db
     .prepare(`SELECT * FROM tasks WHERE id = ? AND deleted_at IS NULL`)
-    .get(params.taskId);
+    .get(taskId);
 
   if (!task) {
     return NextResponse.json({ status: "not_found" }, { status: 404 });
@@ -40,9 +41,9 @@ export async function POST(
   }
 
   await db.prepare(`UPDATE tasks SET status = 'open', human_id = NULL, payee_paypal_email = NULL WHERE id = ?`).run(
-    params.taskId
+    taskId
   );
-  await closeContactChannel(db, params.taskId);
+  await closeContactChannel(db, taskId);
 
-  return NextResponse.json({ status: "skipped", task_id: params.taskId });
+  return NextResponse.json({ status: "skipped", task_id: taskId });
 }

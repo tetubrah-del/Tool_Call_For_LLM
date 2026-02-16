@@ -14,12 +14,13 @@ const MAX_COMMENTS_PER_TASK = 200;
 
 export async function GET(
   _request: Request,
-  { params }: any
+  context: { params: Promise<{ taskId: string }> }
 ) {
+  const { taskId } = await context.params;
   const db = getDb();
   const task = await db
     .prepare(`SELECT id FROM tasks WHERE id = ? AND deleted_at IS NULL`)
-    .get<{ id: string }>(params.taskId);
+    .get<{ id: string }>(taskId);
   if (!task?.id) {
     return NextResponse.json({ status: "not_found" }, { status: 404 });
   }
@@ -33,15 +34,16 @@ export async function GET(
        ORDER BY c.created_at ASC
        LIMIT ${MAX_COMMENTS_PER_TASK}`
     )
-    .all(params.taskId);
+    .all(taskId);
 
   return NextResponse.json({ comments });
 }
 
 export async function POST(
   request: Request,
-  { params }: any
+  context: { params: Promise<{ taskId: string }> }
 ) {
+  const { taskId } = await context.params;
   const session = await getServerSession(authOptions);
   const email = session?.user?.email;
   if (!email) {
@@ -51,7 +53,7 @@ export async function POST(
   const db = getDb();
   const task = await db
     .prepare(`SELECT id FROM tasks WHERE id = ? AND deleted_at IS NULL`)
-    .get<{ id: string }>(params.taskId);
+    .get<{ id: string }>(taskId);
   if (!task?.id) {
     return NextResponse.json({ status: "not_found" }, { status: 404 });
   }
@@ -77,7 +79,7 @@ export async function POST(
       `INSERT INTO task_comments (id, task_id, human_id, body, created_at)
        VALUES (?, ?, ?, ?, ?)`
     )
-    .run(id, params.taskId, humanId, body, createdAt);
+    .run(id, taskId, humanId, body, createdAt);
 
   const human = await db
     .prepare(`SELECT name FROM humans WHERE id = ? AND deleted_at IS NULL`)
@@ -87,7 +89,7 @@ export async function POST(
     status: "created",
     comment: {
       id,
-      task_id: params.taskId,
+      task_id: taskId,
       human_id: humanId,
       human_name: human?.name || null,
       body,

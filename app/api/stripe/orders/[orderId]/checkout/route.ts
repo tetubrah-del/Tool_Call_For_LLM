@@ -65,8 +65,9 @@ function validateRedirectUrl(base: string, value: string, field: string) {
 
 export async function POST(
   request: Request,
-  { params }: any
+  context: { params: Promise<{ orderId: string }> }
 ) {
+  const { orderId } = await context.params;
   try {
     const payload: any = await request.json().catch(() => ({}));
     let aiAuth: AiAuthSuccess | null = null;
@@ -80,7 +81,6 @@ export async function POST(
     const v = Number(version);
     if (!Number.isInteger(v) || v <= 0) return badRequest("invalid_version");
 
-    const orderId = params.orderId;
     const db = getDb();
     const order = (await db
       .prepare(`SELECT * FROM orders WHERE id = ? AND version = ?`)

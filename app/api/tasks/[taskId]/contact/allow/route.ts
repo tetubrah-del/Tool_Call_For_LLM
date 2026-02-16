@@ -5,8 +5,9 @@ import { verifyAiActorDetailed } from "../_auth";
 
 export async function POST(
   request: Request,
-  { params }: any
+  context: { params: Promise<{ taskId: string }> }
 ) {
+  const { taskId } = await context.params;
   const payload = await request.json().catch(() => null);
   const aiAccountId =
     typeof payload?.ai_account_id === "string" ? payload.ai_account_id.trim() : "";
@@ -20,7 +21,7 @@ export async function POST(
 
   const task = await db
     .prepare(`SELECT id, ai_account_id, human_id, status FROM tasks WHERE id = ? AND deleted_at IS NULL`)
-    .get(params.taskId) as
+    .get(taskId) as
     | { id: string; ai_account_id: string | null; human_id: string | null; status: string }
     | undefined;
   if (!task?.id) {

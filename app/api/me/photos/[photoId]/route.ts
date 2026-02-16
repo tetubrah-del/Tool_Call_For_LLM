@@ -18,8 +18,9 @@ function resolveBool(value: unknown): boolean | null {
 
 export async function PATCH(
   request: Request,
-  { params }: any
+  context: { params: Promise<{ photoId: string }> }
 ) {
+  const { photoId } = await context.params;
   const session = await getServerSession(authOptions);
   const email = session?.user?.email;
   if (!email) {
@@ -40,23 +41,24 @@ export async function PATCH(
   const db = getDb();
   const current = await db
     .prepare(`SELECT id FROM human_photos WHERE id = ? AND human_id = ?`)
-    .get(params.photoId, humanId) as { id: string } | undefined;
+    .get(photoId, humanId) as { id: string } | undefined;
   if (!current?.id) {
     return NextResponse.json({ status: "not_found" }, { status: 404 });
   }
 
   await db.prepare(`UPDATE human_photos SET is_public = ? WHERE id = ?`).run(
     isPublic ? 1 : 0,
-    params.photoId
+    photoId
   );
 
-  return NextResponse.json({ status: "updated", id: params.photoId, is_public: isPublic ? 1 : 0 });
+  return NextResponse.json({ status: "updated", id: photoId, is_public: isPublic ? 1 : 0 });
 }
 
 export async function DELETE(
   _request: Request,
-  { params }: any
+  context: { params: Promise<{ photoId: string }> }
 ) {
+  const { photoId } = await context.params;
   const session = await getServerSession(authOptions);
   const email = session?.user?.email;
   if (!email) {
@@ -71,13 +73,13 @@ export async function DELETE(
   const db = getDb();
   const current = await db
     .prepare(`SELECT id, photo_url FROM human_photos WHERE id = ? AND human_id = ?`)
-    .get(params.photoId, humanId) as { id: string; photo_url: string } | undefined;
+    .get(photoId, humanId) as { id: string; photo_url: string } | undefined;
   if (!current?.id) {
     return NextResponse.json({ status: "not_found" }, { status: 404 });
   }
 
-  await db.prepare(`DELETE FROM human_photos WHERE id = ?`).run(params.photoId);
+  await db.prepare(`DELETE FROM human_photos WHERE id = ?`).run(photoId);
   deleteUpload(current.photo_url);
 
-  return NextResponse.json({ status: "deleted", id: params.photoId });
+  return NextResponse.json({ status: "deleted", id: photoId });
 }

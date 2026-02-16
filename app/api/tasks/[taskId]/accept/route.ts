@@ -11,8 +11,9 @@ function normalizeText(value: unknown): string {
 
 export async function POST(
   request: Request,
-  { params }: any
+  context: { params: Promise<{ taskId: string }> }
 ) {
+  const { taskId } = await context.params;
   // This endpoint is intentionally AI-only.
   // Humans should apply first; AI selects an applicant to accept.
   const payload = await request.json().catch(() => null);
@@ -46,7 +47,7 @@ export async function POST(
   const task = await db
     .prepare(`SELECT id, status, human_id, ai_account_id FROM tasks WHERE id = ? AND deleted_at IS NULL`)
     .get<{ id: string; status: string; human_id: string | null; ai_account_id: string | null }>(
-      params.taskId
+      taskId
     );
   if (!task?.id) {
     return respond({ status: "not_found" }, 404);
@@ -63,7 +64,7 @@ export async function POST(
 
   const application = await db
     .prepare(`SELECT id FROM task_applications WHERE task_id = ? AND human_id = ?`)
-    .get<{ id: string }>(params.taskId, selectedHumanId);
+    .get<{ id: string }>(taskId, selectedHumanId);
   if (!application?.id) {
     return respond({ status: "error", reason: "not_applied" }, 409);
   }
@@ -80,23 +81,23 @@ export async function POST(
     .prepare(
       `UPDATE tasks SET status = 'accepted', human_id = ?, payee_paypal_email = ? WHERE id = ?`
     )
-    .run(selectedHumanId, human.paypal_email, params.taskId);
+    .run(selectedHumanId, human.paypal_email, taskId);
 
   // Open contact channel immediately once assignment is accepted.
-  await openContactChannel(db, params.taskId);
+  await openContactChannel(db, taskId);
 
   // For future: store selected application_id on task; v0 does not persist selection metadata.
-  void dispatchTaskEvent(db, { eventType: "task.accepted", taskId: params.taskId }).catch(
+  void dispatchTaskEvent(db, { eventType: "task.accepted", taskId: taskId }).catch(
     () => {}
   );
   void queueTaskAcceptedHumanNotification(db, {
-    taskId: params.taskId,
+    taskId: taskId,
     humanId: selectedHumanId
   }).catch(() => {});
 
   return respond({
     status: "accepted",
-    task_id: params.taskId,
+    task_id: taskId,
     application_id: application.id
   });
 }

@@ -9,8 +9,9 @@ function normalizeText(value: unknown): string {
 
 export async function POST(
   request: Request,
-  { params }: any
+  context: { params: Promise<{ taskId: string }> }
 ) {
+  const { taskId } = await context.params;
   const payload: any = await request.json().catch(() => null);
   const aiAccountId = normalizeText(payload?.ai_account_id);
   const aiApiKey = normalizeText(payload?.ai_api_key);
@@ -36,7 +37,7 @@ export async function POST(
       ai_account_id: string | null;
       status: string;
       submission_id: string | null;
-    }>(params.taskId);
+    }>(taskId);
 
   if (!task?.id) {
     return NextResponse.json({ status: "not_found" }, { status: 404 });

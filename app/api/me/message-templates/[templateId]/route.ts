@@ -10,8 +10,9 @@ function normalizeText(value: unknown): string {
 
 export async function PATCH(
   request: Request,
-  { params }: any
+  context: { params: Promise<{ templateId: string }> }
 ) {
+  const { templateId } = await context.params;
   const session = await getServerSession(authOptions);
   const email = session?.user?.email;
   if (!email) {
@@ -36,7 +37,7 @@ export async function PATCH(
   const db = getDb();
   const current = await db
     .prepare(`SELECT id FROM message_templates WHERE id = ? AND human_id = ?`)
-    .get(params.templateId, humanId) as { id: string } | undefined;
+    .get(templateId, humanId) as { id: string } | undefined;
   if (!current?.id) {
     return NextResponse.json({ status: "not_found" }, { status: 404 });
   }
@@ -46,16 +47,17 @@ export async function PATCH(
     title,
     body,
     now,
-    params.templateId
+    templateId
   );
 
-  return NextResponse.json({ status: "updated", id: params.templateId, title, body, updated_at: now });
+  return NextResponse.json({ status: "updated", id: templateId, title, body, updated_at: now });
 }
 
 export async function DELETE(
   _request: Request,
-  { params }: any
+  context: { params: Promise<{ templateId: string }> }
 ) {
+  const { templateId } = await context.params;
   const session = await getServerSession(authOptions);
   const email = session?.user?.email;
   if (!email) {
@@ -70,11 +72,11 @@ export async function DELETE(
   const db = getDb();
   const current = await db
     .prepare(`SELECT id FROM message_templates WHERE id = ? AND human_id = ?`)
-    .get(params.templateId, humanId) as { id: string } | undefined;
+    .get(templateId, humanId) as { id: string } | undefined;
   if (!current?.id) {
     return NextResponse.json({ status: "not_found" }, { status: 404 });
   }
 
-  await db.prepare(`DELETE FROM message_templates WHERE id = ?`).run(params.templateId);
-  return NextResponse.json({ status: "deleted", id: params.templateId });
+  await db.prepare(`DELETE FROM message_templates WHERE id = ?`).run(templateId);
+  return NextResponse.json({ status: "deleted", id: templateId });
 }

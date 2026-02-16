@@ -45,8 +45,9 @@ async function resolveAuthedHumanId(
 
 export async function GET(
   request: Request,
-  { params }: any
+  context: { params: Promise<{ taskId: string }> }
 ) {
+  const { taskId } = await context.params;
   const url = new URL(request.url);
   const humanId = normalizeText(url.searchParams.get("human_id"));
   const humanTestToken = normalizeText(request.headers.get("x-human-test-token"));
@@ -63,23 +64,24 @@ export async function GET(
 
   const existing = await db
     .prepare(`SELECT id FROM task_applications WHERE task_id = ? AND human_id = ?`)
-    .get<{ id: string }>(params.taskId, humanId);
+    .get<{ id: string }>(taskId, humanId);
 
   if (existing?.id) {
     return NextResponse.json({
       status: "applied",
-      task_id: params.taskId,
+      task_id: taskId,
       application_id: existing.id
     });
   }
 
-  return NextResponse.json({ status: "not_applied", task_id: params.taskId });
+  return NextResponse.json({ status: "not_applied", task_id: taskId });
 }
 
 export async function POST(
   request: Request,
-  { params }: any
+  context: { params: Promise<{ taskId: string }> }
 ) {
+  const { taskId } = await context.params;
   const payload = await request.json().catch(() => null);
   const humanId = normalizeText(payload?.human_id);
   const humanTestToken = normalizeText(payload?.human_test_token);
@@ -112,7 +114,7 @@ export async function POST(
 
   const task = await db
     .prepare(`SELECT id, status, human_id FROM tasks WHERE id = ? AND deleted_at IS NULL`)
-    .get<{ id: string; status: string; human_id: string | null }>(params.taskId);
+    .get<{ id: string; status: string; human_id: string | null }>(taskId);
   if (!task?.id) {
     return NextResponse.json({ status: "not_found" }, { status: 404 });
   }
@@ -132,7 +134,7 @@ export async function POST(
 
   const existing = await db
     .prepare(`SELECT id FROM task_applications WHERE task_id = ? AND human_id = ?`)
-    .get<{ id: string }>(params.taskId, humanId);
+    .get<{ id: string }>(taskId, humanId);
   if (existing?.id) {
     return NextResponse.json(
       { status: "error", reason: "already_applied", application_id: existing.id },
@@ -149,7 +151,7 @@ export async function POST(
     )
     .run(
       applicationId,
-      params.taskId,
+      taskId,
       humanId,
       coverLetter,
       availability,
@@ -159,7 +161,7 @@ export async function POST(
 
   return NextResponse.json({
     status: "applied",
-    task_id: params.taskId,
+    task_id: taskId,
     application_id: applicationId
   });
 }
