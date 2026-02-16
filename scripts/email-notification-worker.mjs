@@ -192,7 +192,6 @@ async function processDelivery(db, delivery) {
 async function runOnce(db) {
   const deliveries = await claimQueuedDeliveries(db);
   for (const delivery of deliveries) {
-    // eslint-disable-next-line no-await-in-loop
     await processDelivery(db, delivery);
   }
   return deliveries.length;
@@ -205,12 +204,9 @@ async function main() {
       await runOnce(db);
       return;
     }
-    // eslint-disable-next-line no-constant-condition
     while (true) {
-      // eslint-disable-next-line no-await-in-loop
       const handled = await runOnce(db);
       const waitMs = handled > 0 ? 1000 : POLL_INTERVAL_MS;
-      // eslint-disable-next-line no-await-in-loop
       await new Promise((resolve) => setTimeout(resolve, waitMs));
     }
   } finally {

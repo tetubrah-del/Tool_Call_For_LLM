@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { normalizeLang, UI_STRINGS, type UiLang } from "@/lib/i18n";
@@ -10,14 +10,14 @@ export default function GlobalNav() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  const [lang, setLang] = useState<UiLang>("en");
+  const [initialLang] = useState<UiLang>(() => {
+    if (typeof window === "undefined") {
+      return "en";
+    }
+    return normalizeLang(localStorage.getItem("lang"));
+  });
+  const lang = normalizeLang(searchParams.get("lang") || initialLang);
   const { data: session } = useSession();
-
-  useEffect(() => {
-    const savedLang = localStorage.getItem("lang");
-    const nextLang = normalizeLang(searchParams.get("lang") || savedLang);
-    setLang(nextLang);
-  }, [searchParams]);
 
   const strings = UI_STRINGS[lang];
   const query = useMemo(() => {
@@ -89,7 +89,6 @@ export default function GlobalNav() {
   };
 
   function onLangChange(next: UiLang) {
-    setLang(next);
     localStorage.setItem("lang", next);
     const params = new URLSearchParams(searchParams.toString());
     params.set("lang", next);
