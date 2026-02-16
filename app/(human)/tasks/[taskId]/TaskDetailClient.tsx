@@ -113,7 +113,6 @@ export default function TaskDetailClient() {
 
   const [applyCoverLetter, setApplyCoverLetter] = useState("");
   const [applyAvailability, setApplyAvailability] = useState("");
-  const [applyCounterBudget, setApplyCounterBudget] = useState("");
   const [applyStatus, setApplyStatus] = useState<"unknown" | "not_applied" | "applied">(
     "unknown"
   );
@@ -410,7 +409,6 @@ export default function TaskDetailClient() {
         availability: applyAvailability.trim()
       };
       if (humanTestToken) payload.human_test_token = humanTestToken;
-      if (applyCounterBudget.trim()) payload.counter_budget_usd = Number(applyCounterBudget);
 
       const res = await fetch(`/api/tasks/${task.id}/apply`, {
         method: "POST",
@@ -429,7 +427,6 @@ export default function TaskDetailClient() {
 
       setApplyCoverLetter("");
       setApplyAvailability("");
-      setApplyCounterBudget("");
     } catch (err: any) {
       setApplyError(err.message || "failed");
     } finally {
@@ -815,7 +812,7 @@ export default function TaskDetailClient() {
                   value={applyCoverLetter}
                   onChange={(e) => setApplyCoverLetter(e.target.value)}
                   rows={5}
-                  placeholder={strings.commentPlaceholder}
+                  placeholder={strings.coverLetterPlaceholder}
                 />
               </label>
               <label>
@@ -826,17 +823,6 @@ export default function TaskDetailClient() {
                   placeholder={lang === "ja" ? "例: 平日19-22時 / 週末" : "e.g. Weekdays 7-10pm"}
                 />
               </label>
-              <label>
-                {strings.counterOffer}
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={applyCounterBudget}
-                  onChange={(e) => setApplyCounterBudget(e.target.value)}
-                  placeholder={`$${task.budget_usd}`}
-                />
-              </label>
               <div className="row">
                 <button
                   type="button"
@@ -844,7 +830,6 @@ export default function TaskDetailClient() {
                   onClick={() => {
                     setApplyCoverLetter("");
                     setApplyAvailability("");
-                    setApplyCounterBudget("");
                     setApplyError(null);
                   }}
                   disabled={applying}
