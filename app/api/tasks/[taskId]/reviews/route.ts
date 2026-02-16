@@ -116,7 +116,7 @@ async function loadTaskReviews(db: DbClient, taskId: string): Promise<TaskReview
 
 export async function GET(
   request: Request,
-  { params }: { params: { taskId: string } }
+  { params }: any
 ) {
   const db = getDb();
   const task = await db
@@ -166,7 +166,7 @@ export async function GET(
 
 export async function POST(
   request: Request,
-  { params }: { params: { taskId: string } }
+  { params }: any
 ) {
   const payload: any = await request.json().catch(() => null);
   const ratingOverall = normalizeRating(payload?.rating_overall);

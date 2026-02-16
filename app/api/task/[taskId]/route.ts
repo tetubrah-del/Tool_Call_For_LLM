@@ -12,7 +12,7 @@ import {
 
 export async function GET(
   request: Request,
-  { params }: { params: { taskId: string } }
+  { params }: any
 ) {
   const db = getDb();
   const requestCountry = getRequestCountry(request);

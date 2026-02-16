@@ -7,11 +7,12 @@ import { authOptions } from "@/lib/auth";
 export default async function RegisterPage({
   searchParams
 }: {
-  searchParams?: Record<string, string | string[] | undefined>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const session = await getServerSession(authOptions);
   if (!session) {
-    const lang = typeof searchParams?.lang === "string" ? searchParams.lang : "en";
+    const lang = typeof resolvedSearchParams?.lang === "string" ? resolvedSearchParams.lang : "en";
     redirect(`/auth?lang=${lang}`);
   }
 

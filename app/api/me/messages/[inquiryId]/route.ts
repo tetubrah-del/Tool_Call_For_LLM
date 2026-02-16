@@ -17,7 +17,7 @@ function resolveBool(value: unknown): boolean | null {
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { inquiryId: string } }
+  { params }: any
 ) {
   const session = await getServerSession(authOptions);
   const email = session?.user?.email;

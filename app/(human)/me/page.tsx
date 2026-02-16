@@ -7,13 +7,14 @@ import { authOptions } from "@/lib/auth";
 export default async function MyPage({
   searchParams
 }: {
-  searchParams?: Record<string, string | string[] | undefined>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const session = await getServerSession(authOptions);
   if (!session) {
-    const lang = typeof searchParams?.lang === "string" ? searchParams.lang : "en";
+    const lang = typeof resolvedSearchParams?.lang === "string" ? resolvedSearchParams.lang : "en";
     const qs = new URLSearchParams();
-    for (const [key, value] of Object.entries(searchParams || {})) {
+    for (const [key, value] of Object.entries(resolvedSearchParams || {})) {
       if (typeof value === "string") qs.set(key, value);
       else if (Array.isArray(value)) {
         for (const v of value) {

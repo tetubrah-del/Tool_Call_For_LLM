@@ -13,7 +13,7 @@ async function resolveSessionHumanId() {
 
 export async function DELETE(
   _request: Request,
-  { params }: { params: { keyId: string } }
+  { params }: any
 ) {
   const humanId = await resolveSessionHumanId();
   if (!humanId) return NextResponse.json({ status: "unauthorized" }, { status: 401 });

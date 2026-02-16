@@ -13,7 +13,7 @@ async function parseRequest(request: Request) {
 
 export async function POST(
   request: Request,
-  { params }: { params: { taskId: string } }
+  { params }: any
 ) {
   const payload: any = await parseRequest(request);
   const humanId = typeof payload?.human_id === "string" ? payload.human_id : "";

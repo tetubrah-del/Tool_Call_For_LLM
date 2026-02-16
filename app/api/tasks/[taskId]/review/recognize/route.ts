@@ -9,7 +9,7 @@ function normalizeText(value: unknown): string {
 
 export async function POST(
   request: Request,
-  { params }: { params: { taskId: string } }
+  { params }: any
 ) {
   const payload: any = await request.json().catch(() => null);
   const aiAccountId = normalizeText(payload?.ai_account_id);

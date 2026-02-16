@@ -11,7 +11,7 @@ function normalizeText(value: unknown): string {
 
 export async function POST(
   request: Request,
-  { params }: { params: { taskId: string } }
+  { params }: any
 ) {
   // This endpoint is intentionally AI-only.
   // Humans should apply first; AI selects an applicant to accept.

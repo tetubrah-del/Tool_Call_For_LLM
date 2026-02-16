@@ -28,7 +28,7 @@ async function resolveSessionHumanId() {
 
 export async function POST(
   request: Request,
-  { params }: { params: { keyId: string } }
+  { params }: any
 ) {
   const humanId = await resolveSessionHumanId();
   if (!humanId) return NextResponse.json({ status: "unauthorized" }, { status: 401 });

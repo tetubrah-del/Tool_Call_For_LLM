@@ -45,7 +45,7 @@ async function resolveAuthedHumanId(
 
 export async function GET(
   request: Request,
-  { params }: { params: { taskId: string } }
+  { params }: any
 ) {
   const url = new URL(request.url);
   const humanId = normalizeText(url.searchParams.get("human_id"));
@@ -78,7 +78,7 @@ export async function GET(
 
 export async function POST(
   request: Request,
-  { params }: { params: { taskId: string } }
+  { params }: any
 ) {
   const payload = await request.json().catch(() => null);
   const humanId = normalizeText(payload?.human_id);

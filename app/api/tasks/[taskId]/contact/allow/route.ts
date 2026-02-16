@@ -5,7 +5,7 @@ import { verifyAiActorDetailed } from "../_auth";
 
 export async function POST(
   request: Request,
-  { params }: { params: { taskId: string } }
+  { params }: any
 ) {
   const payload = await request.json().catch(() => null);
   const aiAccountId =

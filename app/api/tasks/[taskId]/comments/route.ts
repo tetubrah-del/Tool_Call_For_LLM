@@ -14,7 +14,7 @@ const MAX_COMMENTS_PER_TASK = 200;
 
 export async function GET(
   _request: Request,
-  { params }: { params: { taskId: string } }
+  { params }: any
 ) {
   const db = getDb();
   const task = await db
@@ -40,7 +40,7 @@ export async function GET(
 
 export async function POST(
   request: Request,
-  { params }: { params: { taskId: string } }
+  { params }: any
 ) {
   const session = await getServerSession(authOptions);
   const email = session?.user?.email;

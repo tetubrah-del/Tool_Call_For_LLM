@@ -65,7 +65,7 @@ function validateRedirectUrl(base: string, value: string, field: string) {
 
 export async function POST(
   request: Request,
-  { params }: { params: { orderId: string } }
+  { params }: any
 ) {
   try {
     const payload: any = await request.json().catch(() => ({}));

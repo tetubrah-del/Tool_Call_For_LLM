@@ -3,7 +3,7 @@ import { getDb } from "@/lib/db";
 
 export async function GET(
   _request: Request,
-  { params }: { params: { orderId: string } }
+  { params }: any
 ) {
   try {
     const orderId = params.orderId;

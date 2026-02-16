@@ -68,7 +68,7 @@ async function parsePayload(request: Request): Promise<{
 
 export async function GET(
   request: Request,
-  { params }: { params: { taskId: string } }
+  { params }: any
 ) {
   let humanAuth: HumanAuthSuccess | null = null;
   let aiAuth: AiAuthSuccess | null = null;
@@ -164,7 +164,7 @@ export async function GET(
 
 export async function POST(
   request: Request,
-  { params }: { params: { taskId: string } }
+  { params }: any
 ) {
   let humanAuth: HumanAuthSuccess | null = null;
   let aiAuth: AiAuthSuccess | null = null;

@@ -10,7 +10,7 @@ import { resolveActorFromRequest } from "../_auth";
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { taskId: string } }
+  { params }: any
 ) {
   let humanAuth: HumanAuthSuccess | null = null;
   let aiAuth: AiAuthSuccess | null = null;

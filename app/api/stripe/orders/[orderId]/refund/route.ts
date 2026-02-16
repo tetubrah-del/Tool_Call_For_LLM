@@ -29,7 +29,7 @@ function parseRefundReason(value: unknown): RefundReason | null {
 
 export async function POST(
   request: Request,
-  { params }: { params: { orderId: string } }
+  { params }: any
 ) {
   const authError = await requireAdmin(request);
   if (authError) return authError;

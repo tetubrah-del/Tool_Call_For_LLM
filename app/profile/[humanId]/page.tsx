@@ -6,11 +6,13 @@ export default async function PublicProfilePage({
   params,
   searchParams
 }: {
-  params: { humanId: string };
-  searchParams?: Record<string, string | string[] | undefined>;
+  params: Promise<{ humanId: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const resolvedParams = await params;
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const langParam =
-    typeof searchParams?.lang === "string" ? searchParams.lang : undefined;
+    typeof resolvedSearchParams?.lang === "string" ? resolvedSearchParams.lang : undefined;
   const lang = normalizeLang(langParam);
   const strings = UI_STRINGS[lang];
   const db = getDb();
@@ -22,7 +24,7 @@ export default async function PublicProfilePage({
        WHERE id = ? AND deleted_at IS NULL
        LIMIT 1`
     )
-    .get(params.humanId) as
+    .get(resolvedParams.humanId) as
     | { id: string; name: string; location: string | null; country: string | null; status: string }
     | undefined;
 

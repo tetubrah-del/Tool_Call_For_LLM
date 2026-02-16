@@ -10,7 +10,7 @@ function normalizeText(value: unknown): string {
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { templateId: string } }
+  { params }: any
 ) {
   const session = await getServerSession(authOptions);
   const email = session?.user?.email;
@@ -54,7 +54,7 @@ export async function PATCH(
 
 export async function DELETE(
   _request: Request,
-  { params }: { params: { templateId: string } }
+  { params }: any
 ) {
   const session = await getServerSession(authOptions);
   const email = session?.user?.email;
