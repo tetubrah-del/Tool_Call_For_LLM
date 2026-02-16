@@ -251,6 +251,8 @@ function normalizeSeedanceBaseUrl(rawBaseUrl) {
 
   let next = trimmed;
   // Many ModelArk snippets use byteplusapi host in console pages, but runtime APIs are on bytepluses host.
+  next = next.replace(/ark\.([a-z-]+)-\d+\.byteplusapi\.com/i, "ark.$1.bytepluses.com");
+  next = next.replace(/ark\.([a-z-]+)-\d+\.bytepluses\.com/i, "ark.$1.bytepluses.com");
   if (next.includes("ark.") && next.includes(".byteplusapi.com")) {
     next = next.replace(".byteplusapi.com", ".bytepluses.com");
   }
