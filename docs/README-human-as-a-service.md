@@ -523,6 +523,8 @@ Marketing job APIs are isolated from core Sinkai task/payment flows and require 
 - `POST /api/marketing/jobs` enqueue generation job
 - `GET /api/marketing/jobs?job_id=<JOB_ID>` get job status
 - `GET /api/marketing/jobs/<JOB_ID>` get job + related content status
+- `POST /api/marketing/contents` create publishable content (returns `content.id`)
+- `GET /api/marketing/contents?content_id=<CONTENT_ID>` get one content
 - `POST /api/marketing/publish` enqueue publish job
 - `GET /api/marketing/publish?job_id=<JOB_ID>` get publish job status
 - `GET /api/marketing/publish/<JOB_ID>` get publish job + related content/post status
