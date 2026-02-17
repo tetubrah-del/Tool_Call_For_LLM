@@ -19,6 +19,9 @@ const MAX_ATTEMPTS = Number(process.env.MARKETING_PUBLISH_MAX_ATTEMPTS || 5);
 
 const X_POSTS_BASE_URL = (process.env.MARKETING_X_POSTS_BASE_URL || "https://api.x.com").trim().replace(/\/$/, "");
 const X_USER_ACCESS_TOKEN = (process.env.MARKETING_X_USER_ACCESS_TOKEN || "").trim();
+const X_USER_ACCESS_TOKEN_SECRET = (process.env.MARKETING_X_USER_ACCESS_TOKEN_SECRET || "").trim();
+const X_API_KEY = (process.env.MARKETING_X_API_KEY || "").trim();
+const X_API_SECRET = (process.env.MARKETING_X_API_SECRET || "").trim();
 const X_TIMEOUT_MS = Number(process.env.MARKETING_X_TIMEOUT_MS || 30000);
 
 function nowIso() {
@@ -218,7 +221,66 @@ async function ensurePublishTables(db) {
 }
 
 function isPublisherConfigured() {
+  return isOAuth1Configured() || isOAuth2BearerConfigured();
+}
+
+function isOAuth1Configured() {
+  return (
+    Boolean(X_API_KEY) &&
+    Boolean(X_API_SECRET) &&
+    Boolean(X_USER_ACCESS_TOKEN) &&
+    Boolean(X_USER_ACCESS_TOKEN_SECRET)
+  );
+}
+
+function isOAuth2BearerConfigured() {
   return Boolean(X_USER_ACCESS_TOKEN);
+}
+
+function percentEncode(input) {
+  return encodeURIComponent(String(input))
+    .replace(/[!'()*]/g, (ch) => `%${ch.charCodeAt(0).toString(16).toUpperCase()}`);
+}
+
+function buildOAuth1Header(method, url) {
+  const oauthParams = {
+    oauth_consumer_key: X_API_KEY,
+    oauth_nonce: crypto.randomBytes(16).toString("hex"),
+    oauth_signature_method: "HMAC-SHA1",
+    oauth_timestamp: `${Math.floor(Date.now() / 1000)}`,
+    oauth_token: X_USER_ACCESS_TOKEN,
+    oauth_version: "1.0"
+  };
+
+  const parsed = new URL(url);
+  const queryPairs = [];
+  parsed.searchParams.forEach((value, key) => {
+    queryPairs.push([key, value]);
+  });
+
+  const oauthPairs = Object.entries(oauthParams);
+  const allPairs = [...queryPairs, ...oauthPairs].map(([k, v]) => [percentEncode(k), percentEncode(v)]);
+  allPairs.sort((a, b) => {
+    if (a[0] === b[0]) return a[1].localeCompare(b[1]);
+    return a[0].localeCompare(b[0]);
+  });
+  const normalizedParams = allPairs.map(([k, v]) => `${k}=${v}`).join("&");
+
+  const baseUrl = `${parsed.protocol}//${parsed.host}${parsed.pathname}`;
+  const baseString = [method.toUpperCase(), percentEncode(baseUrl), percentEncode(normalizedParams)].join("&");
+  const signingKey = `${percentEncode(X_API_SECRET)}&${percentEncode(X_USER_ACCESS_TOKEN_SECRET)}`;
+  const signature = crypto.createHmac("sha1", signingKey).update(baseString).digest("base64");
+
+  const headerParams = {
+    ...oauthParams,
+    oauth_signature: signature
+  };
+  const headerValue = Object.entries(headerParams)
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([k, v]) => `${percentEncode(k)}="${percentEncode(v)}"`)
+    .join(", ");
+
+  return `OAuth ${headerValue}`;
 }
 
 function pickFirstString(candidates) {
@@ -252,20 +314,24 @@ function buildXText(content) {
 }
 
 async function publishToX(content) {
-  if (!X_USER_ACCESS_TOKEN) {
-    throw new PublishRequestError("bad_request", "MARKETING_X_USER_ACCESS_TOKEN is missing", {
+  if (!isPublisherConfigured()) {
+    throw new PublishRequestError("bad_request", "x auth env is missing", {
       retryable: false
     });
   }
   const text = buildXText(content);
   const payload = { text };
+  const postUrl = `${X_POSTS_BASE_URL}/2/tweets`;
+  const authHeader = isOAuth1Configured()
+    ? buildOAuth1Header("POST", postUrl)
+    : `Bearer ${X_USER_ACCESS_TOKEN}`;
 
   let response;
   try {
-    response = await fetch(`${X_POSTS_BASE_URL}/2/tweets`, {
+    response = await fetch(postUrl, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${X_USER_ACCESS_TOKEN}`,
+        Authorization: authHeader,
         "Content-Type": "application/json"
       },
       body: JSON.stringify(payload),

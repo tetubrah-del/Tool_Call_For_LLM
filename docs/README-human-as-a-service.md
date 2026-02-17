@@ -563,7 +563,13 @@ Optional worker tuning:
 
 X publisher env (minimal):
 
-- `MARKETING_X_USER_ACCESS_TOKEN` (required for X post API)
+- OAuth 1.0a (recommended for single bot account):
+  - `MARKETING_X_API_KEY`
+  - `MARKETING_X_API_SECRET`
+  - `MARKETING_X_USER_ACCESS_TOKEN`
+  - `MARKETING_X_USER_ACCESS_TOKEN_SECRET`
+- OAuth 2.0 bearer (alternative):
+  - `MARKETING_X_USER_ACCESS_TOKEN`
 - `MARKETING_X_POSTS_BASE_URL` (default `https://api.x.com`)
 - `MARKETING_X_TIMEOUT_MS` (default `30000`)
 
