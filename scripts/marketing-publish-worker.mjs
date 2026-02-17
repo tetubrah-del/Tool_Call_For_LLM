@@ -18,11 +18,15 @@ const BATCH_SIZE = Number(process.env.MARKETING_PUBLISH_WORKER_BATCH_SIZE || 10)
 const MAX_ATTEMPTS = Number(process.env.MARKETING_PUBLISH_MAX_ATTEMPTS || 5);
 
 const X_POSTS_BASE_URL = (process.env.MARKETING_X_POSTS_BASE_URL || "https://api.x.com").trim().replace(/\/$/, "");
+const X_MEDIA_UPLOAD_BASE_URL =
+  (process.env.MARKETING_X_MEDIA_UPLOAD_BASE_URL || "https://upload.twitter.com").trim().replace(/\/$/, "");
 const X_USER_ACCESS_TOKEN = (process.env.MARKETING_X_USER_ACCESS_TOKEN || "").trim();
 const X_USER_ACCESS_TOKEN_SECRET = (process.env.MARKETING_X_USER_ACCESS_TOKEN_SECRET || "").trim();
 const X_API_KEY = (process.env.MARKETING_X_API_KEY || "").trim();
 const X_API_SECRET = (process.env.MARKETING_X_API_SECRET || "").trim();
 const X_TIMEOUT_MS = Number(process.env.MARKETING_X_TIMEOUT_MS || 30000);
+const X_MEDIA_CHUNK_SIZE = Number(process.env.MARKETING_X_MEDIA_CHUNK_SIZE || 4 * 1024 * 1024);
+const X_MEDIA_PROCESSING_TIMEOUT_MS = Number(process.env.MARKETING_X_MEDIA_PROCESSING_TIMEOUT_MS || 300000);
 
 function nowIso() {
   return new Date().toISOString();
@@ -57,6 +61,21 @@ function safeJsonStringify(value) {
   } catch {
     return null;
   }
+}
+
+function pickFirstString(candidates) {
+  for (const item of candidates) {
+    if (typeof item === "string" && item.trim()) return item.trim();
+  }
+  return null;
+}
+
+function pickFirstNumber(candidates) {
+  for (const item of candidates) {
+    const n = Number(item);
+    if (Number.isFinite(n)) return n;
+  }
+  return null;
 }
 
 function nextBackoffSeconds(attemptCount) {
@@ -123,6 +142,7 @@ function getPgPool() {
     useSsl = lowerUrl.includes("sslmode=require") || lowerUrl.includes("ssl=true");
   }
   if (pgSslMode === "require") useSsl = true;
+
   return new Pool({
     connectionString,
     ssl: useSsl ? { rejectUnauthorized: false } : undefined
@@ -220,10 +240,6 @@ async function ensurePublishTables(db) {
   }
 }
 
-function isPublisherConfigured() {
-  return isOAuth1Configured() || isOAuth2BearerConfigured();
-}
-
 function isOAuth1Configured() {
   return (
     Boolean(X_API_KEY) &&
@@ -237,12 +253,15 @@ function isOAuth2BearerConfigured() {
   return Boolean(X_USER_ACCESS_TOKEN);
 }
 
-function percentEncode(input) {
-  return encodeURIComponent(String(input))
-    .replace(/[!'()*]/g, (ch) => `%${ch.charCodeAt(0).toString(16).toUpperCase()}`);
+function isPublisherConfigured() {
+  return isOAuth1Configured() || isOAuth2BearerConfigured();
 }
 
-function buildOAuth1Header(method, url) {
+function percentEncode(input) {
+  return encodeURIComponent(String(input)).replace(/[!'()*]/g, (ch) => `%${ch.charCodeAt(0).toString(16).toUpperCase()}`);
+}
+
+function buildOAuth1Header(method, requestUrl) {
   const oauthParams = {
     oauth_consumer_key: X_API_KEY,
     oauth_nonce: crypto.randomBytes(16).toString("hex"),
@@ -252,7 +271,7 @@ function buildOAuth1Header(method, url) {
     oauth_version: "1.0"
   };
 
-  const parsed = new URL(url);
+  const parsed = new URL(requestUrl);
   const queryPairs = [];
   parsed.searchParams.forEach((value, key) => {
     queryPairs.push([key, value]);
@@ -264,8 +283,8 @@ function buildOAuth1Header(method, url) {
     if (a[0] === b[0]) return a[1].localeCompare(b[1]);
     return a[0].localeCompare(b[0]);
   });
-  const normalizedParams = allPairs.map(([k, v]) => `${k}=${v}`).join("&");
 
+  const normalizedParams = allPairs.map(([k, v]) => `${k}=${v}`).join("&");
   const baseUrl = `${parsed.protocol}//${parsed.host}${parsed.pathname}`;
   const baseString = [method.toUpperCase(), percentEncode(baseUrl), percentEncode(normalizedParams)].join("&");
   const signingKey = `${percentEncode(X_API_SECRET)}&${percentEncode(X_USER_ACCESS_TOKEN_SECRET)}`;
@@ -275,6 +294,7 @@ function buildOAuth1Header(method, url) {
     ...oauthParams,
     oauth_signature: signature
   };
+
   const headerValue = Object.entries(headerParams)
     .sort((a, b) => a[0].localeCompare(b[0]))
     .map(([k, v]) => `${percentEncode(k)}="${percentEncode(v)}"`)
@@ -283,11 +303,196 @@ function buildOAuth1Header(method, url) {
   return `OAuth ${headerValue}`;
 }
 
-function pickFirstString(candidates) {
-  for (const item of candidates) {
-    if (typeof item === "string" && item.trim()) return item.trim();
+async function xRequest(method, url, body = null, contentType = null, oauth1Only = false) {
+  if (oauth1Only && !isOAuth1Configured()) {
+    throw new PublishRequestError("bad_request", "x media upload requires oauth1 user context", {
+      retryable: false
+    });
   }
-  return null;
+
+  const headers = {};
+  if (isOAuth1Configured()) {
+    headers.Authorization = buildOAuth1Header(method, url);
+  } else {
+    headers.Authorization = `Bearer ${X_USER_ACCESS_TOKEN}`;
+  }
+  if (contentType) {
+    headers["Content-Type"] = contentType;
+  }
+
+  let response;
+  try {
+    response = await fetch(url, {
+      method,
+      headers,
+      body,
+      signal: AbortSignal.timeout(X_TIMEOUT_MS)
+    });
+  } catch (error) {
+    if (error?.name === "TimeoutError" || error?.name === "AbortError") {
+      throw new PublishRequestError("timeout", "x request timeout", { retryable: true });
+    }
+    throw new PublishRequestError("provider_unavailable", "x request failed", { retryable: true });
+  }
+
+  const raw = await response.text();
+  return { response, raw };
+}
+
+function detectMimeType(mediaUrl, responseMimeType) {
+  const fromResponse = String(responseMimeType || "").trim().toLowerCase();
+  if (fromResponse && fromResponse !== "application/octet-stream") return fromResponse;
+  const lower = String(mediaUrl || "").toLowerCase();
+  if (lower.includes(".mp4")) return "video/mp4";
+  if (lower.includes(".mov")) return "video/quicktime";
+  if (lower.includes(".webm")) return "video/webm";
+  return "video/mp4";
+}
+
+async function fetchMediaBinary(mediaUrl) {
+  let response;
+  try {
+    response = await fetch(mediaUrl, {
+      method: "GET",
+      signal: AbortSignal.timeout(X_TIMEOUT_MS)
+    });
+  } catch (error) {
+    if (error?.name === "TimeoutError" || error?.name === "AbortError") {
+      throw new PublishRequestError("timeout", "media download timeout", { retryable: true });
+    }
+    throw new PublishRequestError("provider_unavailable", "media download request failed", {
+      retryable: true
+    });
+  }
+
+  if (!response.ok) {
+    throw new PublishRequestError(
+      toErrorCodeFromHttp(response.status),
+      `media download http ${response.status}`,
+      {
+        retryable: response.status >= 500 || response.status === 429
+      }
+    );
+  }
+
+  const mimeType = detectMimeType(mediaUrl, response.headers.get("content-type"));
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  if (bytes.byteLength < 1) {
+    throw new PublishRequestError("bad_request", "media download is empty", { retryable: false });
+  }
+  return { bytes, mimeType };
+}
+
+async function uploadVideoToX(mediaUrl) {
+  const media = await fetchMediaBinary(mediaUrl);
+  const totalBytes = media.bytes.byteLength;
+  const initUrl =
+    `${X_MEDIA_UPLOAD_BASE_URL}/1.1/media/upload.json` +
+    `?command=INIT&total_bytes=${encodeURIComponent(totalBytes)}` +
+    `&media_type=${encodeURIComponent(media.mimeType)}` +
+    `&media_category=tweet_video`;
+
+  const init = await xRequest("POST", initUrl, null, null, true);
+  if (!init.response.ok) {
+    throw new PublishRequestError(toErrorCodeFromHttp(init.response.status), `x media init http ${init.response.status}`, {
+      retryable: init.response.status >= 500 || init.response.status === 429,
+      rawBody: init.raw
+    });
+  }
+
+  const initBody = safeJsonParse(init.raw, {});
+  const mediaId = pickFirstString([initBody?.media_id_string, initBody?.media_id]);
+  if (!mediaId) {
+    throw new PublishRequestError("unknown", "x media init missing media_id", {
+      retryable: false,
+      rawBody: init.raw
+    });
+  }
+
+  const chunkSize = Math.max(256 * 1024, X_MEDIA_CHUNK_SIZE);
+  const totalChunks = Math.ceil(totalBytes / chunkSize);
+  for (let i = 0; i < totalChunks; i += 1) {
+    const start = i * chunkSize;
+    const end = Math.min(start + chunkSize, totalBytes);
+    const chunk = media.bytes.slice(start, end);
+
+    const form = new FormData();
+    form.append("media", new Blob([chunk], { type: media.mimeType }), "video.mp4");
+
+    const appendUrl =
+      `${X_MEDIA_UPLOAD_BASE_URL}/1.1/media/upload.json` +
+      `?command=APPEND&media_id=${encodeURIComponent(mediaId)}` +
+      `&segment_index=${encodeURIComponent(i)}`;
+
+    const append = await xRequest("POST", appendUrl, form, null, true);
+    if (!append.response.ok) {
+      throw new PublishRequestError(
+        toErrorCodeFromHttp(append.response.status),
+        `x media append http ${append.response.status}`,
+        {
+          retryable: append.response.status >= 500 || append.response.status === 429,
+          rawBody: append.raw
+        }
+      );
+    }
+  }
+
+  const finalizeUrl =
+    `${X_MEDIA_UPLOAD_BASE_URL}/1.1/media/upload.json` +
+    `?command=FINALIZE&media_id=${encodeURIComponent(mediaId)}`;
+  const finalize = await xRequest("POST", finalizeUrl, null, null, true);
+  if (!finalize.response.ok) {
+    throw new PublishRequestError(
+      toErrorCodeFromHttp(finalize.response.status),
+      `x media finalize http ${finalize.response.status}`,
+      {
+        retryable: finalize.response.status >= 500 || finalize.response.status === 429,
+        rawBody: finalize.raw
+      }
+    );
+  }
+
+  let statusBody = safeJsonParse(finalize.raw, {});
+  let state = String(statusBody?.processing_info?.state || "").toLowerCase();
+  const startedAt = Date.now();
+
+  while (state && state !== "succeeded") {
+    if (state === "failed") {
+      throw new PublishRequestError("bad_request", "x media processing failed", {
+        retryable: false,
+        rawBody: safeJsonStringify(statusBody)
+      });
+    }
+    if (Date.now() - startedAt > X_MEDIA_PROCESSING_TIMEOUT_MS) {
+      throw new PublishRequestError("timeout", "x media processing timeout", { retryable: true });
+    }
+
+    const waitSec = Math.max(1, pickFirstNumber([statusBody?.processing_info?.check_after_secs]) || 5);
+    await new Promise((resolve) => setTimeout(resolve, waitSec * 1000));
+
+    const statusUrl =
+      `${X_MEDIA_UPLOAD_BASE_URL}/1.1/media/upload.json` +
+      `?command=STATUS&media_id=${encodeURIComponent(mediaId)}`;
+    const statusResp = await xRequest("GET", statusUrl, null, null, true);
+    if (!statusResp.response.ok) {
+      throw new PublishRequestError(
+        toErrorCodeFromHttp(statusResp.response.status),
+        `x media status http ${statusResp.response.status}`,
+        {
+          retryable: statusResp.response.status >= 500 || statusResp.response.status === 429,
+          rawBody: statusResp.raw
+        }
+      );
+    }
+
+    statusBody = safeJsonParse(statusResp.raw, {});
+    state = String(statusBody?.processing_info?.state || "succeeded").toLowerCase();
+  }
+
+  return {
+    mediaId,
+    rawResponseJson: safeJsonStringify(statusBody)
+  };
 }
 
 function buildXText(content) {
@@ -319,46 +524,32 @@ async function publishToX(content) {
       retryable: false
     });
   }
+
   const text = buildXText(content);
-  const payload = { text };
+  const mediaUrl = pickFirstString([content?.media_asset_url]);
+  let media = null;
+  if (mediaUrl) {
+    media = await uploadVideoToX(mediaUrl);
+  }
+
+  const payload = media ? { text, media: { media_ids: [media.mediaId] } } : { text };
   const postUrl = `${X_POSTS_BASE_URL}/2/tweets`;
-  const authHeader = isOAuth1Configured()
-    ? buildOAuth1Header("POST", postUrl)
-    : `Bearer ${X_USER_ACCESS_TOKEN}`;
+  const posted = await xRequest("POST", postUrl, JSON.stringify(payload), "application/json", false);
 
-  let response;
-  try {
-    response = await fetch(postUrl, {
-      method: "POST",
-      headers: {
-        Authorization: authHeader,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(X_TIMEOUT_MS)
-    });
-  } catch (error) {
-    if (error?.name === "TimeoutError" || error?.name === "AbortError") {
-      throw new PublishRequestError("timeout", "x publish timeout", { retryable: true });
-    }
-    throw new PublishRequestError("provider_unavailable", "x publish request failed", { retryable: true });
-  }
-
-  const raw = await response.text();
-  if (!response.ok) {
-    throw new PublishRequestError(toErrorCodeFromHttp(response.status), `x publish http ${response.status}`, {
-      retryable: response.status >= 500 || response.status === 429,
-      httpStatus: response.status,
-      rawBody: raw
+  if (!posted.response.ok) {
+    throw new PublishRequestError(toErrorCodeFromHttp(posted.response.status), `x publish http ${posted.response.status}`, {
+      retryable: posted.response.status >= 500 || posted.response.status === 429,
+      httpStatus: posted.response.status,
+      rawBody: posted.raw
     });
   }
 
-  const body = safeJsonParse(raw, {});
+  const body = safeJsonParse(posted.raw, {});
   const externalPostId = pickFirstString([body?.data?.id, body?.id]);
   if (!externalPostId) {
     throw new PublishRequestError("unknown", "x publish response missing data.id", {
       retryable: false,
-      rawBody: raw
+      rawBody: posted.raw
     });
   }
 
@@ -366,7 +557,10 @@ async function publishToX(content) {
     channel: "x",
     externalPostId,
     postUrl: `https://x.com/i/web/status/${externalPostId}`,
-    rawResponseJson: raw
+    rawResponseJson: safeJsonStringify({
+      tweet: body,
+      media: media?.rawResponseJson ? safeJsonParse(media.rawResponseJson, media.rawResponseJson) : null
+    })
   };
 }
 
@@ -417,6 +611,7 @@ async function markSucceeded(db, job, result) {
      WHERE id = ?`,
     [Number(job.attempt_count || 0) + 1, now, job.id]
   );
+
   await db.run(
     `UPDATE marketing_contents
      SET status = 'posted',
@@ -424,6 +619,7 @@ async function markSucceeded(db, job, result) {
      WHERE id = ?`,
     [now, job.content_id]
   );
+
   await db.run(
     `INSERT INTO marketing_posts (
        id, content_id, channel, external_post_id, post_url, published_at, raw_response_json
@@ -449,6 +645,7 @@ async function markFailed(db, job, error) {
   const nextAttemptAt = retryable
     ? new Date(Date.now() + nextBackoffSeconds(attemptCount - 1) * 1000).toISOString()
     : null;
+
   await db.run(
     `UPDATE marketing_publish_jobs
      SET status = ?,

@@ -573,7 +573,15 @@ X publisher env (minimal):
 - OAuth 2.0 bearer (alternative):
   - `MARKETING_X_USER_ACCESS_TOKEN`
 - `MARKETING_X_POSTS_BASE_URL` (default `https://api.x.com`)
+- `MARKETING_X_MEDIA_UPLOAD_BASE_URL` (default `https://upload.twitter.com`)
 - `MARKETING_X_TIMEOUT_MS` (default `30000`)
+- `MARKETING_X_MEDIA_CHUNK_SIZE` (default `4194304`)
+- `MARKETING_X_MEDIA_PROCESSING_TIMEOUT_MS` (default `300000`)
+
+Note:
+
+- Direct video attachment to X uses chunked media upload and requires OAuth 1.0a user context keys.
+- With OAuth 2.0 bearer-only setup, text/link posting still works, but media upload is not attempted.
 
 Seedance/ModelArk note:
 
