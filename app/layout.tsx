@@ -39,13 +39,7 @@ export default function RootLayout({
               >
                 特商法
               </a>
-              <a
-                href="https://core-logic-studio.onrender.com/privacy"
-                target="_blank"
-                rel="noreferrer noopener"
-              >
-                プライバシーポリシー
-              </a>
+              <a href="/privacy">プライバシーポリシー</a>
               <a
                 href="https://core-logic-studio.onrender.com"
                 target="_blank"
