@@ -523,6 +523,9 @@ Marketing job APIs are isolated from core Sinkai task/payment flows and require 
 - `POST /api/marketing/jobs` enqueue generation job
 - `GET /api/marketing/jobs?job_id=<JOB_ID>` get job status
 - `GET /api/marketing/jobs/<JOB_ID>` get job + related content status
+- `POST /api/marketing/publish` enqueue publish job
+- `GET /api/marketing/publish?job_id=<JOB_ID>` get publish job status
+- `GET /api/marketing/publish/<JOB_ID>` get publish job + related content/post status
 
 Required env for API auth:
 
@@ -532,6 +535,8 @@ Worker safety flags (default OFF):
 
 - `MARKETING_GENERATION_WORKER_ENABLED=true` to enable worker process
 - `MARKETING_GENERATION_PLACEHOLDER_EXECUTE=true` to execute provider calls (second safety gate)
+- `MARKETING_PUBLISH_WORKER_ENABLED=true` to enable publish worker process
+- `MARKETING_PUBLISH_PLACEHOLDER_EXECUTE=true` to execute publish provider calls (second safety gate)
 
 Provider env (required for execution):
 
@@ -551,6 +556,16 @@ Optional worker tuning:
 - `SEEDANCE_TASK_MAX_WAIT_MS` (default `300000`)
 - `SEEDREAM_TIMEOUT_MS` (default `60000`)
 - `SEEDANCE_TIMEOUT_MS` (default `120000`)
+- `MARKETING_PUBLISH_WORKER_CONTINUOUS=true`
+- `MARKETING_PUBLISH_WORKER_POLL_MS` (default `15000`)
+- `MARKETING_PUBLISH_WORKER_BATCH_SIZE` (default `10`)
+- `MARKETING_PUBLISH_MAX_ATTEMPTS` (default `5`)
+
+X publisher env (minimal):
+
+- `MARKETING_X_USER_ACCESS_TOKEN` (required for X post API)
+- `MARKETING_X_POSTS_BASE_URL` (default `https://api.x.com`)
+- `MARKETING_X_TIMEOUT_MS` (default `30000`)
 
 Seedance/ModelArk note:
 
