@@ -32,6 +32,13 @@ export default function GlobalNav() {
   const navItems = useMemo(
     () => [
       {
+        key: "blog",
+        label: lang === "ja" ? "記事" : "Blog",
+        href: `/blog?${query}`,
+        isActive: pathname.startsWith("/blog"),
+        role: "ai" as const
+      },
+      {
         key: "for-agents",
         label: strings.forAgents,
         href: `/for-agents?${query}`,

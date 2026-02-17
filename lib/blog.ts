@@ -1,0 +1,113 @@
+import "server-only";
+
+import { promises as fs } from "node:fs";
+import path from "node:path";
+import { marked } from "marked";
+
+export type BlogPost = {
+  slug: string;
+  title: string;
+  description: string;
+  primaryKeyword: string;
+  excerpt: string;
+  order: number;
+  sourceFile: string;
+  updatedAt: string;
+  html: string;
+};
+
+const BLOG_DIR = path.join(process.cwd(), "docs", "seo", "for-agents-ja");
+const EXCLUDED_FILES = new Set(["README.md"]);
+
+let postsPromise: Promise<BlogPost[]> | null = null;
+
+function cleanMemoValue(value: string): string {
+  return value.trim().replace(/^`+|`+$/g, "").trim();
+}
+
+function extractMemoValue(section: string, label: string): string | null {
+  const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = section.match(new RegExp(`-\\s*${escapedLabel}:\\s*(.+)`));
+  return match?.[1] ? cleanMemoValue(match[1]) : null;
+}
+
+function stripSeoMemo(markdown: string): string {
+  return markdown.replace(/\n## SEOメモ[\s\S]*?(?=\n##\s|$)/, "\n").trim();
+}
+
+function stripLeadingHeading(markdown: string): string {
+  return markdown.replace(/^#\s+.+\n+/, "").trim();
+}
+
+function extractExcerpt(markdown: string): string {
+  const withoutCode = markdown.replace(/```[\s\S]*?```/g, "");
+  const paragraphs = withoutCode
+    .split(/\n\s*\n/)
+    .map((chunk) => chunk.trim())
+    .filter((chunk) => chunk.length > 0)
+    .filter((chunk) => !chunk.startsWith("#"))
+    .filter((chunk) => !chunk.startsWith("- "))
+    .filter((chunk) => !chunk.startsWith("* "))
+    .filter((chunk) => !/^\d+\.\s/.test(chunk))
+    .filter((chunk) => !chunk.startsWith("|"));
+  return paragraphs[0] || "";
+}
+
+async function parsePost(fileName: string): Promise<BlogPost> {
+  const fullPath = path.join(BLOG_DIR, fileName);
+  const [content, stat] = await Promise.all([
+    fs.readFile(fullPath, "utf8"),
+    fs.stat(fullPath)
+  ]);
+
+  const titleMatch = content.match(/^#\s+(.+)$/m);
+  const title = titleMatch?.[1]?.trim() || fileName.replace(/\.md$/, "");
+  const seoSection = content.match(/## SEOメモ([\s\S]*?)(?=\n##\s|$)/)?.[1] || "";
+  const slugFromMemo = extractMemoValue(seoSection, "slug案");
+  const description =
+    extractMemoValue(seoSection, "meta description案") ||
+    `${title} | Sinkai for Agents`;
+  const primaryKeyword = extractMemoValue(seoSection, "primary keyword") || "";
+  const orderMatch = fileName.match(/^(\d+)-/);
+  const order = orderMatch ? Number(orderMatch[1]) : Number.MAX_SAFE_INTEGER;
+  const fallbackSlug = fileName.replace(/^\d+-/, "").replace(/\.md$/, "");
+  const slug = slugFromMemo || fallbackSlug;
+
+  const markdownBody = stripLeadingHeading(stripSeoMemo(content));
+  const excerpt = extractExcerpt(markdownBody);
+  const html = await marked.parse(markdownBody);
+
+  return {
+    slug,
+    title,
+    description,
+    primaryKeyword,
+    excerpt,
+    order,
+    sourceFile: fileName,
+    updatedAt: stat.mtime.toISOString(),
+    html
+  };
+}
+
+async function loadPosts(): Promise<BlogPost[]> {
+  const fileNames = await fs.readdir(BLOG_DIR);
+  const articleFiles = fileNames.filter(
+    (fileName) => fileName.endsWith(".md") && !EXCLUDED_FILES.has(fileName)
+  );
+  const posts = await Promise.all(articleFiles.map((fileName) => parsePost(fileName)));
+  return posts.sort((a, b) => a.order - b.order);
+}
+
+export async function listBlogPosts(): Promise<BlogPost[]> {
+  if (!postsPromise) {
+    postsPromise = loadPosts();
+  }
+  return postsPromise;
+}
+
+export async function getBlogPostBySlug(slug: string): Promise<BlogPost | null> {
+  const posts = await listBlogPosts();
+  return posts.find((post) => post.slug === slug) || null;
+}
+
