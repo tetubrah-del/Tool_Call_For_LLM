@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sinkai Key Visual</title>
+<style>
+  :root {
+    --bg0: #071022;
+    --bg1: #0d1f3a;
+    --bg2: #132e4f;
+    --line: rgba(109, 224, 196, 0.22);
+    --accent: #7cf4d0;
+    --accent2: #8ab8ff;
+    --text: #eff7ff;
+    --muted: #bdd2ea;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    width: 2500px;
+    height: 1000px;
+    font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+    background:
+      radial-gradient(1200px 600px at 85% 10%, rgba(124, 244, 208, 0.14), transparent 70%),
+      radial-gradient(900px 520px at 10% 100%, rgba(138, 184, 255, 0.18), transparent 75%),
+      linear-gradient(120deg, var(--bg0) 0%, var(--bg1) 42%, var(--bg2) 100%);
+    color: var(--text);
+    overflow: hidden;
+    position: relative;
+  }
+  .grid {
+    position: absolute;
+    inset: -80px;
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 68px 68px;
+    transform: perspective(800px) rotateX(58deg) translateY(380px) scale(1.2);
+    transform-origin: center;
+    opacity: 0.35;
+    filter: blur(0.3px);
+  }
+  .orb {
+    position: absolute;
+    width: 620px;
+    height: 620px;
+    border-radius: 50%;
+    left: 1760px;
+    top: 80px;
+    background:
+      radial-gradient(circle at 42% 38%, rgba(124, 244, 208, 0.9), rgba(124, 244, 208, 0.25) 34%, rgba(124, 244, 208, 0.05) 60%, transparent 72%),
+      radial-gradient(circle at 65% 62%, rgba(138, 184, 255, 0.7), rgba(138, 184, 255, 0.08) 52%, transparent 70%);
+    filter: blur(0.3px);
+  }
+  .ring {
+    position: absolute;
+    border: 1px solid rgba(124, 244, 208, 0.32);
+    border-radius: 999px;
+  }
+  .ring.r1 { width: 720px; height: 720px; right: 100px; top: 30px; }
+  .ring.r2 { width: 560px; height: 560px; right: 180px; top: 110px; opacity: 0.7; }
+  .ring.r3 { width: 420px; height: 420px; right: 250px; top: 180px; opacity: 0.45; }
+
+  .left {
+    position: absolute;
+    left: 110px;
+    top: 120px;
+    width: 1380px;
+  }
+  .badge {
+    display: inline-block;
+    padding: 12px 24px;
+    border: 1px solid rgba(124, 244, 208, 0.45);
+    border-radius: 999px;
+    color: var(--accent);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    font-size: 34px;
+    margin-bottom: 36px;
+    backdrop-filter: blur(2px);
+    background: rgba(9, 20, 38, 0.35);
+  }
+  h1 {
+    margin: 0;
+    font-size: 102px;
+    line-height: 1.1;
+    letter-spacing: 0.01em;
+    max-width: 1360px;
+    text-wrap: balance;
+    text-shadow: 0 10px 40px rgba(0,0,0,0.35);
+  }
+  .sub {
+    margin-top: 32px;
+    font-size: 44px;
+    color: var(--muted);
+    line-height: 1.45;
+    max-width: 1320px;
+  }
+  .sinkai {
+    position: absolute;
+    left: 114px;
+    bottom: 84px;
+    font-size: 50px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: #dff9ff;
+  }
+  .lead {
+    position: absolute;
+    left: 114px;
+    bottom: 42px;
+    font-size: 30px;
+    color: #b7d8e6;
+    letter-spacing: 0.02em;
+  }
+  .url {
+    position: absolute;
+    right: 108px;
+    bottom: 54px;
+    font-size: 38px;
+    color: #d4fef3;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+  }
+  .connector {
+    position: absolute;
+    right: 860px;
+    top: 450px;
+    width: 840px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(124,244,208,0.72), transparent);
+    transform: rotate(-12deg);
+  }
+  .dot {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 18px rgba(124,244,208,0.95);
+  }
+  .d1 { right: 980px; top: 405px; }
+  .d2 { right: 840px; top: 370px; }
+  .d3 { right: 700px; top: 338px; }
+</style>
+</head>
+<body>
+  <div class="grid"></div>
+  <div class="orb"></div>
+  <div class="ring r1"></div>
+  <div class="ring r2"></div>
+  <div class="ring r3"></div>
+  <div class="connector"></div>
+  <div class="dot d1"></div>
+  <div class="dot d2"></div>
+  <div class="dot d3"></div>
+
+  <div class="left">
+    <div class="badge">AI × HUMAN WORK PLATFORM</div>
+    <h1>AIとヒトの融合で、
+      ホワイトカラー業務を再設計する。</h1>
+    <div class="sub">入口をAIに、実行力をヒトに。<br>Sinkaiが実務の自動化を次の段階へ。</div>
+  </div>
+
+  <div class="sinkai">Sinkai</div>
+  <div class="lead">AIとヒトの融合したワークプラットフォーム</div>
+  <div class="url">https://sinkai.tokyo/</div>
+</body>
+</html>

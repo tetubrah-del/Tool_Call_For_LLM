@@ -25,7 +25,7 @@ export default async function BlogIndexPage() {
     <div className="blog-page">
       <section className="blog-hero card">
         <p className="eyebrow">Blog</p>
-        <h1>Sinkai for Agents 記事一覧</h1>
+        <h1>Sinkai for Agents ブログ一覧</h1>
         <p className="subtitle">
           AIエージェント実装者向けに、導入判断・接続・実装・運用を段階的にまとめています。
         </p>
@@ -43,7 +43,7 @@ export default async function BlogIndexPage() {
             </h2>
             {post.excerpt && <p>{post.excerpt}</p>}
             <Link className="text-link" href={`/blog/${post.slug}`}>
-              記事を読む
+              ブログを読む
             </Link>
           </article>
         ))}

@@ -88,7 +88,7 @@ export default async function BlogArticlePage({
         }}
       />
       <div className="blog-footer-links">
-        <Link href="/blog">記事一覧に戻る</Link>
+        <Link href="/blog">ブログ一覧に戻る</Link>
         <Link href="/for-agents/quickstart">Quickstart</Link>
         <Link href="/for-agents/reference">Reference</Link>
       </div>

@@ -2126,7 +2126,7 @@ button.tag:hover {
     bottom: 0;
     z-index: 40;
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 4px;
     padding: 10px 10px calc(10px + env(safe-area-inset-bottom));
     background: rgba(7, 11, 20, 0.96);
