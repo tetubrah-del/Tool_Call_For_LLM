@@ -1,17 +1,49 @@
 import crypto from "crypto";
+import { ApiClient, DefaultApi, GetItemsRequestContent } from "@amzn/creatorsapi-nodejs-sdk";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { requireMarketingApiKey } from "@/lib/marketing-api-auth";
 
-const PAAPI_HOST = (process.env.AMAZON_PAAPI_HOST || "webservices.amazon.co.jp").trim();
-const PAAPI_REGION = (process.env.AMAZON_PAAPI_REGION || "us-west-2").trim();
-const PAAPI_SERVICE = "ProductAdvertisingAPI";
-const PAAPI_TARGET = "com.amazon.paapi5.v1.ProductAdvertisingAPIv1.GetItems";
-const PAAPI_ENDPOINT = `https://${PAAPI_HOST}/paapi5/getitems`;
-const PAAPI_PARTNER_TAG = (process.env.AMAZON_PAAPI_PARTNER_TAG || "").trim();
-const PAAPI_ACCESS_KEY = (process.env.AMAZON_PAAPI_ACCESS_KEY || "").trim();
-const PAAPI_SECRET_KEY = (process.env.AMAZON_PAAPI_SECRET_KEY || "").trim();
-const PAAPI_MARKETPLACE = (process.env.AMAZON_PAAPI_MARKETPLACE || "www.amazon.co.jp").trim();
+const CREATORS_CREDENTIAL_ID = (
+  process.env.CREATORS_API_CREDENTIAL_ID ||
+  process.env.AMAZON_CREATORS_CREDENTIAL_ID ||
+  process.env.AMAZON_PAAPI_ACCESS_KEY ||
+  ""
+).trim();
+const CREATORS_CREDENTIAL_SECRET = (
+  process.env.CREATORS_API_CREDENTIAL_SECRET ||
+  process.env.AMAZON_CREATORS_CREDENTIAL_SECRET ||
+  process.env.AMAZON_PAAPI_SECRET_KEY ||
+  ""
+).trim();
+const CREATORS_CREDENTIAL_VERSION = (
+  process.env.CREATORS_API_CREDENTIAL_VERSION ||
+  process.env.AMAZON_CREATORS_CREDENTIAL_VERSION ||
+  process.env.AMAZON_PAAPI_VERSION ||
+  ""
+).trim();
+const CREATORS_MARKETPLACE = (
+  process.env.CREATORS_API_MARKETPLACE ||
+  process.env.AMAZON_CREATORS_MARKETPLACE ||
+  process.env.AMAZON_PAAPI_MARKETPLACE ||
+  "www.amazon.co.jp"
+).trim();
+const CREATORS_PARTNER_TAG = (
+  process.env.CREATORS_API_PARTNER_TAG ||
+  process.env.AMAZON_CREATORS_PARTNER_TAG ||
+  process.env.AMAZON_PAAPI_PARTNER_TAG ||
+  ""
+).trim();
+const CREATORS_BASE_URL = (
+  process.env.CREATORS_API_BASE_URL ||
+  process.env.AMAZON_CREATORS_BASE_URL ||
+  ""
+).trim();
+const CREATORS_AUTH_ENDPOINT = (
+  process.env.CREATORS_API_AUTH_ENDPOINT ||
+  process.env.AMAZON_CREATORS_AUTH_ENDPOINT ||
+  ""
+).trim();
 const MARKETING_ALERT_EMAIL = (process.env.MARKETING_ALERT_EMAIL || "tetubrah@gmail.com").trim();
 
 function normalizeText(value: unknown, max = 10000) {
@@ -39,18 +71,6 @@ function safeJsonStringify(value: unknown): string | null {
 
 function nowIso() {
   return new Date().toISOString();
-}
-
-function hmacSha256(key: Buffer | string, data: string) {
-  return crypto.createHmac("sha256", key).update(data, "utf8").digest();
-}
-
-function sha256Hex(data: string) {
-  return crypto.createHash("sha256").update(data, "utf8").digest("hex");
-}
-
-function toAmzDate(input = new Date()) {
-  return input.toISOString().replace(/[:-]|\.\d{3}/g, "");
 }
 
 function extractAsin(productUrl: string) {
@@ -196,115 +216,88 @@ async function queueAlertEmail(
 }
 
 async function fetchAmazonItem(asin: string) {
-  if (!PAAPI_ACCESS_KEY || !PAAPI_SECRET_KEY || !PAAPI_PARTNER_TAG) {
-    throw new Error("paapi_not_configured");
+  if (
+    !CREATORS_CREDENTIAL_ID ||
+    !CREATORS_CREDENTIAL_SECRET ||
+    !CREATORS_CREDENTIAL_VERSION ||
+    !CREATORS_PARTNER_TAG
+  ) {
+    throw new Error("creators_api_not_configured");
   }
 
-  const payload = {
-    ItemIds: [asin],
-    PartnerTag: PAAPI_PARTNER_TAG,
-    PartnerType: "Associates",
-    Marketplace: PAAPI_MARKETPLACE,
-    Resources: [
-      "ItemInfo.Title",
-      "ItemInfo.Features",
-      "ItemInfo.ByLineInfo",
-      "Images.Primary.Large",
-      "Images.Variants.Large",
-      "Offers.Listings.Price",
-      "CustomerReviews.StarRating",
-      "CustomerReviews.Count"
-    ]
-  };
+  const apiClient = CREATORS_BASE_URL ? new ApiClient(CREATORS_BASE_URL) : new ApiClient();
+  apiClient.credentialId = CREATORS_CREDENTIAL_ID;
+  apiClient.credentialSecret = CREATORS_CREDENTIAL_SECRET;
+  apiClient.version = CREATORS_CREDENTIAL_VERSION;
+  if (CREATORS_AUTH_ENDPOINT) {
+    apiClient.authEndpoint = CREATORS_AUTH_ENDPOINT;
+  }
+  const api = new DefaultApi(apiClient);
 
-  const body = JSON.stringify(payload);
-  const now = new Date();
-  const amzDate = toAmzDate(now);
-  const dateStamp = amzDate.slice(0, 8);
+  const request = new GetItemsRequestContent();
+  request.partnerTag = CREATORS_PARTNER_TAG;
+  request.itemIds = [asin];
+  request.condition = "New";
+  request.resources = [
+    "images.primary.large",
+    "images.variants.large",
+    "itemInfo.title",
+    "itemInfo.features",
+    "itemInfo.byLineInfo",
+    "offersV2.listings.price",
+    "customerReviews.starRating",
+    "customerReviews.count"
+  ];
 
-  const canonicalHeaders =
-    `content-encoding:amz-1.0\n` +
-    `content-type:application/json; charset=UTF-8\n` +
-    `host:${PAAPI_HOST}\n` +
-    `x-amz-date:${amzDate}\n` +
-    `x-amz-target:${PAAPI_TARGET}\n`;
-  const signedHeaders = "content-encoding;content-type;host;x-amz-date;x-amz-target";
-  const canonicalRequest = [
-    "POST",
-    "/paapi5/getitems",
-    "",
-    canonicalHeaders,
-    signedHeaders,
-    sha256Hex(body)
-  ].join("\n");
-  const credentialScope = `${dateStamp}/${PAAPI_REGION}/${PAAPI_SERVICE}/aws4_request`;
-  const stringToSign = ["AWS4-HMAC-SHA256", amzDate, credentialScope, sha256Hex(canonicalRequest)].join("\n");
-
-  const kDate = hmacSha256(`AWS4${PAAPI_SECRET_KEY}`, dateStamp);
-  const kRegion = hmacSha256(kDate, PAAPI_REGION);
-  const kService = hmacSha256(kRegion, PAAPI_SERVICE);
-  const kSigning = hmacSha256(kService, "aws4_request");
-  const signature = crypto.createHmac("sha256", kSigning).update(stringToSign, "utf8").digest("hex");
-  const authorization =
-    `AWS4-HMAC-SHA256 Credential=${PAAPI_ACCESS_KEY}/${credentialScope}, ` +
-    `SignedHeaders=${signedHeaders}, Signature=${signature}`;
-
-  const response = await fetch(PAAPI_ENDPOINT, {
-    method: "POST",
-    headers: {
-      "Content-Encoding": "amz-1.0",
-      "Content-Type": "application/json; charset=UTF-8",
-      "X-Amz-Date": amzDate,
-      "X-Amz-Target": PAAPI_TARGET,
-      Authorization: authorization
-    },
-    body
-  });
-
-  const raw = await response.text();
-  let parsed: any = null;
+  let response: any;
   try {
-    parsed = JSON.parse(raw);
-  } catch {
-    parsed = null;
-  }
-
-  if (!response.ok) {
+    response = await api.getItems(CREATORS_MARKETPLACE, request);
+  } catch (error: any) {
     const reason = findFirstString([
-      parsed?.Errors?.[0]?.Code,
-      parsed?.Errors?.[0]?.Message,
-      `paapi_http_${response.status}`
+      error?.response?.body?.errors?.[0]?.code,
+      error?.response?.body?.errors?.[0]?.message,
+      error?.message,
+      "creators_api_request_failed"
     ]);
-    throw new Error(reason || "paapi_request_failed");
+    throw new Error(reason || "creators_api_request_failed");
   }
 
-  const item = parsed?.ItemsResult?.Items?.[0];
+  if (Array.isArray(response?.errors) && response.errors.length > 0) {
+    const reason = findFirstString([
+      response.errors?.[0]?.code,
+      response.errors?.[0]?.message,
+      "creators_api_partial_error"
+    ]);
+    throw new Error(reason || "creators_api_partial_error");
+  }
+
+  const item = response?.itemsResult?.items?.[0];
   if (!item) {
-    const errorCode = findFirstString([parsed?.Errors?.[0]?.Code, "paapi_item_not_found"]);
+    const errorCode = findFirstString([response?.errors?.[0]?.code, "creators_api_item_not_found"]);
     throw new Error(errorCode);
   }
 
-  const title = findFirstString([item?.ItemInfo?.Title?.DisplayValue]);
-  const features: string[] = Array.isArray(item?.ItemInfo?.Features?.DisplayValues)
-    ? item.ItemInfo.Features.DisplayValues.filter((v: unknown) => typeof v === "string").map((v: string) => v.trim())
+  const title = findFirstString([item?.itemInfo?.title?.displayValue]);
+  const features: string[] = Array.isArray(item?.itemInfo?.features?.displayValues)
+    ? item.itemInfo.features.displayValues.filter((v: unknown) => typeof v === "string").map((v: string) => v.trim())
     : [];
   const brand = findFirstString([
-    item?.ItemInfo?.ByLineInfo?.Brand?.DisplayValue,
-    item?.ItemInfo?.ByLineInfo?.Manufacturer?.DisplayValue,
-    item?.ItemInfo?.ByLineInfo?.Contributor?.DisplayName
+    item?.itemInfo?.byLineInfo?.brand?.displayValue,
+    item?.itemInfo?.byLineInfo?.manufacturer?.displayValue,
+    item?.itemInfo?.byLineInfo?.contributors?.[0]?.displayName
   ]);
   const priceText = findFirstString([
-    item?.Offers?.Listings?.[0]?.Price?.DisplayAmount,
-    item?.Offers?.Listings?.[0]?.Price?.Amount
+    item?.offersV2?.listings?.[0]?.price?.displayAmount,
+    item?.offersV2?.listings?.[0]?.price?.amount
   ]);
   const imageUrls = [
-    findFirstString([item?.Images?.Primary?.Large?.URL]),
-    ...(Array.isArray(item?.Images?.Variants)
-      ? item.Images.Variants.map((v: any) => findFirstString([v?.Large?.URL])).filter(Boolean)
+    findFirstString([item?.images?.primary?.large?.url]),
+    ...(Array.isArray(item?.images?.variants)
+      ? item.images.variants.map((v: any) => findFirstString([v?.large?.url])).filter(Boolean)
       : [])
   ].filter(Boolean);
-  const rating = findFirstNumber([item?.CustomerReviews?.StarRating?.Value]);
-  const reviewCount = findFirstNumber([item?.CustomerReviews?.Count]);
+  const rating = findFirstNumber([item?.customerReviews?.starRating?.value]);
+  const reviewCount = findFirstNumber([item?.customerReviews?.count]);
 
   if (!title) {
     throw new Error("paapi_missing_title");
@@ -319,7 +312,7 @@ async function fetchAmazonItem(asin: string) {
     image_urls: imageUrls.slice(0, 8),
     rating,
     review_count: reviewCount,
-    raw: parsed
+    raw: response
   };
 }
 
@@ -426,7 +419,7 @@ export async function POST(request: Request) {
       normalizeText(bodyText, 5000),
       JSON.stringify(hashtags),
       JSON.stringify({
-        source: "amazon_paapi",
+        source: "amazon_creators_api",
         asin,
         auto_publish: true,
         duration_sec: 15,
@@ -464,7 +457,7 @@ export async function POST(request: Request) {
           negative_prompt: normalizeText(promptNegative, 2000)
         },
         source: {
-          kind: "amazon_paapi",
+          kind: "amazon_creators_api",
           asin,
           ai_account_id: aiAccountId
         }
@@ -482,7 +475,7 @@ export async function POST(request: Request) {
       )
       .run(
         JSON.stringify({
-          source: "amazon_paapi",
+          source: "amazon_creators_api",
           asin,
           auto_publish: true,
           scheduled_at: scheduledAt,

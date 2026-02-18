@@ -545,13 +545,14 @@ Provider env (required for execution):
 
 - `SEEDREAM_API_KEY`, `SEEDREAM_BASE_URL`, `SEEDREAM_MODEL` (image)
 - `SEEDANCE_API_KEY`, `SEEDANCE_BASE_URL`, `SEEDANCE_MODEL` (video)
-- Amazon PA-API (required for `/api/marketing/ingest`):
-  - `AMAZON_PAAPI_ACCESS_KEY`
-  - `AMAZON_PAAPI_SECRET_KEY`
-  - `AMAZON_PAAPI_PARTNER_TAG`
-  - `AMAZON_PAAPI_HOST` (default `webservices.amazon.co.jp`)
-  - `AMAZON_PAAPI_REGION` (default `us-west-2`)
-  - `AMAZON_PAAPI_MARKETPLACE` (default `www.amazon.co.jp`)
+- Amazon Creators API (required for `/api/marketing/ingest`):
+  - `CREATORS_API_CREDENTIAL_ID`
+  - `CREATORS_API_CREDENTIAL_SECRET`
+  - `CREATORS_API_CREDENTIAL_VERSION` (example: FE region `2.3`)
+  - `CREATORS_API_PARTNER_TAG`
+  - `CREATORS_API_MARKETPLACE` (default `www.amazon.co.jp`)
+  - Optional: `CREATORS_API_BASE_URL`, `CREATORS_API_AUTH_ENDPOINT`
+  - Backward-compat fallback env names are also accepted (`AMAZON_CREATORS_*` and existing `AMAZON_PAAPI_*`)
 
 Optional worker tuning:
 
