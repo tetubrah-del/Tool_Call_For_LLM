@@ -28,22 +28,23 @@ export default async function ManageTikTokPage(props: { searchParams: SearchPara
 
   return (
     <main style={{ maxWidth: 820, margin: "24px auto", padding: "0 16px 48px" }}>
-      <h1 style={{ marginBottom: 8 }}>TikTok Connect (Marketing)</h1>
-      <p style={{ marginTop: 0, marginBottom: 20 }}>
+      <h1 style={{ marginBottom: 8, color: "#f3f6ff" }}>TikTok Connect (Marketing)</h1>
+      <p style={{ marginTop: 0, marginBottom: 20, color: "#d2d8e8" }}>
         既存機能とは分離された管理画面です。`MARKETING_TIKTOK_ENABLED=true` の場合のみ接続できます。
       </p>
 
       <section
         style={{
-          border: "1px solid #ddd",
-          borderRadius: 10,
-          padding: 16,
+          border: "1px solid rgba(163, 181, 216, 0.35)",
+          borderRadius: 12,
+          padding: 18,
           marginBottom: 16,
-          background: enabled ? "#fff" : "#f8f8f8"
+          background: "rgba(10, 20, 40, 0.72)",
+          color: "#eef3ff"
         }}
       >
         <p style={{ marginTop: 0 }}>
-          Status: <strong>{enabled ? "enabled" : "disabled"}</strong>
+          Status: <strong style={{ color: enabled ? "#3ddc97" : "#ffb366" }}>{enabled ? "enabled" : "disabled"}</strong>
         </p>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           <a
@@ -52,7 +53,9 @@ export default async function ManageTikTokPage(props: { searchParams: SearchPara
               pointerEvents: enabled ? "auto" : "none",
               opacity: enabled ? 1 : 0.5,
               textDecoration: "none",
-              border: "1px solid #111",
+              color: "#eaf2ff",
+              background: "rgba(59, 130, 246, 0.25)",
+              border: "1px solid rgba(96, 165, 250, 0.9)",
               borderRadius: 8,
               padding: "8px 12px"
             }}
@@ -63,7 +66,9 @@ export default async function ManageTikTokPage(props: { searchParams: SearchPara
             href="/api/tiktok/auth-url"
             style={{
               textDecoration: "none",
-              border: "1px solid #666",
+              color: "#f7d6a5",
+              background: "rgba(249, 115, 22, 0.15)",
+              border: "1px solid rgba(249, 115, 22, 0.8)",
               borderRadius: 8,
               padding: "8px 12px"
             }}
@@ -74,7 +79,9 @@ export default async function ManageTikTokPage(props: { searchParams: SearchPara
             href="/manage"
             style={{
               textDecoration: "none",
-              border: "1px solid #666",
+              color: "#dbe7ff",
+              background: "rgba(148, 163, 184, 0.16)",
+              border: "1px solid rgba(148, 163, 184, 0.8)",
               borderRadius: 8,
               padding: "8px 12px"
             }}
@@ -87,10 +94,11 @@ export default async function ManageTikTokPage(props: { searchParams: SearchPara
       {(status || reason) && (
         <section
           style={{
-            border: "1px solid #ddd",
-            borderRadius: 10,
+            border: "1px solid rgba(163, 181, 216, 0.35)",
+            borderRadius: 12,
             padding: 16,
-            background: status === "ok" ? "#f6fff7" : "#fff6f6"
+            color: "#eef3ff",
+            background: status === "ok" ? "rgba(18, 75, 46, 0.55)" : "rgba(117, 34, 34, 0.55)"
           }}
         >
           <h2 style={{ marginTop: 0, marginBottom: 10 }}>Last Callback</h2>
