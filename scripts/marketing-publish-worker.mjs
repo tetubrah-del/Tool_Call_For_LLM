@@ -27,6 +27,11 @@ const X_API_SECRET = (process.env.MARKETING_X_API_SECRET || "").trim();
 const X_TIMEOUT_MS = Number(process.env.MARKETING_X_TIMEOUT_MS || 30000);
 const X_MEDIA_CHUNK_SIZE = Number(process.env.MARKETING_X_MEDIA_CHUNK_SIZE || 4 * 1024 * 1024);
 const X_MEDIA_PROCESSING_TIMEOUT_MS = Number(process.env.MARKETING_X_MEDIA_PROCESSING_TIMEOUT_MS || 300000);
+const TIKTOK_POSTS_BASE_URL = (process.env.MARKETING_TIKTOK_POSTS_BASE_URL || "https://open.tiktokapis.com")
+  .trim()
+  .replace(/\/$/, "");
+const TIKTOK_USER_ACCESS_TOKEN = (process.env.MARKETING_TIKTOK_USER_ACCESS_TOKEN || "").trim();
+const TIKTOK_TIMEOUT_MS = Number(process.env.MARKETING_TIKTOK_TIMEOUT_MS || 30000);
 const MARKETING_ALERT_EMAIL = (process.env.MARKETING_ALERT_EMAIL || "tetubrah@gmail.com").trim();
 
 function nowIso() {
@@ -281,8 +286,16 @@ function isOAuth2BearerConfigured() {
   return Boolean(X_USER_ACCESS_TOKEN);
 }
 
-function isPublisherConfigured() {
+function isXPublisherConfigured() {
   return isOAuth1Configured() || isOAuth2BearerConfigured();
+}
+
+function isTikTokPublisherConfigured() {
+  return Boolean(TIKTOK_USER_ACCESS_TOKEN);
+}
+
+function isAnyPublisherConfigured() {
+  return isXPublisherConfigured() || isTikTokPublisherConfigured();
 }
 
 function percentEncode(input) {
@@ -547,7 +560,7 @@ function buildXText(content) {
 }
 
 async function publishToX(content) {
-  if (!isPublisherConfigured()) {
+  if (!isXPublisherConfigured()) {
     throw new PublishRequestError("bad_request", "x auth env is missing", {
       retryable: false
     });
@@ -592,10 +605,114 @@ async function publishToX(content) {
   };
 }
 
+function toErrorCodeFromTikTokApi(errorCode) {
+  const code = String(errorCode || "").trim().toLowerCase();
+  if (!code || code === "ok") return "unknown";
+  if (code === "rate_limit_exceeded") return "rate_limited";
+  if (code === "access_token_invalid" || code === "scope_not_authorized") return "unauthorized";
+  if (code === "invalid_param" || code === "url_ownership_unverified") return "bad_request";
+  if (code.startsWith("spam_risk_")) return "bad_request";
+  return "unknown";
+}
+
+function isTikTokRetryableError(errorCode, httpStatus) {
+  const code = String(errorCode || "").trim().toLowerCase();
+  if (code === "rate_limit_exceeded") return true;
+  if (httpStatus === 429) return true;
+  if (httpStatus >= 500) return true;
+  return false;
+}
+
+async function tiktokRequest(method, url, body = null) {
+  if (!isTikTokPublisherConfigured()) {
+    throw new PublishRequestError("bad_request", "tiktok auth env is missing", {
+      retryable: false
+    });
+  }
+
+  let response;
+  try {
+    response = await fetch(url, {
+      method,
+      headers: {
+        Authorization: `Bearer ${TIKTOK_USER_ACCESS_TOKEN}`,
+        "Content-Type": "application/json; charset=UTF-8"
+      },
+      body,
+      signal: AbortSignal.timeout(TIKTOK_TIMEOUT_MS)
+    });
+  } catch (error) {
+    if (error?.name === "TimeoutError" || error?.name === "AbortError") {
+      throw new PublishRequestError("timeout", "tiktok request timeout", { retryable: true });
+    }
+    throw new PublishRequestError("provider_unavailable", "tiktok request failed", { retryable: true });
+  }
+
+  const raw = await response.text();
+  return { response, raw };
+}
+
+async function publishToTikTok(content) {
+  if (!isTikTokPublisherConfigured()) {
+    throw new PublishRequestError("bad_request", "tiktok auth env is missing", {
+      retryable: false
+    });
+  }
+
+  const mediaUrl = pickFirstString([content?.media_asset_url]);
+  if (!mediaUrl) {
+    throw new PublishRequestError("bad_request", "tiktok requires media_asset_url", {
+      retryable: false
+    });
+  }
+
+  const initUrl = `${TIKTOK_POSTS_BASE_URL}/v2/post/publish/inbox/video/init/`;
+  const payload = {
+    source_info: {
+      source: "PULL_FROM_URL",
+      video_url: mediaUrl
+    }
+  };
+
+  const initialized = await tiktokRequest("POST", initUrl, JSON.stringify(payload));
+  const body = safeJsonParse(initialized.raw, {});
+  const apiCode = String(body?.error?.code || "").trim().toLowerCase();
+
+  if (!initialized.response.ok || (apiCode && apiCode !== "ok")) {
+    throw new PublishRequestError(
+      apiCode ? toErrorCodeFromTikTokApi(apiCode) : toErrorCodeFromHttp(initialized.response.status),
+      `tiktok publish init failed: ${apiCode || initialized.response.status}`,
+      {
+        retryable: isTikTokRetryableError(apiCode, initialized.response.status),
+        httpStatus: initialized.response.status,
+        rawBody: initialized.raw
+      }
+    );
+  }
+
+  const publishId = pickFirstString([body?.data?.publish_id]);
+  if (!publishId) {
+    throw new PublishRequestError("unknown", "tiktok publish response missing publish_id", {
+      retryable: false,
+      rawBody: initialized.raw
+    });
+  }
+
+  return {
+    channel: "tiktok",
+    externalPostId: publishId,
+    postUrl: null,
+    rawResponseJson: safeJsonStringify(body)
+  };
+}
+
 async function publish(content) {
   const channel = String(content.channel || "").trim().toLowerCase();
   if (channel === "x") {
     return publishToX(content);
+  }
+  if (channel === "tiktok") {
+    return publishToTikTok(content);
   }
   throw new PublishRequestError("bad_request", `unsupported_channel:${channel || "unknown"}`, {
     retryable: false
@@ -722,7 +839,7 @@ async function processJob(db, job) {
     if (!content) {
       throw new PublishRequestError("bad_request", "content_not_found", { retryable: false });
     }
-    const result = await publish(content);
+    const result = await publish({ ...content, channel: job.channel || content.channel });
     await markSucceeded(db, job, result);
   } catch (error) {
     await markFailed(db, job, error);
@@ -742,8 +859,8 @@ async function main() {
     console.log("marketing publish worker is disabled (MARKETING_PUBLISH_WORKER_ENABLED!=true)");
     return;
   }
-  if (!isPublisherConfigured()) {
-    console.log("marketing publish worker skipped: publisher env is not configured");
+  if (!isAnyPublisherConfigured()) {
+    console.log("marketing publish worker skipped: publisher env is not configured for x or tiktok");
     return;
   }
   if (!EXECUTE_PLACEHOLDER) {
