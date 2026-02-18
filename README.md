@@ -113,3 +113,25 @@ cd mcp-server
 npm install
 BASE_URL=http://localhost:3000 npm start
 ```
+
+## Secret Leak Prevention
+
+### Local pre-commit secret scan
+
+```bash
+brew install pre-commit
+./scripts/setup-security-hooks.sh
+pre-commit run --all-files
+```
+
+This repository includes `.pre-commit-config.yaml` with `gitleaks` so staged changes are scanned before commit.
+
+### CI secret scan
+
+GitHub Actions runs `gitleaks` on pull requests and on pushes to `main`:
+
+- `.github/workflows/secret-scan.yml`
+
+### Platform protection
+
+Enable GitHub Secret Scanning / Push Protection in repository settings for server-side blocking.
