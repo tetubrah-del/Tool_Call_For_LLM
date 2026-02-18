@@ -524,6 +524,7 @@ Marketing job APIs are isolated from core Sinkai task/payment flows and require 
 - `GET /api/marketing/jobs?job_id=<JOB_ID>` get job status
 - `GET /api/marketing/jobs/<JOB_ID>` get job + related content status
 - `POST /api/marketing/contents` create publishable content (returns `content.id`)
+- `POST /api/marketing/ingest` ingest Amazon.co.jp product URL via PA-API and auto-enqueue video generation
 - `GET /api/marketing/contents?content_id=<CONTENT_ID>` get one content
 - `POST /api/marketing/publish` enqueue publish job
 - `GET /api/marketing/publish?job_id=<JOB_ID>` get publish job status
@@ -544,6 +545,13 @@ Provider env (required for execution):
 
 - `SEEDREAM_API_KEY`, `SEEDREAM_BASE_URL`, `SEEDREAM_MODEL` (image)
 - `SEEDANCE_API_KEY`, `SEEDANCE_BASE_URL`, `SEEDANCE_MODEL` (video)
+- Amazon PA-API (required for `/api/marketing/ingest`):
+  - `AMAZON_PAAPI_ACCESS_KEY`
+  - `AMAZON_PAAPI_SECRET_KEY`
+  - `AMAZON_PAAPI_PARTNER_TAG`
+  - `AMAZON_PAAPI_HOST` (default `webservices.amazon.co.jp`)
+  - `AMAZON_PAAPI_REGION` (default `us-west-2`)
+  - `AMAZON_PAAPI_MARKETPLACE` (default `www.amazon.co.jp`)
 
 Optional worker tuning:
 
@@ -562,6 +570,7 @@ Optional worker tuning:
 - `MARKETING_PUBLISH_WORKER_POLL_MS` (default `15000`)
 - `MARKETING_PUBLISH_WORKER_BATCH_SIZE` (default `10`)
 - `MARKETING_PUBLISH_MAX_ATTEMPTS` (default `5`)
+- `MARKETING_ALERT_EMAIL` (default `tetubrah@gmail.com`; notified on extract/generate/publish terminal failures)
 
 X publisher env (minimal):
 
@@ -582,6 +591,8 @@ Note:
 
 - Direct video attachment to X uses chunked media upload and requires OAuth 1.0a user context keys.
 - With OAuth 2.0 bearer-only setup, text/link posting still works, but media upload is not attempted.
+- `/api/marketing/ingest` enforces duplicate guard for same `product_url` within 24 hours.
+- Generation success auto-enqueues publish job for channel `x`.
 
 Seedance/ModelArk note:
 

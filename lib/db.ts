@@ -1040,6 +1040,8 @@ async function initPostgres() {
     `ALTER TABLE marketing_contents ADD COLUMN IF NOT EXISTS media_width INTEGER`,
     `ALTER TABLE marketing_contents ADD COLUMN IF NOT EXISTS media_height INTEGER`,
     `ALTER TABLE marketing_contents ADD COLUMN IF NOT EXISTS media_mime_type TEXT`,
+    `ALTER TABLE marketing_contents ADD COLUMN IF NOT EXISTS product_url TEXT`,
+    `ALTER TABLE marketing_contents ADD COLUMN IF NOT EXISTS source_context_json TEXT`,
     `ALTER TABLE marketing_contents ADD COLUMN IF NOT EXISTS updated_at TEXT`,
     `CREATE UNIQUE INDEX IF NOT EXISTS marketing_metrics_daily_post_date_idx
       ON marketing_metrics_daily (post_id, metric_date)`,
@@ -1785,6 +1787,8 @@ async function initSqlite() {
   ensureSqliteColumn(db, "marketing_contents", "media_width", "INTEGER");
   ensureSqliteColumn(db, "marketing_contents", "media_height", "INTEGER");
   ensureSqliteColumn(db, "marketing_contents", "media_mime_type", "TEXT");
+  ensureSqliteColumn(db, "marketing_contents", "product_url", "TEXT");
+  ensureSqliteColumn(db, "marketing_contents", "source_context_json", "TEXT");
   ensureSqliteColumn(db, "marketing_contents", "updated_at", "TEXT");
   ensureSqliteColumn(db, "marketing_generation_jobs", "content_id", "TEXT");
   ensureSqliteColumn(db, "marketing_generation_jobs", "asset_type", "TEXT");

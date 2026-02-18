@@ -1,0 +1,517 @@
+import crypto from "crypto";
+import { NextResponse } from "next/server";
+import { getDb } from "@/lib/db";
+import { requireMarketingApiKey } from "@/lib/marketing-api-auth";
+
+const PAAPI_HOST = (process.env.AMAZON_PAAPI_HOST || "webservices.amazon.co.jp").trim();
+const PAAPI_REGION = (process.env.AMAZON_PAAPI_REGION || "us-west-2").trim();
+const PAAPI_SERVICE = "ProductAdvertisingAPI";
+const PAAPI_TARGET = "com.amazon.paapi5.v1.ProductAdvertisingAPIv1.GetItems";
+const PAAPI_ENDPOINT = `https://${PAAPI_HOST}/paapi5/getitems`;
+const PAAPI_PARTNER_TAG = (process.env.AMAZON_PAAPI_PARTNER_TAG || "").trim();
+const PAAPI_ACCESS_KEY = (process.env.AMAZON_PAAPI_ACCESS_KEY || "").trim();
+const PAAPI_SECRET_KEY = (process.env.AMAZON_PAAPI_SECRET_KEY || "").trim();
+const PAAPI_MARKETPLACE = (process.env.AMAZON_PAAPI_MARKETPLACE || "www.amazon.co.jp").trim();
+const MARKETING_ALERT_EMAIL = (process.env.MARKETING_ALERT_EMAIL || "tetubrah@gmail.com").trim();
+
+function normalizeText(value: unknown, max = 10000) {
+  if (typeof value !== "string") return "";
+  const trimmed = value.trim();
+  return trimmed.length > max ? trimmed.slice(0, max) : trimmed;
+}
+
+function normalizeIsoDateTime(value: unknown) {
+  const s = normalizeText(value, 100);
+  if (!s) return "";
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toISOString();
+}
+
+function safeJsonStringify(value: unknown): string | null {
+  if (value == null) return null;
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return null;
+  }
+}
+
+function nowIso() {
+  return new Date().toISOString();
+}
+
+function hmacSha256(key: Buffer | string, data: string) {
+  return crypto.createHmac("sha256", key).update(data, "utf8").digest();
+}
+
+function sha256Hex(data: string) {
+  return crypto.createHash("sha256").update(data, "utf8").digest("hex");
+}
+
+function toAmzDate(input = new Date()) {
+  return input.toISOString().replace(/[:-]|\.\d{3}/g, "");
+}
+
+function extractAsin(productUrl: string) {
+  let parsed: URL;
+  try {
+    parsed = new URL(productUrl);
+  } catch {
+    return null;
+  }
+  const host = parsed.host.toLowerCase();
+  if (!(host === "amazon.co.jp" || host.endsWith(".amazon.co.jp"))) return null;
+
+  const pathname = parsed.pathname || "";
+  const direct = pathname.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})(?:[/?]|$)/i);
+  if (direct?.[1]) return direct[1].toUpperCase();
+
+  const fallback = productUrl.match(/([A-Z0-9]{10})/i);
+  if (!fallback?.[1]) return null;
+  return fallback[1].toUpperCase();
+}
+
+function normalizeProductUrl(productUrl: string) {
+  const parsed = new URL(productUrl);
+  parsed.hash = "";
+  parsed.search = "";
+  return parsed.toString();
+}
+
+function findFirstString(values: unknown[]) {
+  for (const v of values) {
+    if (typeof v === "string" && v.trim()) return v.trim();
+  }
+  return "";
+}
+
+function findFirstNumber(values: unknown[]) {
+  for (const v of values) {
+    const n = Number(v);
+    if (Number.isFinite(n)) return n;
+  }
+  return null;
+}
+
+function toHashtagWord(value: string) {
+  return value
+    .replace(/[#＃]/g, "")
+    .replace(/[^\p{L}\p{N}_]/gu, "")
+    .slice(0, 20);
+}
+
+function buildHashtags(brand: string, title: string) {
+  const brandTag = toHashtagWord(brand);
+  const smartBrandTag = brandTag ? `#${brandTag}` : "#Amazonおすすめ";
+  const hints = /掃除|クリーナー|洗車|clean|vacuum/i.test(title) ? "#時短家事" : "#買ってよかった";
+  return [smartBrandTag, "#Amazonおすすめ", hints].slice(0, 3);
+}
+
+function isMedicalContent(title: string, features: string[]) {
+  const medicalKeywords = [
+    /医療/i,
+    /治療/i,
+    /診断/i,
+    /病気/i,
+    /薬/i,
+    /サプリ/i,
+    /healthcare/i,
+    /medical/i,
+    /medicine/i,
+    /supplement/i
+  ];
+  const haystack = `${title}\n${features.join("\n")}`;
+  return medicalKeywords.some((re) => re.test(haystack));
+}
+
+function buildMarketingText(params: {
+  title: string;
+  brand: string;
+  features: string[];
+  priceText: string;
+  productUrl: string;
+}) {
+  const f1 = params.features[0] || "使いやすさがしっかり考えられていて";
+  const f2 = params.features[1] || "日常での出番が多い";
+  const lead = params.brand
+    ? `${params.brand}のこれ、正直かなり当たりでした✨`
+    : "これ、正直かなり当たりでした✨";
+  return [
+    lead,
+    `${f1}。${f2}。`,
+    params.priceText ? `価格感: ${params.priceText}` : "",
+    "迷ってるなら一度チェックしてみてください👇",
+    params.productUrl
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function buildSeedancePrompt(params: {
+  title: string;
+  brand: string;
+  features: string[];
+  priceText: string;
+}) {
+  const featureLines = params.features.slice(0, 3).map((v) => `- ${v}`);
+  return [
+    "15-second vertical UGC style video (9:16), smartphone aesthetic, Japanese creator tone.",
+    "Scene plan:",
+    "1) Hook (0-3s): close-up product reveal with energetic hand motion.",
+    "2) Demo (3-10s): show practical use in real home setting with quick cuts.",
+    "3) CTA (10-15s): creator points to product and smiles; overlay subtle CTA text.",
+    `Product: ${params.title}`,
+    params.brand ? `Brand: ${params.brand}` : "",
+    params.priceText ? `Price context: ${params.priceText}` : "",
+    featureLines.length ? `Key points:\n${featureLines.join("\n")}` : "",
+    "No medical claims. No before/after treatment framing. No exaggerated guarantee."
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function buildSeedanceNegativePrompt() {
+  return [
+    "medical, medicine, supplement, diagnosis, treatment",
+    "before-after cure claims, guaranteed results, fake review UI",
+    "low quality, watermark, blurry, distorted hands, overexposed"
+  ].join(", ");
+}
+
+async function queueAlertEmail(
+  db: ReturnType<typeof getDb>,
+  subject: string,
+  bodyText: string
+) {
+  if (!MARKETING_ALERT_EMAIL) return;
+  const createdAt = nowIso();
+  await db
+    .prepare(
+      `INSERT INTO email_deliveries
+       (id, event_id, to_email, template_key, subject, body_text, status, attempt_count, next_attempt_at, provider_message_id, last_error, created_at, updated_at, sent_at)
+       VALUES (?, NULL, ?, 'marketing_alert', ?, ?, 'queued', 0, ?, NULL, NULL, ?, ?, NULL)`
+    )
+    .run(crypto.randomUUID(), MARKETING_ALERT_EMAIL, subject, bodyText, createdAt, createdAt, createdAt);
+}
+
+async function fetchAmazonItem(asin: string) {
+  if (!PAAPI_ACCESS_KEY || !PAAPI_SECRET_KEY || !PAAPI_PARTNER_TAG) {
+    throw new Error("paapi_not_configured");
+  }
+
+  const payload = {
+    ItemIds: [asin],
+    PartnerTag: PAAPI_PARTNER_TAG,
+    PartnerType: "Associates",
+    Marketplace: PAAPI_MARKETPLACE,
+    Resources: [
+      "ItemInfo.Title",
+      "ItemInfo.Features",
+      "ItemInfo.ByLineInfo",
+      "Images.Primary.Large",
+      "Images.Variants.Large",
+      "Offers.Listings.Price",
+      "CustomerReviews.StarRating",
+      "CustomerReviews.Count"
+    ]
+  };
+
+  const body = JSON.stringify(payload);
+  const now = new Date();
+  const amzDate = toAmzDate(now);
+  const dateStamp = amzDate.slice(0, 8);
+
+  const canonicalHeaders =
+    `content-encoding:amz-1.0\n` +
+    `content-type:application/json; charset=UTF-8\n` +
+    `host:${PAAPI_HOST}\n` +
+    `x-amz-date:${amzDate}\n` +
+    `x-amz-target:${PAAPI_TARGET}\n`;
+  const signedHeaders = "content-encoding;content-type;host;x-amz-date;x-amz-target";
+  const canonicalRequest = [
+    "POST",
+    "/paapi5/getitems",
+    "",
+    canonicalHeaders,
+    signedHeaders,
+    sha256Hex(body)
+  ].join("\n");
+  const credentialScope = `${dateStamp}/${PAAPI_REGION}/${PAAPI_SERVICE}/aws4_request`;
+  const stringToSign = ["AWS4-HMAC-SHA256", amzDate, credentialScope, sha256Hex(canonicalRequest)].join("\n");
+
+  const kDate = hmacSha256(`AWS4${PAAPI_SECRET_KEY}`, dateStamp);
+  const kRegion = hmacSha256(kDate, PAAPI_REGION);
+  const kService = hmacSha256(kRegion, PAAPI_SERVICE);
+  const kSigning = hmacSha256(kService, "aws4_request");
+  const signature = crypto.createHmac("sha256", kSigning).update(stringToSign, "utf8").digest("hex");
+  const authorization =
+    `AWS4-HMAC-SHA256 Credential=${PAAPI_ACCESS_KEY}/${credentialScope}, ` +
+    `SignedHeaders=${signedHeaders}, Signature=${signature}`;
+
+  const response = await fetch(PAAPI_ENDPOINT, {
+    method: "POST",
+    headers: {
+      "Content-Encoding": "amz-1.0",
+      "Content-Type": "application/json; charset=UTF-8",
+      "X-Amz-Date": amzDate,
+      "X-Amz-Target": PAAPI_TARGET,
+      Authorization: authorization
+    },
+    body
+  });
+
+  const raw = await response.text();
+  let parsed: any = null;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    parsed = null;
+  }
+
+  if (!response.ok) {
+    const reason = findFirstString([
+      parsed?.Errors?.[0]?.Code,
+      parsed?.Errors?.[0]?.Message,
+      `paapi_http_${response.status}`
+    ]);
+    throw new Error(reason || "paapi_request_failed");
+  }
+
+  const item = parsed?.ItemsResult?.Items?.[0];
+  if (!item) {
+    const errorCode = findFirstString([parsed?.Errors?.[0]?.Code, "paapi_item_not_found"]);
+    throw new Error(errorCode);
+  }
+
+  const title = findFirstString([item?.ItemInfo?.Title?.DisplayValue]);
+  const features: string[] = Array.isArray(item?.ItemInfo?.Features?.DisplayValues)
+    ? item.ItemInfo.Features.DisplayValues.filter((v: unknown) => typeof v === "string").map((v: string) => v.trim())
+    : [];
+  const brand = findFirstString([
+    item?.ItemInfo?.ByLineInfo?.Brand?.DisplayValue,
+    item?.ItemInfo?.ByLineInfo?.Manufacturer?.DisplayValue,
+    item?.ItemInfo?.ByLineInfo?.Contributor?.DisplayName
+  ]);
+  const priceText = findFirstString([
+    item?.Offers?.Listings?.[0]?.Price?.DisplayAmount,
+    item?.Offers?.Listings?.[0]?.Price?.Amount
+  ]);
+  const imageUrls = [
+    findFirstString([item?.Images?.Primary?.Large?.URL]),
+    ...(Array.isArray(item?.Images?.Variants)
+      ? item.Images.Variants.map((v: any) => findFirstString([v?.Large?.URL])).filter(Boolean)
+      : [])
+  ].filter(Boolean);
+  const rating = findFirstNumber([item?.CustomerReviews?.StarRating?.Value]);
+  const reviewCount = findFirstNumber([item?.CustomerReviews?.Count]);
+
+  if (!title) {
+    throw new Error("paapi_missing_title");
+  }
+
+  return {
+    asin,
+    title,
+    features: features.slice(0, 8),
+    brand,
+    price_text: priceText ? String(priceText) : "",
+    image_urls: imageUrls.slice(0, 8),
+    rating,
+    review_count: reviewCount,
+    raw: parsed
+  };
+}
+
+export async function POST(request: Request) {
+  const authError = requireMarketingApiKey(request);
+  if (authError) return authError;
+
+  const payload: any = await request.json().catch(() => ({}));
+  const rawUrl = normalizeText(payload?.product_url, 2000);
+  const aiAccountId = normalizeText(payload?.ai_account_id, 120) || "manual";
+  const channel = normalizeText(payload?.channel, 20).toLowerCase() === "x" ? "x" : "x";
+  const scheduledAt = normalizeIsoDateTime(payload?.scheduled_at);
+  const seedanceModel = normalizeText(process.env.SEEDANCE_MODEL, 200);
+
+  if (!rawUrl) {
+    return NextResponse.json({ status: "error", reason: "invalid_request" }, { status: 400 });
+  }
+  if (!seedanceModel) {
+    return NextResponse.json({ status: "error", reason: "missing_model_config" }, { status: 400 });
+  }
+
+  const asin = extractAsin(rawUrl);
+  if (!asin) {
+    return NextResponse.json({ status: "error", reason: "invalid_amazon_jp_url" }, { status: 400 });
+  }
+
+  const productUrl = normalizeProductUrl(rawUrl);
+  const db = getDb();
+  const duplicate = await db
+    .prepare(
+      `SELECT id, status, created_at
+       FROM marketing_contents
+       WHERE product_url = ?
+         AND created_at >= ?
+         AND status <> 'failed'
+       ORDER BY created_at DESC
+       LIMIT 1`
+    )
+    .get(productUrl, new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+  if (duplicate) {
+    return NextResponse.json(
+      { status: "error", reason: "duplicate_product_within_24h", content_id: (duplicate as any).id },
+      { status: 409 }
+    );
+  }
+
+  let product: any;
+  try {
+    product = await fetchAmazonItem(asin);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : "ingest_failed";
+    await queueAlertEmail(
+      db,
+      `[Marketing][Ingest Failed] ASIN:${asin}`,
+      [`reason=${reason}`, `url=${productUrl}`, `at=${nowIso()}`].join("\n")
+    );
+    return NextResponse.json({ status: "error", reason: "extract_failed", detail: reason }, { status: 422 });
+  }
+
+  if (isMedicalContent(product.title, product.features || [])) {
+    await queueAlertEmail(
+      db,
+      `[Marketing][Ingest Blocked:Medical] ASIN:${asin}`,
+      [`url=${productUrl}`, `title=${product.title}`, `at=${nowIso()}`].join("\n")
+    );
+    return NextResponse.json({ status: "error", reason: "unsupported_medical_category" }, { status: 400 });
+  }
+
+  const hashtags = buildHashtags(product.brand || "", product.title || "");
+  const bodyText = buildMarketingText({
+    title: product.title,
+    brand: product.brand || "",
+    features: product.features || [],
+    priceText: product.price_text || "",
+    productUrl
+  });
+  const prompt = buildSeedancePrompt({
+    title: product.title,
+    brand: product.brand || "",
+    features: product.features || [],
+    priceText: product.price_text || ""
+  });
+  const promptNegative = buildSeedanceNegativePrompt();
+
+  const now = nowIso();
+  const contentId = crypto.randomUUID();
+  const generationJobId = crypto.randomUUID();
+
+  await db
+    .prepare(
+      `INSERT INTO marketing_contents (
+         id, brief_id, channel, format, title, body_text, asset_manifest_json,
+         hashtags_json, metadata_json, version, status, generation_provider,
+         generation_model, generation_prompt, generation_seed, generation_status,
+         generation_error_code, generation_error_message, product_url, source_context_json,
+         created_at, updated_at
+       ) VALUES (?, 'manual', ?, 'video', ?, ?, NULL, ?, ?, 1, 'approved', 'seedance',
+                 ?, ?, NULL, 'queued', NULL, NULL, ?, ?, ?, ?)`
+    )
+    .run(
+      contentId,
+      channel,
+      normalizeText(product.title, 300),
+      normalizeText(bodyText, 5000),
+      JSON.stringify(hashtags),
+      JSON.stringify({
+        source: "amazon_paapi",
+        asin,
+        auto_publish: true,
+        duration_sec: 15,
+        aspect_ratio: "9:16",
+        alert_email: MARKETING_ALERT_EMAIL
+      }),
+      seedanceModel,
+      normalizeText(prompt, 5000),
+      productUrl,
+      safeJsonStringify(product),
+      now,
+      now
+    );
+
+  await db
+    .prepare(
+      `INSERT INTO marketing_generation_jobs (
+         id, content_id, asset_type, provider, model, status, prompt, prompt_negative,
+         seed, request_json, response_json, error_code, error_message, retryable, attempt_count,
+         next_attempt_at, latency_ms, cost_jpy, created_at, updated_at, finished_at
+       ) VALUES (?, ?, 'video', 'seedance', ?, 'queued', ?, ?, NULL, ?, NULL, NULL, NULL, 0, 0, NULL, NULL, NULL, ?, ?, NULL)`
+    )
+    .run(
+      generationJobId,
+      contentId,
+      seedanceModel,
+      normalizeText(prompt, 5000),
+      normalizeText(promptNegative, 2000),
+      JSON.stringify({
+        request: {
+          ratio: "9:16",
+          duration: 15,
+          resolution: "720p",
+          content: [{ type: "text", text: normalizeText(prompt, 5000) }],
+          negative_prompt: normalizeText(promptNegative, 2000)
+        },
+        source: {
+          kind: "amazon_paapi",
+          asin,
+          ai_account_id: aiAccountId
+        }
+      }),
+      now,
+      now
+    );
+
+  if (scheduledAt) {
+    await db
+      .prepare(
+        `UPDATE marketing_contents
+         SET metadata_json = ?
+         WHERE id = ?`
+      )
+      .run(
+        JSON.stringify({
+          source: "amazon_paapi",
+          asin,
+          auto_publish: true,
+          scheduled_at: scheduledAt,
+          duration_sec: 15,
+          aspect_ratio: "9:16",
+          alert_email: MARKETING_ALERT_EMAIL
+        }),
+        contentId
+      );
+  }
+
+  return NextResponse.json(
+    {
+      status: "queued",
+      content_id: contentId,
+      generation_job_id: generationJobId,
+      product: {
+        asin,
+        title: product.title,
+        brand: product.brand || null,
+        price_text: product.price_text || null
+      },
+      config: {
+        duration_sec: 15,
+        aspect_ratio: "9:16",
+        channel: "x",
+        auto_publish: true
+      }
+    },
+    { status: 201 }
+  );
+}

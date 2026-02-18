@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
@@ -25,6 +26,7 @@ const SEEDANCE_TASK_POLL_MS = Number(process.env.SEEDANCE_TASK_POLL_MS || 4000);
 const SEEDANCE_TASK_MAX_WAIT_MS = Number(process.env.SEEDANCE_TASK_MAX_WAIT_MS || 300000);
 const SEEDREAM_TIMEOUT_MS = Number(process.env.SEEDREAM_TIMEOUT_MS || 60000);
 const SEEDANCE_TIMEOUT_MS = Number(process.env.SEEDANCE_TIMEOUT_MS || 120000);
+const MARKETING_ALERT_EMAIL = (process.env.MARKETING_ALERT_EMAIL || "tetubrah@gmail.com").trim();
 
 function nowIso() {
   return new Date().toISOString();
@@ -169,6 +171,10 @@ function buildDb() {
         const result = await pool.query(toPgSql(sql), params);
         return result.rowCount ?? 0;
       },
+      async get(sql, params = []) {
+        const result = await pool.query(toPgSql(sql), params);
+        return result.rows?.[0] || null;
+      },
       async close() {
         await pool.end();
       }
@@ -183,6 +189,9 @@ function buildDb() {
     async run(sql, params = []) {
       const info = db.prepare(sql).run(...params);
       return info.changes;
+    },
+    async get(sql, params = []) {
+      return db.prepare(sql).get(...params) || null;
     },
     async close() {
       db.close();
@@ -256,7 +265,23 @@ async function ensureMarketingTables(db) {
     `CREATE INDEX IF NOT EXISTS marketing_generation_jobs_status_next_attempt_idx
       ON marketing_generation_jobs (status, next_attempt_at)`,
     `CREATE INDEX IF NOT EXISTS marketing_generation_jobs_content_idx
-      ON marketing_generation_jobs (content_id, created_at)`
+      ON marketing_generation_jobs (content_id, created_at)`,
+    `CREATE TABLE IF NOT EXISTS email_deliveries (
+      id TEXT PRIMARY KEY,
+      event_id TEXT,
+      to_email TEXT NOT NULL,
+      template_key TEXT NOT NULL,
+      subject TEXT NOT NULL,
+      body_text TEXT NOT NULL,
+      status TEXT NOT NULL,
+      attempt_count INTEGER NOT NULL DEFAULT 0,
+      next_attempt_at TEXT,
+      provider_message_id TEXT,
+      last_error TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      sent_at TEXT
+    )`
   ];
 
   for (const sql of statements) {
@@ -377,6 +402,56 @@ function buildGenerationPayload(job, providerConfig) {
   }
 
   return payload;
+}
+
+async function queueAlertEmail(db, subject, bodyText) {
+  if (!MARKETING_ALERT_EMAIL) return;
+  const createdAt = nowIso();
+  await db.run(
+    `INSERT INTO email_deliveries
+     (id, event_id, to_email, template_key, subject, body_text, status, attempt_count, next_attempt_at, provider_message_id, last_error, created_at, updated_at, sent_at)
+     VALUES (?, NULL, ?, 'marketing_alert', ?, ?, 'queued', 0, ?, NULL, NULL, ?, ?, NULL)`,
+    [crypto.randomUUID(), MARKETING_ALERT_EMAIL, subject, bodyText, createdAt, createdAt, createdAt]
+  );
+}
+
+async function enqueuePublishAfterGeneration(db, contentId) {
+  const content = await db.get(
+    `SELECT id, channel, status
+     FROM marketing_contents
+     WHERE id = ?`,
+    [contentId]
+  );
+  if (!content?.id) return;
+  const channel = String(content.channel || "").trim().toLowerCase();
+  if (channel !== "x") return;
+
+  const existing = await db.get(
+    `SELECT id
+     FROM marketing_publish_jobs
+     WHERE content_id = ?
+       AND status IN ('queued', 'processing', 'succeeded')
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [contentId]
+  );
+  if (existing?.id) return;
+
+  const now = nowIso();
+  await db.run(
+    `INSERT INTO marketing_publish_jobs (
+       id, content_id, channel, scheduled_at, status,
+       attempt_count, next_attempt_at, last_error, created_at, updated_at
+     ) VALUES (?, ?, 'x', ?, 'queued', 0, NULL, NULL, ?, ?)`,
+    [crypto.randomUUID(), contentId, now, now, now]
+  );
+  await db.run(
+    `UPDATE marketing_contents
+     SET status = 'publish_queued',
+         updated_at = ?
+     WHERE id = ?`,
+    [now, contentId]
+  );
 }
 
 function parseGenerationOutput(rawBody, providerAssetType) {
@@ -733,6 +808,11 @@ async function markSucceeded(db, job, result) {
       job.content_id
     ]
   );
+  try {
+    await enqueuePublishAfterGeneration(db, job.content_id);
+  } catch (error) {
+    console.warn("enqueue publish after generation skipped", error);
+  }
 }
 
 async function markFailed(db, job, error) {
@@ -780,6 +860,21 @@ async function markFailed(db, job, error) {
      WHERE id = ?`,
     [retryable ? "queued" : "failed", code, message, now, job.content_id]
   );
+
+  if (!retryable) {
+    await queueAlertEmail(
+      db,
+      `[Marketing][Generation Failed] content:${job.content_id}`,
+      [
+        `job_id=${job.id}`,
+        `content_id=${job.content_id}`,
+        `code=${code}`,
+        `message=${message}`,
+        `attempt_count=${attemptCount}`,
+        `at=${now}`
+      ].join("\n")
+    );
+  }
 }
 
 async function processJob(db, job) {

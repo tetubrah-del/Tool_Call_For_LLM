@@ -27,6 +27,7 @@ const X_API_SECRET = (process.env.MARKETING_X_API_SECRET || "").trim();
 const X_TIMEOUT_MS = Number(process.env.MARKETING_X_TIMEOUT_MS || 30000);
 const X_MEDIA_CHUNK_SIZE = Number(process.env.MARKETING_X_MEDIA_CHUNK_SIZE || 4 * 1024 * 1024);
 const X_MEDIA_PROCESSING_TIMEOUT_MS = Number(process.env.MARKETING_X_MEDIA_PROCESSING_TIMEOUT_MS || 300000);
+const MARKETING_ALERT_EMAIL = (process.env.MARKETING_ALERT_EMAIL || "tetubrah@gmail.com").trim();
 
 function nowIso() {
   return new Date().toISOString();
@@ -81,6 +82,17 @@ function pickFirstNumber(candidates) {
 function nextBackoffSeconds(attemptCount) {
   const schedule = [30, 120, 600, 1800, 7200];
   return schedule[Math.min(attemptCount, schedule.length - 1)];
+}
+
+async function queueAlertEmail(db, subject, bodyText) {
+  if (!MARKETING_ALERT_EMAIL) return;
+  const createdAt = nowIso();
+  await db.run(
+    `INSERT INTO email_deliveries
+     (id, event_id, to_email, template_key, subject, body_text, status, attempt_count, next_attempt_at, provider_message_id, last_error, created_at, updated_at, sent_at)
+     VALUES (?, NULL, ?, 'marketing_alert', ?, ?, 'queued', 0, ?, NULL, NULL, ?, ?, NULL)`,
+    [crypto.randomUUID(), MARKETING_ALERT_EMAIL, subject, bodyText, createdAt, createdAt, createdAt]
+  );
 }
 
 class PublishRequestError extends Error {
@@ -231,6 +243,22 @@ async function ensurePublishTables(db) {
       post_url TEXT,
       published_at TEXT NOT NULL,
       raw_response_json TEXT
+    )`,
+    `CREATE TABLE IF NOT EXISTS email_deliveries (
+      id TEXT PRIMARY KEY,
+      event_id TEXT,
+      to_email TEXT NOT NULL,
+      template_key TEXT NOT NULL,
+      subject TEXT NOT NULL,
+      body_text TEXT NOT NULL,
+      status TEXT NOT NULL,
+      attempt_count INTEGER NOT NULL DEFAULT 0,
+      next_attempt_at TEXT,
+      provider_message_id TEXT,
+      last_error TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      sent_at TEXT
     )`,
     `CREATE INDEX IF NOT EXISTS marketing_publish_jobs_status_next_attempt_idx
       ON marketing_publish_jobs (status, next_attempt_at)`
@@ -663,6 +691,21 @@ async function markFailed(db, job, error) {
       job.id
     ]
   );
+
+  if (!retryable) {
+    await queueAlertEmail(
+      db,
+      `[Marketing][Publish Failed] content:${job.content_id}`,
+      [
+        `job_id=${job.id}`,
+        `content_id=${job.content_id}`,
+        `code=${code}`,
+        `message=${message}`,
+        `attempt_count=${attemptCount}`,
+        `at=${now}`
+      ].join("\n")
+    );
+  }
 }
 
 async function processJob(db, job) {
