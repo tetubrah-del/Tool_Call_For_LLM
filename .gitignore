@@ -14,3 +14,6 @@ pnpm-debug.log*
 coverage/
 .vercel/
 *.tsbuildinfo
+output/playwright/*.json
+output/playwright/*.txt
+output/stripe-worker-test/
