@@ -10,6 +10,10 @@
 4. `04-no-human-timeout-ops.md`
 5. `05-real-estate-template.md`
 6. `06-jp-local-research-workflow.md`
+7. `07-white-collar-ai-shift-overview.md`
+8. `08-white-collar-job-design.md`
+9. `09-white-collar-kpi.md`
+10. `10-white-collar-transition-plan.md`
 
 ## 公開順（推奨）
 
@@ -19,6 +23,10 @@
 4. 04（運用設計）
 5. 05（業界ユースケース: 不動産）
 6. 06（業界ユースケース: 日本語調査）
+7. 07（ホワイトカラー業務変化の全体像）
+8. 08（人とAIの分業設計）
+9. 09（KPI設計）
+10. 10（90日移行計画）
 
 ## 内部リンク設計
 
