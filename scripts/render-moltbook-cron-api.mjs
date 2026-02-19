@@ -16,7 +16,7 @@ const MANAGED_JOBS = [
   {
     name: "sinkai-engagement-cycle",
     schedule: "*/10 * * * *",
-    startCommand: "node scripts/moltbook-engagement-worker.mjs autopost-second"
+    startCommand: "node -e \"console.log('sinkai-engagement-cycle paused: autopost-second disabled')\""
   },
   {
     name: "sinkai-heartbeat",
@@ -27,7 +27,7 @@ const MANAGED_JOBS = [
     name: "sinkai-scout-3h",
     schedule: "15 */3 * * *",
     startCommand:
-      "node scripts/moltbook-sinkai-agent.mjs scout --limit 20 --top 15 --min-similarity 0.35 --min-matches 2 --auto-follow --auto-follow-max 1 --auto-follow-min-score 70 --csv output/moltbook/sinkai-candidates-latest.csv --out output/moltbook/sinkai-candidates-latest.json"
+      "node scripts/moltbook-sinkai-agent.mjs scout --limit 20 --top 15 --min-similarity 0.35 --min-matches 2 --auto-follow --auto-follow-max 1 --auto-follow-min-score 30 --csv output/moltbook/sinkai-candidates-latest.csv --out output/moltbook/sinkai-candidates-latest.json"
   },
   {
     name: "sinkai-scout-daily",

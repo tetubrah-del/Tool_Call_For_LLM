@@ -70,7 +70,7 @@ node scripts/moltbook-sinkai-agent.mjs scout \
   --min-matches 2 \
   --auto-follow \
   --auto-follow-max 1 \
-  --auto-follow-min-score 70 \
+  --auto-follow-min-score 30 \
   --csv output/moltbook/sinkai-candidates-latest.csv \
   --out output/moltbook/sinkai-candidates-latest.json
 ```
@@ -148,4 +148,4 @@ npm run render:moltbook:cron -- apply --env-file .env.local --replace-changed
 - `--jobs sinkai-heartbeat,sinkai-scout-3h` で一部ジョブのみ更新可能。
 - 秘密値 `MOLTBOOK_API_KEY` は出力に表示しない。
 - `DATABASE_URL` / `PGSSLMODE` / `MOLTBOOK_STATE_BACKEND` を環境に渡すと、cron へ同時反映される。
-- `sinkai-scout-3h` は `--auto-follow` を有効化、`sinkai-scout-daily` は探索のみ（フォローなし）。
+- `sinkai-scout-3h` は `--auto-follow --auto-follow-min-score 30` を有効化、`sinkai-scout-daily` は探索のみ（フォローなし）。

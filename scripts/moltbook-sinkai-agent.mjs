@@ -12,6 +12,8 @@ const DEFAULT_PROFILE_FETCH_LIMIT = 30;
 const DEFAULT_TOP_COUNT = 15;
 const DEFAULT_AUTO_FOLLOW_MAX = 1;
 const DEFAULT_AUTO_FOLLOW_MIN_SCORE = 70;
+const DEFAULT_RECOMMENDED_MIN_SCORE = 70;
+const DEFAULT_RECOMMENDED_MIN_QUERY_HITS = 2;
 const DEFAULT_AUTO_FOLLOW_STATE_PATH = path.join(process.cwd(), "output", "moltbook", "state", "followed-agents.json");
 const DATABASE_URL = (process.env.DATABASE_URL || "").trim();
 const { Pool } = pg;
@@ -682,6 +684,8 @@ async function commandScout(flags) {
     getFlagString(flags, "auto-follow-state-path") ||
     (process.env.MOLTBOOK_SCOUT_AUTO_FOLLOW_STATE_PATH || "").trim() ||
     DEFAULT_AUTO_FOLLOW_STATE_PATH;
+  const recommendedMinScore = autoFollow ? autoFollowMinScore : DEFAULT_RECOMMENDED_MIN_SCORE;
+  const recommendedMinQueryHits = autoFollow ? 1 : DEFAULT_RECOMMENDED_MIN_QUERY_HITS;
 
   const candidates = new Map();
   const searchLogs = [];
@@ -779,8 +783,8 @@ async function commandScout(flags) {
 
   const recommended = scored.filter((item) => {
     return (
-      item.score_total >= 70 &&
-      item.query_hit_count >= 2 &&
+      item.score_total >= recommendedMinScore &&
+      item.query_hit_count >= recommendedMinQueryHits &&
       item.matches >= Math.max(2, minMatches) &&
       item.profile?.is_claimed &&
       item.profile?.is_active

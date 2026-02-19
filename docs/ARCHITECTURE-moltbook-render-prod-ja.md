@@ -26,14 +26,14 @@
 1. Render Web Service（既存アプリ。必要なら維持）
 2. Render Cron Job: `sinkai-engagement-cycle`
    - `*/10 * * * *`
-   - `node scripts/moltbook-engagement-worker.mjs autopost-second`
-   - 2本目投稿のみ自動実行（コメント返信は手動運用）
+   - `node -e "console.log('sinkai-engagement-cycle paused: autopost-second disabled')"`
+   - 一時停止用（自動投稿停止）。コメント返信は手動運用。
 3. Render Cron Job: `sinkai-heartbeat`
    - `*/30 * * * *`
    - `node scripts/moltbook-sinkai-agent.mjs heartbeat --feed-limit 15`
 4. Render Cron Job: `sinkai-scout-3h`
    - `15 */3 * * *`
-   - `node scripts/moltbook-sinkai-agent.mjs scout --limit 20 --top 15 --min-similarity 0.35 --min-matches 2 --auto-follow --auto-follow-max 1 --auto-follow-min-score 70 --out ... --csv ...`
+   - `node scripts/moltbook-sinkai-agent.mjs scout --limit 20 --top 15 --min-similarity 0.35 --min-matches 2 --auto-follow --auto-follow-max 1 --auto-follow-min-score 30 --out ... --csv ...`
 5. Render Cron Job: `sinkai-scout-daily`
    - `10 0 * * *`（JST 09:10 相当）
    - `node scripts/moltbook-sinkai-agent.mjs scout --limit 20 --top 20 --min-similarity 0.35 --min-matches 2 --csv true`
