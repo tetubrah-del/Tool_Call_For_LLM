@@ -16,7 +16,7 @@ const MANAGED_JOBS = [
   {
     name: "sinkai-engagement-cycle",
     schedule: "*/10 * * * *",
-    startCommand: "node scripts/moltbook-engagement-worker.mjs run-cycle --max-replies 1"
+    startCommand: "node scripts/moltbook-engagement-worker.mjs autopost-second"
   },
   {
     name: "sinkai-heartbeat",
