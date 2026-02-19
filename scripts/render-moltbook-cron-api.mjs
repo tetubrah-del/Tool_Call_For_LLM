@@ -10,6 +10,7 @@ const DEFAULT_PLAN = "starter";
 const DEFAULT_BRANCH = "main";
 const DEFAULT_BUILD_COMMAND = "npm install";
 const DEFAULT_MOLTBOOK_BASE_URL = "https://www.moltbook.com/api/v1";
+const DEFAULT_API_RETRY_MAX = 8;
 
 const MANAGED_JOBS = [
   {
@@ -152,28 +153,44 @@ function resolveRepo(flags) {
 }
 
 async function renderRequest({ apiKey, method, endpoint, body }) {
-  const response = await fetch(`${RENDER_API_BASE}${endpoint}`, {
-    method,
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json"
-    },
-    body: body ? JSON.stringify(body) : undefined
-  });
+  const retryMax = Number(process.env.RENDER_API_RETRY_MAX || DEFAULT_API_RETRY_MAX);
 
-  const raw = await response.text();
-  let data = null;
-  try {
-    data = raw ? JSON.parse(raw) : null;
-  } catch {
-    data = { raw };
-  }
+  for (let attempt = 1; attempt <= retryMax; attempt += 1) {
+    const response = await fetch(`${RENDER_API_BASE}${endpoint}`, {
+      method,
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json"
+      },
+      body: body ? JSON.stringify(body) : undefined
+    });
 
-  if (!response.ok) {
-    const message = data?.message || response.statusText || "request failed";
+    const raw = await response.text();
+    let data = null;
+    try {
+      data = raw ? JSON.parse(raw) : null;
+    } catch {
+      data = { raw };
+    }
+
+    if (response.ok) return data;
+
+    const retryAfterHeader = response.headers.get("retry-after");
+    const retryAfterSec = Number(retryAfterHeader);
+    const shouldRetry = response.status === 429 || response.status >= 500;
+    if (shouldRetry && attempt < retryMax) {
+      const waitSec = Number.isFinite(retryAfterSec) && retryAfterSec > 0 ? retryAfterSec : Math.min(30 * attempt, 300);
+      console.error(
+        `[render-moltbook-cron-api] ${method} ${endpoint} got ${response.status}; retrying in ${waitSec}s (attempt ${attempt}/${retryMax})`
+      );
+      await new Promise((resolve) => setTimeout(resolve, waitSec * 1000));
+      continue;
+    }
+
+    const message = data?.message || data?.error || response.statusText || "request failed";
     throw new Error(`${method} ${endpoint} failed: ${response.status} ${message}`);
   }
-  return data;
+  throw new Error(`${method} ${endpoint} failed: exhausted retries`);
 }
 
 async function listOwners(apiKey) {
