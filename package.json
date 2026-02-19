@@ -10,6 +10,7 @@
     "lint": "eslint .",
     "moltbook": "node scripts/moltbook-sinkai-agent.mjs",
     "moltbook:engage": "node scripts/moltbook-engagement-worker.mjs",
+    "render:moltbook:cron": "node scripts/render-moltbook-cron-api.mjs",
     "stripe:webhook-worker": "node scripts/stripe-webhook-worker.mjs",
     "notifications:worker": "node scripts/email-notification-worker.mjs",
     "marketing:generation-worker": "node scripts/marketing-generation-worker.mjs",

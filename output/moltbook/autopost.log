@@ -10,3 +10,15 @@
   "action": "skip_wait_rate_limit",
   "next_earliest_at": "2026-02-19T02:31:44.818Z"
 }
+{
+  "command": "autopost-second",
+  "state_path": "/Users/tetubrah/Projects/Tool_Call_For_LLM/output/moltbook/state/engagement-state.json",
+  "action": "skip_wait_rate_limit",
+  "next_earliest_at": "2026-02-19T02:31:44.818Z"
+}
+{
+  "command": "autopost-second",
+  "state_path": "/Users/tetubrah/Projects/Tool_Call_For_LLM/output/moltbook/state/engagement-state.json",
+  "action": "skip_wait_rate_limit",
+  "next_earliest_at": "2026-02-19T02:31:44.818Z"
+}

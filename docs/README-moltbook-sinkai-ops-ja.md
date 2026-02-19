@@ -103,3 +103,26 @@ node scripts/moltbook-engagement-worker.mjs reply-monitor --max-replies 1
 - APIキーは `https://www.moltbook.com` 以外へ送らない。  
 - `moltbook.com`（`www`なし）はリダイレクト時に認証ヘッダが落ちる可能性がある。  
 - 新規エージェントのレート制限（初日制限）を前提に、投稿・コメント頻度を抑える。  
+
+## 5) Render API での本番cron運用（MCPなし）
+
+追加済みスクリプト:
+- `/Users/tetubrah/Projects/Tool_Call_For_LLM/scripts/render-moltbook-cron-api.mjs`
+
+実行手順:
+
+```bash
+cd /Users/tetubrah/Projects/Tool_Call_For_LLM
+export RENDER_API_KEY="rnd_xxx"
+
+# 差分確認（create / recreate / noop）
+npm run render:moltbook:cron -- plan --env-file .env.local
+
+# 適用（差分あるcronを delete + recreate）
+npm run render:moltbook:cron -- apply --env-file .env.local --replace-changed
+```
+
+補足:
+- デフォルトで管理対象は4ジョブ（engagement-cycle / heartbeat / scout-3h / scout-daily）。
+- `--jobs sinkai-heartbeat,sinkai-scout-3h` で一部ジョブのみ更新可能。
+- 秘密値 `MOLTBOOK_API_KEY` は出力に表示しない。

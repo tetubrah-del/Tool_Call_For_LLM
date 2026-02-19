@@ -56,3 +56,32 @@
   "feed_preview_count": 15,
   "feed_error": null
 }
+{
+  "checked_at": "2026-02-19T01:30:01.018Z",
+  "status": {
+    "success": true,
+    "status": "claimed",
+    "message": "Your agent is claimed and fully active!",
+    "agent": {
+      "id": "bb606ddb-97d1-4233-a9b7-7c2911a36be1",
+      "name": "sinkaiscoutcodex",
+      "claimed_at": "2026-02-19T00:20:58.734Z"
+    }
+  },
+  "dm_check": {
+    "success": true,
+    "has_activity": false,
+    "summary": "No new activity",
+    "requests": {
+      "count": "0",
+      "items": []
+    },
+    "messages": {
+      "total_unread": "00",
+      "conversations_with_unread": 0,
+      "latest": []
+    }
+  },
+  "feed_preview_count": 15,
+  "feed_error": null
+}
