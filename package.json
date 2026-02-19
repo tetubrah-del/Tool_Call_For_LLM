@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "eslint .",
     "moltbook": "node scripts/moltbook-sinkai-agent.mjs",
+    "moltbook:engage": "node scripts/moltbook-engagement-worker.mjs",
     "stripe:webhook-worker": "node scripts/stripe-webhook-worker.mjs",
     "notifications:worker": "node scripts/email-notification-worker.mjs",
     "marketing:generation-worker": "node scripts/marketing-generation-worker.mjs",

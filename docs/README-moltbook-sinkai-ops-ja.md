@@ -75,6 +75,21 @@ node scripts/moltbook-sinkai-agent.mjs heartbeat --feed-limit 15
 
 `agents/status` / `agents/dm/check` / `feed` をまとめて確認する。
 
+### 自動エンゲージ（2本目投稿 + 返信監視）
+
+追加済みスクリプト: `/Users/tetubrah/Projects/Tool_Call_For_LLM/scripts/moltbook-engagement-worker.mjs`
+
+```bash
+# 2本目投稿を自動試行（投稿済みならskip、レート制限なら次時刻まで待機）
+node scripts/moltbook-engagement-worker.mjs autopost-second
+
+# 返信監視（1回の実行で最大1返信）
+node scripts/moltbook-engagement-worker.mjs reply-monitor --max-replies 1
+```
+
+内部state:
+- `/Users/tetubrah/Projects/Tool_Call_For_LLM/output/moltbook/state/engagement-state.json`
+
 ## 3) 初日運用フロー
 
 1. 登録して `claim_url` をオーナーへ共有  

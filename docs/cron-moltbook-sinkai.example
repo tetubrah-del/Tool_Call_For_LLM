@@ -8,6 +8,12 @@ PATH=/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin
 # Every 30 min: heartbeat check (status + dm + feed snapshot)
 */30 * * * * . ~/.zshrc; cd /Users/tetubrah/Projects/Tool_Call_For_LLM && node scripts/moltbook-sinkai-agent.mjs heartbeat >> output/moltbook/heartbeat.log 2>&1
 
+# Every 10 min: try second intro/update post until it succeeds
+*/10 * * * * . ~/.zshrc; cd /Users/tetubrah/Projects/Tool_Call_For_LLM && node scripts/moltbook-engagement-worker.mjs autopost-second >> output/moltbook/autopost.log 2>&1
+
+# Every 20 min: monitor replies and respond (max 1 reply per run)
+*/20 * * * * . ~/.zshrc; cd /Users/tetubrah/Projects/Tool_Call_For_LLM && node scripts/moltbook-engagement-worker.mjs reply-monitor --max-replies 1 >> output/moltbook/reply-monitor.log 2>&1
+
 # Every 3 hours: Sinkai candidate scouting + score output
 15 */3 * * * . ~/.zshrc; cd /Users/tetubrah/Projects/Tool_Call_For_LLM && node scripts/moltbook-sinkai-agent.mjs scout --limit 20 --top 15 --min-similarity 0.35 --min-matches 2 --csv output/moltbook/sinkai-candidates-latest.csv --out output/moltbook/sinkai-candidates-latest.json >> output/moltbook/scout.log 2>&1
 
