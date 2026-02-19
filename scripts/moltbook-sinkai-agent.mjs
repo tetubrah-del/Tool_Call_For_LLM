@@ -57,6 +57,8 @@ scout flags:
   --type all|posts|comments   (default: all)
   --profile-fetch-limit N     (default: 30)
   --top N                     (default: 15)
+  --min-similarity 0-1        (default: 0)
+  --min-matches N             (default: 1)
 `;
 }
 
@@ -315,6 +317,7 @@ function initCandidate(name) {
     comment_count: 0,
     vote_balance_sum: 0,
     similarity_sum: 0,
+    similarity_count: 0,
     max_similarity: 0,
     sinkai_hits: 0,
     workflow_hits: 0,
@@ -342,14 +345,14 @@ function recencyScoreFromDate(date) {
 }
 
 function buildScoredCandidate(candidate, queryCount) {
-  const avgSimilarity = candidate.matches > 0 ? candidate.similarity_sum / candidate.matches : 0;
+  const avgSimilarity = candidate.similarity_count > 0 ? candidate.similarity_sum / candidate.similarity_count : null;
   const avgVoteBalance = candidate.matches > 0 ? candidate.vote_balance_sum / candidate.matches : 0;
   const queryCoverage = queryCount > 0 ? candidate.query_hits.size / queryCount : 0;
 
   const breakdown = {
     sinkai_relevance: round1(clamp(candidate.sinkai_hits * 4, 0, 20)),
     workflow_relevance: round1(clamp(candidate.workflow_hits * 2, 0, 10)),
-    semantic_similarity: round1(clamp(avgSimilarity * 15, 0, 15)),
+    semantic_similarity: avgSimilarity === null ? 0 : round1(clamp(avgSimilarity * 15, 0, 15)),
     query_coverage: round1(clamp(queryCoverage * 10, 0, 10)),
     activity_recency: recencyScoreFromDate(candidate.newest_at),
     vote_quality: round1(clamp(((avgVoteBalance + 2) / 6) * 10, 0, 10)),
@@ -363,7 +366,7 @@ function buildScoredCandidate(candidate, queryCount) {
   const risk_flags = [];
   if (!candidate.profile?.is_claimed) risk_flags.push("unclaimed");
   if (!candidate.profile?.is_active) risk_flags.push("inactive");
-  if (avgSimilarity < 0.35) risk_flags.push("low_similarity");
+  if (avgSimilarity !== null && avgSimilarity < 0.35) risk_flags.push("low_similarity");
   if (avgVoteBalance < 0) risk_flags.push("negative_vote_balance");
   if (candidate.matches < 2) risk_flags.push("low_sample_count");
 
@@ -376,7 +379,7 @@ function buildScoredCandidate(candidate, queryCount) {
     comment_count: candidate.comment_count,
     query_hit_count: candidate.query_hits.size,
     query_hits: Array.from(candidate.query_hits),
-    avg_similarity: round1(avgSimilarity),
+    avg_similarity: avgSimilarity === null ? null : round1(avgSimilarity),
     max_similarity: round1(candidate.max_similarity),
     avg_vote_balance: round1(avgVoteBalance),
     vote_balance_sum: candidate.vote_balance_sum,
@@ -421,6 +424,8 @@ async function commandScout(flags) {
   const limit = Math.max(1, Math.floor(getFlagNumber(flags, "limit", DEFAULT_SEARCH_LIMIT)));
   const topN = Math.max(1, Math.floor(getFlagNumber(flags, "top", DEFAULT_TOP_COUNT)));
   const profileFetchLimit = Math.max(1, Math.floor(getFlagNumber(flags, "profile-fetch-limit", DEFAULT_PROFILE_FETCH_LIMIT)));
+  const minSimilarity = clamp(getFlagNumber(flags, "min-similarity", 0), 0, 1);
+  const minMatches = Math.max(1, Math.floor(getFlagNumber(flags, "min-matches", 1)));
 
   const candidates = new Map();
   const searchLogs = [];
@@ -434,21 +439,32 @@ async function commandScout(flags) {
       query: { q: query, type: searchType, limit }
     });
     const results = Array.isArray(response?.results) ? response.results : [];
-    searchLogs.push({ query, result_count: results.length });
+    let keptCount = 0;
+    let filteredBySimilarity = 0;
 
     for (const row of results) {
+      const rawSimilarity = Number(row?.similarity);
+      const similarity = Number.isFinite(rawSimilarity) ? clamp(rawSimilarity, 0, 1) : null;
+      if (similarity !== null && similarity < minSimilarity) {
+        filteredBySimilarity += 1;
+        continue;
+      }
+
       const name = row?.author?.name;
       if (!name) continue;
+      keptCount += 1;
       const candidate = candidates.get(name) || initCandidate(name);
       candidate.matches += 1;
 
-      const itemType = row?.type === "comment" ? "comment" : "post";
+      const itemType = row?.type === "comment" ? "comment" : row?.type === "post" ? "post" : "agent";
       if (itemType === "comment") candidate.comment_count += 1;
       if (itemType === "post") candidate.post_count += 1;
 
-      const similarity = clamp(Number(row?.similarity || 0), 0, 1);
-      candidate.similarity_sum += similarity;
-      candidate.max_similarity = Math.max(candidate.max_similarity, similarity);
+      if (similarity !== null) {
+        candidate.similarity_sum += similarity;
+        candidate.similarity_count += 1;
+        candidate.max_similarity = Math.max(candidate.max_similarity, similarity);
+      }
 
       const upvotes = Number(row?.upvotes || 0);
       const downvotes = Number(row?.downvotes || 0);
@@ -460,6 +476,7 @@ async function commandScout(flags) {
 
       const combinedText = [
         row?.title,
+        row?.description,
         row?.content,
         row?.post?.title,
         row?.submolt?.name,
@@ -480,6 +497,12 @@ async function commandScout(flags) {
 
       candidates.set(name, candidate);
     }
+    searchLogs.push({
+      query,
+      result_count: results.length,
+      kept_count: keptCount,
+      filtered_by_similarity: filteredBySimilarity
+    });
   }
 
   const preRanked = Array.from(candidates.values()).sort((a, b) => {
@@ -493,15 +516,16 @@ async function commandScout(flags) {
     await new Promise((resolve) => setTimeout(resolve, 120));
   }
 
-  const scored = Array.from(candidates.values())
+  const scoredAll = Array.from(candidates.values())
     .map((candidate) => buildScoredCandidate(candidate, queries.length))
     .sort((a, b) => b.score_total - a.score_total);
+  const scored = scoredAll.filter((candidate) => candidate.matches >= minMatches);
 
   const recommended = scored.filter((item) => {
     return (
       item.score_total >= 70 &&
       item.query_hit_count >= 2 &&
-      item.matches >= 2 &&
+      item.matches >= Math.max(2, minMatches) &&
       item.profile?.is_claimed &&
       item.profile?.is_active
     );
@@ -521,7 +545,12 @@ async function commandScout(flags) {
     queries,
     search_type: searchType,
     search_limit: limit,
+    filters: {
+      min_similarity: minSimilarity,
+      min_matches: minMatches
+    },
     search_logs: searchLogs,
+    candidate_count_before_match_filter: scoredAll.length,
     candidate_count: scored.length,
     top_count: topN,
     top_candidates: scored.slice(0, topN),

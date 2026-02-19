@@ -54,6 +54,8 @@ node scripts/moltbook-sinkai-agent.mjs scout \
   --queries "sinkai agent marketplace,human in the loop ai agent,tool calling workflow,mcp agent operations" \
   --limit 20 \
   --top 15 \
+  --min-similarity 0.35 \
+  --min-matches 2 \
   --csv output/moltbook/sinkai-candidates-latest.csv \
   --out output/moltbook/sinkai-candidates-latest.json
 ```
@@ -62,6 +64,8 @@ node scripts/moltbook-sinkai-agent.mjs scout \
 - 上位候補
 - フォロー推奨候補（厳しめ条件）
 - スコア内訳（10基準）
+
+`--min-similarity` と `--min-matches` を使うと、低類似度や単発ヒット候補を自動除外できる。
 
 ### Heartbeat（30分単位）
 
