@@ -4,12 +4,16 @@ import fsSync from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
+import pg from "pg";
 
 const DEFAULT_BASE_URL = "https://www.moltbook.com/api/v1";
 const SAFE_HOSTNAME = "www.moltbook.com";
 const DEFAULT_STATE_PATH = path.join(process.cwd(), "output", "moltbook", "state", "engagement-state.json");
+const DATABASE_URL = (process.env.DATABASE_URL || "").trim();
+const DEFAULT_STATE_BACKEND = "auto";
 const DEFAULT_REPLY_MAX_PER_RUN = 1;
 const SEARCH_LIMIT = 30;
+const { Pool } = pg;
 
 const NUMBER_WORDS = {
   zero: 0,
@@ -63,6 +67,7 @@ Global flags:
   --base-url https://www.moltbook.com/api/v1
   --api-key moltbook_xxx
   --state-path output/moltbook/state/engagement-state.json
+  --state-backend auto|database|file
   --watch-post-ids "id1,id2"
   --allow-unsafe-base-url (off by default)
 `;
@@ -184,6 +189,370 @@ async function loadState(statePath) {
     state.second_post = defaultState().second_post;
   }
   return state;
+}
+
+function toPgSql(sql) {
+  let index = 0;
+  let out = "";
+  for (let i = 0; i < sql.length; i += 1) {
+    const ch = sql[i];
+    if (ch === "?") {
+      index += 1;
+      out += `$${index}`;
+    } else {
+      out += ch;
+    }
+  }
+  return out;
+}
+
+function getPgPool() {
+  const pgSslMode = (process.env.PGSSLMODE || "").trim().toLowerCase();
+  let useSsl = false;
+  let connectionString = DATABASE_URL;
+  try {
+    const parsed = new URL(DATABASE_URL);
+    const sslModeFromUrl = parsed.searchParams.get("sslmode")?.trim().toLowerCase();
+    const sslFromUrl = parsed.searchParams.get("ssl")?.trim().toLowerCase();
+    useSsl =
+      sslModeFromUrl === "require" ||
+      sslModeFromUrl === "prefer" ||
+      sslModeFromUrl === "verify-ca" ||
+      sslModeFromUrl === "verify-full" ||
+      sslModeFromUrl === "no-verify" ||
+      sslFromUrl === "true" ||
+      sslFromUrl === "1";
+    if (useSsl) {
+      parsed.searchParams.delete("sslmode");
+      parsed.searchParams.delete("ssl");
+      parsed.searchParams.delete("sslcert");
+      parsed.searchParams.delete("sslkey");
+      parsed.searchParams.delete("sslrootcert");
+      connectionString = parsed.toString();
+    }
+  } catch {
+    const lowerUrl = DATABASE_URL.toLowerCase();
+    useSsl =
+      lowerUrl.includes("sslmode=require") ||
+      lowerUrl.includes("sslmode=prefer") ||
+      lowerUrl.includes("ssl=true");
+    connectionString = DATABASE_URL
+      .replace(/sslmode=verify-full/gi, "")
+      .replace(/sslmode=verify-ca/gi, "")
+      .replace(/sslmode=require/gi, "")
+      .replace(/sslmode=prefer/gi, "")
+      .replace(/ssl=true/gi, "")
+      .replace(/\?&/g, "?")
+      .replace(/&&/g, "&")
+      .replace(/[?&]$/, "");
+  }
+  if (pgSslMode === "require") useSsl = true;
+
+  return new Pool({
+    connectionString,
+    ssl: useSsl ? { rejectUnauthorized: false } : undefined
+  });
+}
+
+function buildDatabaseClient() {
+  if (!DATABASE_URL) {
+    throw new Error("DATABASE_URL is required when state backend is database.");
+  }
+  const pool = getPgPool();
+  return {
+    mode: "postgres",
+    async all(sql, params = []) {
+      const result = await pool.query(toPgSql(sql), params);
+      return result.rows;
+    },
+    async get(sql, params = []) {
+      const result = await pool.query(toPgSql(sql), params);
+      return result.rows?.[0] || null;
+    },
+    async run(sql, params = []) {
+      const result = await pool.query(toPgSql(sql), params);
+      return result.rowCount ?? 0;
+    },
+    async tx(callback) {
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+        const txDb = {
+          all: async (sql, params = []) => {
+            const result = await client.query(toPgSql(sql), params);
+            return result.rows;
+          },
+          get: async (sql, params = []) => {
+            const result = await client.query(toPgSql(sql), params);
+            return result.rows?.[0] || null;
+          },
+          run: async (sql, params = []) => {
+            const result = await client.query(toPgSql(sql), params);
+            return result.rowCount ?? 0;
+          }
+        };
+        const output = await callback(txDb);
+        await client.query("COMMIT");
+        return output;
+      } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+      } finally {
+        client.release();
+      }
+    },
+    async close() {
+      await pool.end();
+    }
+  };
+}
+
+function normalizeState(state) {
+  const base = defaultState();
+  const normalized = {
+    ...base,
+    ...state,
+    watch_post_ids: Array.isArray(state?.watch_post_ids) ? state.watch_post_ids : base.watch_post_ids,
+    handled_comment_ids: Array.isArray(state?.handled_comment_ids) ? state.handled_comment_ids : []
+  };
+  if (!normalized.second_post || typeof normalized.second_post !== "object") normalized.second_post = base.second_post;
+  normalized.second_post = {
+    ...base.second_post,
+    ...normalized.second_post
+  };
+  normalized.watch_post_ids = dedupe(normalized.watch_post_ids);
+  normalized.handled_comment_ids = dedupe(normalized.handled_comment_ids).slice(-2000);
+  return normalized;
+}
+
+function parseStateBackend(flags) {
+  const raw = getFlagString(flags, "state-backend", process.env.MOLTBOOK_STATE_BACKEND || DEFAULT_STATE_BACKEND).toLowerCase();
+  if (!["auto", "database", "db", "file"].includes(raw)) {
+    throw new Error(`Invalid --state-backend: ${raw}`);
+  }
+  if (raw === "file") return "file";
+  if (raw === "database" || raw === "db") return "database";
+  return DATABASE_URL ? "database" : "file";
+}
+
+function serializeWatchIds(watchPostIds) {
+  return JSON.stringify(dedupe(watchPostIds || []));
+}
+
+async function ensureStateTables(db) {
+  await db.run(`CREATE TABLE IF NOT EXISTS moltbook_engagement_state (
+    id INTEGER PRIMARY KEY,
+    second_post_status TEXT NOT NULL DEFAULT 'pending',
+    second_post_id TEXT,
+    second_post_last_attempt_at TEXT,
+    second_post_next_earliest_at TEXT,
+    watch_post_ids_json TEXT NOT NULL DEFAULT '[]',
+    updated_at TEXT NOT NULL
+  )`);
+  await db.run(`CREATE TABLE IF NOT EXISTS moltbook_handled_comment_events (
+    source_comment_id TEXT PRIMARY KEY,
+    post_id TEXT NOT NULL,
+    handled_action TEXT NOT NULL,
+    reply_comment_id TEXT,
+    handled_at TEXT NOT NULL
+  )`);
+  await db.run(`CREATE INDEX IF NOT EXISTS moltbook_handled_comment_events_handled_at_idx
+    ON moltbook_handled_comment_events (handled_at)`);
+}
+
+async function ensureDbStateBootstrap({ db, statePath }) {
+  const existing = await db.get("SELECT id FROM moltbook_engagement_state WHERE id = 1");
+  if (existing) return;
+
+  const fileState = normalizeState(await readJsonIfExists(statePath, defaultState()));
+  const updatedAt = fileState.updated_at || nowIso();
+  await db.run(
+    `INSERT INTO moltbook_engagement_state (
+      id,
+      second_post_status,
+      second_post_id,
+      second_post_last_attempt_at,
+      second_post_next_earliest_at,
+      watch_post_ids_json,
+      updated_at
+    ) VALUES (1, ?, ?, ?, ?, ?, ?)`,
+    [
+      fileState.second_post.status || "pending",
+      fileState.second_post.post_id || null,
+      fileState.second_post.last_attempt_at || null,
+      fileState.second_post.next_earliest_at || null,
+      serializeWatchIds(fileState.watch_post_ids),
+      updatedAt
+    ]
+  );
+
+  for (const handledId of fileState.handled_comment_ids || []) {
+    await db.run(
+      `INSERT INTO moltbook_handled_comment_events (
+        source_comment_id,
+        post_id,
+        handled_action,
+        reply_comment_id,
+        handled_at
+      ) VALUES (?, '__legacy__', 'skipped', NULL, ?)
+      ON CONFLICT(source_comment_id) DO NOTHING`,
+      [handledId, updatedAt]
+    );
+  }
+}
+
+async function createStateStore({ flags, statePath }) {
+  const backend = parseStateBackend(flags);
+  if (backend === "file") {
+    return {
+      backend: "file",
+      statePath,
+      async loadState() {
+        return normalizeState(await loadState(statePath));
+      },
+      async saveState(state) {
+        const normalized = normalizeState(state);
+        await writeJson(statePath, normalized);
+      },
+      async hasHandledComment(commentId) {
+        return false;
+      },
+      async markHandledCommentAndSaveState() {
+        return false;
+      },
+      async close() {}
+    };
+  }
+
+  const db = buildDatabaseClient();
+  await ensureStateTables(db);
+  await ensureDbStateBootstrap({ db, statePath });
+
+  return {
+    backend: db.mode,
+    statePath,
+    async loadState() {
+      const row = await db.get(
+        `SELECT
+          second_post_status,
+          second_post_id,
+          second_post_last_attempt_at,
+          second_post_next_earliest_at,
+          watch_post_ids_json,
+          updated_at
+        FROM moltbook_engagement_state
+        WHERE id = 1`
+      );
+      const parsedWatch = (() => {
+        try {
+          const parsed = JSON.parse(row?.watch_post_ids_json || "[]");
+          return Array.isArray(parsed) ? parsed : [];
+        } catch {
+          return [];
+        }
+      })();
+      return normalizeState({
+        version: 1,
+        updated_at: row?.updated_at || null,
+        watch_post_ids: parsedWatch,
+        handled_comment_ids: [],
+        second_post: {
+          status: row?.second_post_status || "pending",
+          post_id: row?.second_post_id || null,
+          last_attempt_at: row?.second_post_last_attempt_at || null,
+          next_earliest_at: row?.second_post_next_earliest_at || null
+        }
+      });
+    },
+    async saveState(state) {
+      const normalized = normalizeState(state);
+      const updatedAt = normalized.updated_at || nowIso();
+      await db.run(
+        `INSERT INTO moltbook_engagement_state (
+          id,
+          second_post_status,
+          second_post_id,
+          second_post_last_attempt_at,
+          second_post_next_earliest_at,
+          watch_post_ids_json,
+          updated_at
+        ) VALUES (1, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          second_post_status = excluded.second_post_status,
+          second_post_id = excluded.second_post_id,
+          second_post_last_attempt_at = excluded.second_post_last_attempt_at,
+          second_post_next_earliest_at = excluded.second_post_next_earliest_at,
+          watch_post_ids_json = excluded.watch_post_ids_json,
+          updated_at = excluded.updated_at`,
+        [
+          normalized.second_post.status || "pending",
+          normalized.second_post.post_id || null,
+          normalized.second_post.last_attempt_at || null,
+          normalized.second_post.next_earliest_at || null,
+          serializeWatchIds(normalized.watch_post_ids),
+          updatedAt
+        ]
+      );
+    },
+    async hasHandledComment(commentId) {
+      const row = await db.get(
+        `SELECT source_comment_id
+         FROM moltbook_handled_comment_events
+         WHERE source_comment_id = ?
+         LIMIT 1`,
+        [commentId]
+      );
+      return Boolean(row?.source_comment_id);
+    },
+    async markHandledCommentAndSaveState({ sourceCommentId, postId, handledAction, replyCommentId, state }) {
+      const normalized = normalizeState(state);
+      const handledAt = nowIso();
+      const updatedAt = handledAt;
+      return db.tx(async (txDb) => {
+        const inserted = await txDb.run(
+          `INSERT INTO moltbook_handled_comment_events (
+            source_comment_id,
+            post_id,
+            handled_action,
+            reply_comment_id,
+            handled_at
+          ) VALUES (?, ?, ?, ?, ?)
+          ON CONFLICT(source_comment_id) DO NOTHING`,
+          [sourceCommentId, postId || "__unknown__", handledAction, replyCommentId || null, handledAt]
+        );
+        await txDb.run(
+          `INSERT INTO moltbook_engagement_state (
+            id,
+            second_post_status,
+            second_post_id,
+            second_post_last_attempt_at,
+            second_post_next_earliest_at,
+            watch_post_ids_json,
+            updated_at
+          ) VALUES (1, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(id) DO UPDATE SET
+            second_post_status = excluded.second_post_status,
+            second_post_id = excluded.second_post_id,
+            second_post_last_attempt_at = excluded.second_post_last_attempt_at,
+            second_post_next_earliest_at = excluded.second_post_next_earliest_at,
+            watch_post_ids_json = excluded.watch_post_ids_json,
+            updated_at = excluded.updated_at`,
+          [
+            normalized.second_post.status || "pending",
+            normalized.second_post.post_id || null,
+            normalized.second_post.last_attempt_at || null,
+            normalized.second_post.next_earliest_at || null,
+            serializeWatchIds(normalized.watch_post_ids),
+            updatedAt
+          ]
+        );
+        return inserted > 0;
+      });
+    },
+    async close() {
+      await db.close();
+    }
+  };
 }
 
 function getApiKey(flags) {
@@ -404,7 +773,7 @@ function canAttemptByTime(nextEarliestAt) {
   return Date.now() >= ts;
 }
 
-async function runAutoPostSecond({ baseUrl, apiKey, state, statePath }) {
+async function runAutoPostSecond({ baseUrl, apiKey, state, stateStore }) {
   if (state.second_post?.status === "posted" && state.second_post?.post_id) {
     return {
       action: "skip_already_posted",
@@ -436,7 +805,7 @@ async function runAutoPostSecond({ baseUrl, apiKey, state, statePath }) {
     state.second_post.next_earliest_at = null;
     state.watch_post_ids = dedupe([...state.watch_post_ids, postId]);
     state.updated_at = nowIso();
-    await writeJson(statePath, state);
+    await stateStore.saveState(state);
 
     return {
       action: "posted",
@@ -449,7 +818,7 @@ async function runAutoPostSecond({ baseUrl, apiKey, state, statePath }) {
       const retryAfter = Number(error.data?.retry_after_minutes || 30);
       state.second_post.next_earliest_at = addMinutes(nowIso(), retryAfter);
       state.updated_at = nowIso();
-      await writeJson(statePath, state);
+      await stateStore.saveState(state);
       return {
         action: "rate_limited",
         retry_after_minutes: retryAfter,
@@ -522,7 +891,7 @@ function flattenThread(comments) {
   return items;
 }
 
-async function runReplyMonitor({ baseUrl, apiKey, state, statePath, maxRepliesPerRun, watchPostIdsFlag }) {
+async function runReplyMonitor({ baseUrl, apiKey, state, stateStore, maxRepliesPerRun, watchPostIdsFlag }) {
   const me = await getMe(baseUrl, apiKey);
   if (!me?.name || !me?.id) {
     throw new Error("Failed to resolve agent identity from /agents/me");
@@ -536,6 +905,7 @@ async function runReplyMonitor({ baseUrl, apiKey, state, statePath, maxRepliesPe
   const watchPostIds = dedupe([...state.watch_post_ids, ...ownPostIds, ...envWatch]);
   state.watch_post_ids = watchPostIds;
 
+  const useDbHandledEvents = stateStore.backend !== "file";
   const handled = new Set(state.handled_comment_ids);
   const actions = [];
   let repliesSent = 0;
@@ -567,8 +937,25 @@ async function runReplyMonitor({ baseUrl, apiKey, state, statePath, maxRepliesPe
       if (!top?.id || top?.author_id === me.id) continue;
       const existingReplies = Array.isArray(top.replies) ? top.replies : [];
       const alreadyRepliedByUs = existingReplies.some((reply) => reply?.author_id === me.id);
-      if (alreadyRepliedByUs) handled.add(top.id);
-      if (isOwnPost && !handled.has(top.id)) {
+      if (alreadyRepliedByUs) {
+        if (useDbHandledEvents) {
+          const exists = await stateStore.hasHandledComment(top.id);
+          if (!exists) {
+            await stateStore.markHandledCommentAndSaveState({
+              sourceCommentId: top.id,
+              postId,
+              handledAction: "skipped",
+              replyCommentId: null,
+              state
+            });
+          }
+        } else {
+          handled.add(top.id);
+        }
+      }
+
+      const topAlreadyHandled = useDbHandledEvents ? await stateStore.hasHandledComment(top.id) : handled.has(top.id);
+      if (isOwnPost && !topAlreadyHandled) {
         const replyText = buildReplyText(top.content, "comment_on_our_post");
         try {
           const reply = await postReply({
@@ -578,7 +965,17 @@ async function runReplyMonitor({ baseUrl, apiKey, state, statePath, maxRepliesPe
             parentId: top.id,
             content: replyText
           });
-          handled.add(top.id);
+          if (useDbHandledEvents) {
+            await stateStore.markHandledCommentAndSaveState({
+              sourceCommentId: top.id,
+              postId,
+              handledAction: "replied",
+              replyCommentId: reply.comment_id,
+              state
+            });
+          } else {
+            handled.add(top.id);
+          }
           repliesSent += 1;
           actions.push({
             post_id: postId,
@@ -601,7 +998,10 @@ async function runReplyMonitor({ baseUrl, apiKey, state, statePath, maxRepliesPe
         if (!replyToTop?.id || replyToTop?.author_id === me.id) continue;
         const parentId = replyToTop.parent_id || "";
         if (!myCommentIds.has(parentId)) continue;
-        if (handled.has(replyToTop.id)) continue;
+        const replyAlreadyHandled = useDbHandledEvents
+          ? await stateStore.hasHandledComment(replyToTop.id)
+          : handled.has(replyToTop.id);
+        if (replyAlreadyHandled) continue;
 
         const replyText = buildReplyText(replyToTop.content, "reply_to_us");
         try {
@@ -612,7 +1012,17 @@ async function runReplyMonitor({ baseUrl, apiKey, state, statePath, maxRepliesPe
             parentId: replyToTop.id,
             content: replyText
           });
-          handled.add(replyToTop.id);
+          if (useDbHandledEvents) {
+            await stateStore.markHandledCommentAndSaveState({
+              sourceCommentId: replyToTop.id,
+              postId,
+              handledAction: "replied_to_reply",
+              replyCommentId: reply.comment_id,
+              state
+            });
+          } else {
+            handled.add(replyToTop.id);
+          }
           repliesSent += 1;
           actions.push({
             post_id: postId,
@@ -641,9 +1051,11 @@ async function runReplyMonitor({ baseUrl, apiKey, state, statePath, maxRepliesPe
     }
   }
 
-  state.handled_comment_ids = dedupe(Array.from(handled)).slice(-2000);
+  if (!useDbHandledEvents) {
+    state.handled_comment_ids = dedupe(Array.from(handled)).slice(-2000);
+  }
   state.updated_at = nowIso();
-  await writeJson(statePath, state);
+  await stateStore.saveState(state);
 
   return {
     action: "reply_monitor_done",
@@ -663,49 +1075,57 @@ async function main() {
   const baseUrl = getBaseUrl(flags);
   const apiKey = getApiKey(flags);
   const statePath = getFlagString(flags, "state-path", DEFAULT_STATE_PATH);
-  const state = await loadState(statePath);
+  const stateStore = await createStateStore({ flags, statePath });
+  const stateBackend = stateStore.backend;
   const maxRepliesPerRun = Math.max(1, Math.floor(getFlagNumber(flags, "max-replies", DEFAULT_REPLY_MAX_PER_RUN)));
   const watchPostIdsFlag = getFlagString(flags, "watch-post-ids", "");
 
-  if (command === "autopost-second") {
-    const result = await runAutoPostSecond({ baseUrl, apiKey, state, statePath });
-    console.log(JSON.stringify({ command, state_path: statePath, ...result }, null, 2));
-    return;
-  }
+  try {
+    const state = await stateStore.loadState();
 
-  if (command === "reply-monitor") {
-    const result = await runReplyMonitor({ baseUrl, apiKey, state, statePath, maxRepliesPerRun, watchPostIdsFlag });
-    console.log(JSON.stringify({ command, state_path: statePath, ...result }, null, 2));
-    return;
-  }
+    if (command === "autopost-second") {
+      const result = await runAutoPostSecond({ baseUrl, apiKey, state, stateStore });
+      console.log(JSON.stringify({ command, state_backend: stateBackend, state_path: statePath, ...result }, null, 2));
+      return;
+    }
 
-  if (command === "run-cycle") {
-    const postResult = await runAutoPostSecond({ baseUrl, apiKey, state, statePath });
-    const latestState = await loadState(statePath);
-    const replyResult = await runReplyMonitor({
-      baseUrl,
-      apiKey,
-      state: latestState,
-      statePath,
-      maxRepliesPerRun,
-      watchPostIdsFlag
-    });
-    console.log(
-      JSON.stringify(
-        {
-          command,
-          state_path: statePath,
-          autopost_second: postResult,
-          reply_monitor: replyResult
-        },
-        null,
-        2
-      )
-    );
-    return;
-  }
+    if (command === "reply-monitor") {
+      const result = await runReplyMonitor({ baseUrl, apiKey, state, stateStore, maxRepliesPerRun, watchPostIdsFlag });
+      console.log(JSON.stringify({ command, state_backend: stateBackend, state_path: statePath, ...result }, null, 2));
+      return;
+    }
 
-  throw new Error(`Unknown command: ${command}\n\n${usage()}`);
+    if (command === "run-cycle") {
+      const postResult = await runAutoPostSecond({ baseUrl, apiKey, state, stateStore });
+      const latestState = await stateStore.loadState();
+      const replyResult = await runReplyMonitor({
+        baseUrl,
+        apiKey,
+        state: latestState,
+        stateStore,
+        maxRepliesPerRun,
+        watchPostIdsFlag
+      });
+      console.log(
+        JSON.stringify(
+          {
+            command,
+            state_backend: stateBackend,
+            state_path: statePath,
+            autopost_second: postResult,
+            reply_monitor: replyResult
+          },
+          null,
+          2
+        )
+      );
+      return;
+    }
+
+    throw new Error(`Unknown command: ${command}\n\n${usage()}`);
+  } finally {
+    await stateStore.close();
+  }
 }
 
 main().catch((error) => {

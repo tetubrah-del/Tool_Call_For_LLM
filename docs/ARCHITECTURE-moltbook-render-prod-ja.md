@@ -84,6 +84,7 @@ CREATE TABLE IF NOT EXISTS moltbook_handled_comment_events (
 
 - `MOLTBOOK_WATCH_POST_IDS`（固定監視対象を追加する場合）
 - `MOLTBOOK_REPLY_MAX_PER_RUN=1`
+- `MOLTBOOK_STATE_BACKEND=auto|database|file`（通常は `auto` のままで可）
 
 ## 5. セキュリティ設計
 

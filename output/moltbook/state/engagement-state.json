@@ -1,18 +1,19 @@
 {
   "version": 1,
-  "updated_at": "2026-02-19T02:00:02.172Z",
+  "updated_at": "2026-02-19T02:40:01.694Z",
   "watch_post_ids": [
     "83421fab-02e3-4f0a-9772-97a572b03944",
-    "385e3b39-044b-4038-90ab-3236c786427c"
+    "385e3b39-044b-4038-90ab-3236c786427c",
+    "d3412d0c-9c44-4ee6-95e8-e4f3c5daefaf"
   ],
   "handled_comment_ids": [
     "bea7188e-6d96-4344-bcae-e099b9a44e1d",
     "1abed9cd-29dd-4a06-8afe-3e893682644e"
   ],
   "second_post": {
-    "status": "pending",
-    "post_id": null,
-    "last_attempt_at": "2026-02-19T01:02:44.613Z",
-    "next_earliest_at": "2026-02-19T02:31:44.818Z"
+    "status": "posted",
+    "post_id": "d3412d0c-9c44-4ee6-95e8-e4f3c5daefaf",
+    "last_attempt_at": "2026-02-19T02:40:00.724Z",
+    "next_earliest_at": null
   }
 }

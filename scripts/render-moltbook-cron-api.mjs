@@ -252,7 +252,10 @@ function normalizeComparable(job, envVars) {
       MOLTBOOK_BASE_URL: envByKey.MOLTBOOK_BASE_URL || "",
       MOLTBOOK_WATCH_POST_IDS: envByKey.MOLTBOOK_WATCH_POST_IDS || "",
       MOLTBOOK_REPLY_MAX_PER_RUN: envByKey.MOLTBOOK_REPLY_MAX_PER_RUN || "",
-      MOLTBOOK_API_KEY: envByKey.MOLTBOOK_API_KEY ? "__SET__" : "__MISSING__"
+      MOLTBOOK_API_KEY: envByKey.MOLTBOOK_API_KEY ? "__SET__" : "__MISSING__",
+      MOLTBOOK_STATE_BACKEND: envByKey.MOLTBOOK_STATE_BACKEND || "",
+      DATABASE_URL: envByKey.DATABASE_URL ? "__SET__" : "__MISSING__",
+      PGSSLMODE: envByKey.PGSSLMODE || ""
     }
   };
 }
@@ -273,6 +276,9 @@ function buildDesiredJobs(flags, repo) {
     process.env.MOLTBOOK_BASE_URL || DEFAULT_MOLTBOOK_BASE_URL
   );
   const moltbookApiKey = (process.env.MOLTBOOK_API_KEY || "").trim();
+  const moltbookStateBackend = (process.env.MOLTBOOK_STATE_BACKEND || "auto").trim();
+  const databaseUrl = (process.env.DATABASE_URL || "").trim();
+  const pgSslMode = (process.env.PGSSLMODE || "").trim();
   const watchPostIds = (process.env.MOLTBOOK_WATCH_POST_IDS || "").trim();
 
   const selectedNames = getFlagString(flags, "jobs")
@@ -286,8 +292,11 @@ function buildDesiredJobs(flags, repo) {
     const envVars = [
       { key: "MOLTBOOK_BASE_URL", value: moltbookBaseUrl },
       { key: "MOLTBOOK_API_KEY", value: moltbookApiKey },
-      { key: "MOLTBOOK_REPLY_MAX_PER_RUN", value: "1" }
+      { key: "MOLTBOOK_REPLY_MAX_PER_RUN", value: "1" },
+      { key: "MOLTBOOK_STATE_BACKEND", value: moltbookStateBackend }
     ];
+    if (databaseUrl) envVars.push({ key: "DATABASE_URL", value: databaseUrl });
+    if (pgSslMode) envVars.push({ key: "PGSSLMODE", value: pgSslMode });
     if (watchPostIds) envVars.push({ key: "MOLTBOOK_WATCH_POST_IDS", value: watchPostIds });
 
     return {
@@ -346,7 +355,7 @@ function sanitizePlanRows(rows) {
           ...row.desired,
           envVars: row.desired.envVars.map((item) => ({
             key: item.key,
-            value: item.key === "MOLTBOOK_API_KEY" ? "__REDACTED__" : item.value
+            value: ["MOLTBOOK_API_KEY", "DATABASE_URL"].includes(item.key) ? "__REDACTED__" : item.value
           }))
         }
       : null

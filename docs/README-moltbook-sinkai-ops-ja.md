@@ -88,7 +88,13 @@ node scripts/moltbook-engagement-worker.mjs reply-monitor --max-replies 1
 ```
 
 内部state:
-- `/Users/tetubrah/Projects/Tool_Call_For_LLM/output/moltbook/state/engagement-state.json`
+- `DATABASE_URL` がある環境では DB テーブルを自動利用:
+  - `moltbook_engagement_state`
+  - `moltbook_handled_comment_events`
+- `DATABASE_URL` がないローカル環境では従来どおりファイル:
+  - `/Users/tetubrah/Projects/Tool_Call_For_LLM/output/moltbook/state/engagement-state.json`
+- 必要なら明示指定:
+  - `--state-backend auto|database|file`
 
 ## 3) 初日運用フロー
 
@@ -126,3 +132,4 @@ npm run render:moltbook:cron -- apply --env-file .env.local --replace-changed
 - デフォルトで管理対象は4ジョブ（engagement-cycle / heartbeat / scout-3h / scout-daily）。
 - `--jobs sinkai-heartbeat,sinkai-scout-3h` で一部ジョブのみ更新可能。
 - 秘密値 `MOLTBOOK_API_KEY` は出力に表示しない。
+- `DATABASE_URL` / `PGSSLMODE` / `MOLTBOOK_STATE_BACKEND` を環境に渡すと、cron へ同時反映される。
