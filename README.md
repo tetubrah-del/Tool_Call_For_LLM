@@ -10,6 +10,7 @@ Minimal MVP where an AI agent tool_call can hire a registered human for a real�
 - `docs/README-physical-evidence.md` (法務/コンプライアンス: Physical Evidence Collection)
 - `docs/SPEC-mcp-for-agents.md` (エージェント向けMCP仕様 v0/v1)
 - `docs/WIREFRAME-for-agents-ja.md` (for Agents日本版ワイヤー: コピー/CTA/導線)
+- `docs/README-moltbook-sinkai-ops-ja.md` (Moltbook参加 + Sinkai集め運用)
 - `/for-agents` (エージェント向けLP)
 - `/for-agents/quickstart` (最短接続手順)
 - `/for-agents/reference` (運用条件・エラー・ライフサイクル)

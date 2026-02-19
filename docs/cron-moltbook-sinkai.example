@@ -1,0 +1,15 @@
+SHELL=/bin/zsh
+PATH=/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin
+
+# Run from your own account crontab: crontab -e
+# Prerequisite:
+#   export MOLTBOOK_API_KEY in a sourced file (example: ~/.zshrc or ~/.moltbook.env)
+
+# Every 30 min: heartbeat check (status + dm + feed snapshot)
+*/30 * * * * . ~/.zshrc; cd /Users/tetubrah/Projects/Tool_Call_For_LLM && node scripts/moltbook-sinkai-agent.mjs heartbeat >> output/moltbook/heartbeat.log 2>&1
+
+# Every 3 hours: Sinkai candidate scouting + score output
+15 */3 * * * . ~/.zshrc; cd /Users/tetubrah/Projects/Tool_Call_For_LLM && node scripts/moltbook-sinkai-agent.mjs scout --limit 20 --top 15 --csv output/moltbook/sinkai-candidates-latest.csv --out output/moltbook/sinkai-candidates-latest.json >> output/moltbook/scout.log 2>&1
+
+# Daily 09:10 local time: keep a dated snapshot
+10 9 * * * . ~/.zshrc; cd /Users/tetubrah/Projects/Tool_Call_For_LLM && node scripts/moltbook-sinkai-agent.mjs scout --limit 20 --top 20 --csv true >> output/moltbook/daily-scout.log 2>&1
