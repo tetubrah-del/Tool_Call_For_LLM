@@ -1,0 +1,107 @@
+{
+  "as_of_utc": "2026-02-19",
+  "target_date_jst": "2026-02-19",
+  "collected_by": "grok-4-1-fast-reasoning + web_search + x_search",
+  "curated_policy": "first source URL returned HTTP 200",
+  "topics": [
+    {
+      "title": "Freeform Raises $67M Series B for AI Laser Manufacturing",
+      "summary_ja": "Freeformは、AIネイティブのレーザーとソフトウェア制御による革新的な金属部品3Dプリンティングシステムを開発。$67MのSeries B資金調達により、GoldenEyeシステムをSkyfallへアップグレードし、数百本のレーザーで1日数千kgの生産を目指す。",
+      "why_now_ja": "AI駆動製造のブームとNVIDIAのGPUパートナーシップにより、物理製品生産のスケーリングが急務。契約バックログ増加で投資家注目。",
+      "x_hook_ja": "Freeform $67M調達！AIレーザーで金属3Dプリ革命🔥 生産性爆上げの未来が来た！",
+      "suggested_hashtags": [
+        "#Freeform",
+        "#AI製造",
+        "#資金調達",
+        "#SeriesB",
+        "#3Dプリンティング"
+      ],
+      "source_urls": [
+        "https://techcrunch.com/2026/02/19/freeform-raises-67m-series-b-to-scale-up-laser-ai-manufacturing"
+      ],
+      "source_published_at": [
+        "2026-02-19"
+      ],
+      "confidence": 10
+    },
+    {
+      "title": "HiJoJo Partners Secures ~$7M in Series B1 Round",
+      "summary_ja": "HiJoJo Partnersは、米ユニコーン企業投資ファンドを日本投資家向けに提供する独立系資産運用会社。シリーズB1ラウンドで約10億円（累計28億円）調達。投資家31社包括ペガサス・テック・ベンチャーズ等。",
+      "why_now_ja": "メガバンク3社との資本提携とグローバル評価高まり、スタートアップ投資の民主化加速。日本人投資家のUSユニコーンアクセス需要増。",
+      "x_hook_ja": "HiJoJo Partners 10億円調達！日本からUSユニコーン投資へ簡単アクセス🚀",
+      "suggested_hashtags": [
+        "#HiJoJoPartners",
+        "#資金調達",
+        "#VC",
+        "#ユニコーン",
+        "#スタートアップ"
+      ],
+      "source_urls": [
+        "https://prtimes.jp/main/html/rd/p/000000068.000035674.html"
+      ],
+      "source_published_at": [
+        "2026-02-19"
+      ],
+      "confidence": 10
+    },
+    {
+      "title": "Linkwith Raises 200M Yen from Suzuki CVC and Toyota Tsusho",
+      "summary_ja": "浜松拠点のLinkwithは、産業用ロボット制御ソフトウェアを開発。スズキCVCと豊田通商から2億円の第三者割当増資で資金調達。",
+      "why_now_ja": "自動車業界大手CVCの参画で、ロボット技術強化。浜松の産業クラスター活性化と製造業DX需要高まる中。",
+      "x_hook_ja": "Linkwith 2億円調達！スズキ&豊田通商から🚗 ロボット制御ソフトが熱い！",
+      "suggested_hashtags": [
+        "#Linkwith",
+        "#資金調達",
+        "#ロボット",
+        "#CVC",
+        "#製造業"
+      ],
+      "source_urls": [
+        "https://biz.chunichi.co.jp/news/article/10/121701"
+      ],
+      "source_published_at": [
+        "2026-02-19"
+      ],
+      "confidence": 10
+    },
+    {
+      "title": "Stacks Raises €19M Series A for Enterprise Finance AI",
+      "summary_ja": "英国Stacksは、AIエージェントで企業財務ワークフロー（照合、仕訳、月次クローズ）を自動化するプラットフォーム。€19M Series A調達（Lightspeed主導）。",
+      "why_now_ja": "2025-26企業AI投資サイクルで、データ断片化解決需要。EU隣接分野€44.9M調達活況。",
+      "x_hook_ja": "Stacks €19M調達！財務AIで月次作業自動化💼 効率革命！",
+      "suggested_hashtags": [
+        "#Stacks",
+        "#EnterpriseAI",
+        "#資金調達",
+        "#FinTech",
+        "#SeriesA"
+      ],
+      "source_urls": [
+        "https://www.eu-startups.com/2026/02/enterprise-finance-platform-stacks-raises-e19-million-to-streamline-reporting-and-month-end-workflows"
+      ],
+      "source_published_at": [
+        "2026-02-19"
+      ],
+      "confidence": 10
+    },
+    {
+      "title": "Plato Raises $14.5M Seed for Wholesale AI Automation",
+      "summary_ja": "ベルリンPlatoは、卸売流通向け生成AI開発。ERP統合で見積・リスク識別自動化。$14.5M Seed（Atomico主導）。",
+      "why_now_ja": "伝統卸売セクターへのAI適用拡大。調達・CS・新市場進出加速。",
+      "x_hook_ja": "Plato $14.5M調達！卸売AI自動化で業務革命🛒",
+      "suggested_hashtags": [
+        "#Plato",
+        "#WholesaleAI",
+        "#資金調達",
+        "#Seed"
+      ],
+      "source_urls": [
+        "https://thenextweb.com/news/plato-closes-14-5m-to-bring-ai-automation-to-wholesale-trade"
+      ],
+      "source_published_at": [
+        "2026-02-19"
+      ],
+      "confidence": 10
+    }
+  ]
+}

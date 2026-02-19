@@ -1,0 +1,72 @@
+{
+  "as_of_utc": "2026-02-19T13:36:20Z",
+  "target_date_jst": "2026-02-19",
+  "collection_method": "grok-4-1-fast-reasoning + web_search + x_search",
+  "verification_rules": [
+    "news_url reachable (HTTP 200)",
+    "x_evidence_url reachable (HTTP 200)",
+    "article includes date marker 2026-02-19"
+  ],
+  "topics": [
+    {
+      "title": "化学DXスタートアップSotas、シリーズAで10億円調達",
+      "summary_ja": "化学産業の情報基盤を構築するSotasがシリーズAラウンド1stクローズで10億円を調達。化学品データベースや工程管理ツールの開発強化へ。",
+      "why_trending_today_ja": "PR発表後、起業メディアsogyotechoなどで今日取り上げられ、X上でも創業者のポストで言及。産業DXの文脈で注目。",
+      "x_hook_ja": "Sotas 10億円調達！化学業界のDX加速へ🔬",
+      "suggested_hashtags": [
+        "#Sotas",
+        "#資金調達",
+        "#化学DX"
+      ],
+      "news_url": "https://sogyotecho.jp/news/20260219sotas",
+      "x_evidence_url": "https://x.com/takuboy28/status/2023958293195223377",
+      "source_published_at": "2026-02-18T08:00:00Z",
+      "confidence": 0.7
+    },
+    {
+      "title": "医療データスタートアップYuimediが4億円調達",
+      "summary_ja": "診療データを標準化するYuimediが4億円を調達。医療・ヘルスケアデータの利活用ネットワーク基盤構築を目指す。",
+      "why_trending_today_ja": "Keppleの記事で今日注目。スタートアップ資金調達ニュースとしてシェア。",
+      "x_hook_ja": "Yuimedi 4億円調達！医療データ革命へ💉",
+      "suggested_hashtags": [
+        "#Yuimedi",
+        "#資金調達",
+        "#ヘルステック"
+      ],
+      "news_url": "https://kepple.co.jp/articles/wwgrqdz-oho",
+      "x_evidence_url": "https://x.com/TFNBreakingNews/status/2024393052719370393",
+      "source_published_at": "2026-02-19T08:00:00Z",
+      "confidence": 0.65
+    },
+    {
+      "title": "AIリミックスアプリHookが1000万ドルSeries A調達",
+      "summary_ja": "AI音楽リミックス・動画編集アプリHookがKhosla Ventures主導で1000万ドルをSeries Aで調達。",
+      "why_trending_today_ja": "Music Business Worldwide報道が今日拡散され、クリエイティブAIとして話題。",
+      "x_hook_ja": "Hook $10M調達！AIで音楽リミックス革命🎵",
+      "suggested_hashtags": [
+        "#Hook",
+        "#AI音楽",
+        "#資金調達"
+      ],
+      "news_url": "https://www.musicbusinessworldwide.com/ai-remix-startup-hook-secures-10m-in-series-a-led-by-khosla-ventures",
+      "x_evidence_url": "https://x.com/msxcom/status/2024351236418654535",
+      "source_published_at": "2026-02-18T10:00:00Z",
+      "confidence": 0.6
+    },
+    {
+      "title": "浜松リンクウィズが2億円調達、スズキCVC・豊田通商から",
+      "summary_ja": "浜松の新興リンクウィズがスズキCVCと豊田通商から2億円を調達。モビリティ関連事業拡大へ。",
+      "why_trending_today_ja": "中日新聞で本日報道。国内自動車大手との提携で注目。",
+      "x_hook_ja": "リンクウィズ2億円調達！スズキ・豊田通商と🚗",
+      "suggested_hashtags": [
+        "#リンクウィズ",
+        "#資金調達",
+        "#モビリティ"
+      ],
+      "news_url": "https://biz.chunichi.co.jp/news/article/10/121701",
+      "x_evidence_url": "https://x.com/PolymarketMoney/status/2024316729552158875",
+      "source_published_at": "2026-02-19T12:20:00Z",
+      "confidence": 0.55
+    }
+  ]
+}
