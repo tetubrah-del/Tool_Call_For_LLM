@@ -27,6 +27,13 @@ const X_API_SECRET = (process.env.MARKETING_X_API_SECRET || "").trim();
 const X_TIMEOUT_MS = Number(process.env.MARKETING_X_TIMEOUT_MS || 30000);
 const X_MEDIA_CHUNK_SIZE = Number(process.env.MARKETING_X_MEDIA_CHUNK_SIZE || 4 * 1024 * 1024);
 const X_MEDIA_PROCESSING_TIMEOUT_MS = Number(process.env.MARKETING_X_MEDIA_PROCESSING_TIMEOUT_MS || 300000);
+const X_SHORT_TEXT_LIMIT = Number(process.env.MARKETING_X_SHORT_TEXT_LIMIT || 280);
+const X_THREAD_CHUNK_SIZE = Number(process.env.MARKETING_X_THREAD_CHUNK_SIZE || 260);
+const X_LONGFORM_STRATEGY = (() => {
+  const raw = (process.env.MARKETING_X_LONGFORM_STRATEGY || "auto").trim().toLowerCase();
+  if (["auto", "single", "thread", "truncate"].includes(raw)) return raw;
+  return "auto";
+})();
 const TIKTOK_POSTS_BASE_URL = (process.env.MARKETING_TIKTOK_POSTS_BASE_URL || "https://open.tiktokapis.com")
   .trim()
   .replace(/\/$/, "");
@@ -549,31 +556,46 @@ function buildXText(content) {
       : "";
 
   const chunks = [title, body, tags].filter(Boolean);
-  let text = chunks.join("\n\n").trim();
+  const text = chunks.join("\n\n").trim();
   if (!text) {
     throw new PublishRequestError("bad_request", "content text is empty", { retryable: false });
-  }
-  if (text.length > 280) {
-    text = `${text.slice(0, 277)}...`;
   }
   return text;
 }
 
-async function publishToX(content) {
-  if (!isXPublisherConfigured()) {
-    throw new PublishRequestError("bad_request", "x auth env is missing", {
-      retryable: false
-    });
+function pickThreadSplitIndex(text, maxLen) {
+  if (text.length <= maxLen) return text.length;
+  const breakChars = ["\n", "。", "！", "？", ".", "!", "?", "、", ",", " "];
+  let idx = -1;
+  for (const ch of breakChars) {
+    const pos = text.lastIndexOf(ch, maxLen);
+    if (pos > idx) idx = pos;
   }
+  if (idx < Math.floor(maxLen * 0.5)) return maxLen;
+  return idx + 1;
+}
 
-  const text = buildXText(content);
-  const mediaUrl = pickFirstString([content?.media_asset_url]);
-  let media = null;
-  if (mediaUrl) {
-    media = await uploadVideoToX(mediaUrl);
+function splitXTextForThread(text) {
+  const effectiveLimit = Math.max(80, Math.min(X_SHORT_TEXT_LIMIT - 10, X_THREAD_CHUNK_SIZE));
+  const out = [];
+  let rest = text.trim();
+  while (rest.length > effectiveLimit) {
+    const cut = pickThreadSplitIndex(rest, effectiveLimit);
+    out.push(rest.slice(0, cut).trim());
+    rest = rest.slice(cut).trim();
   }
+  if (rest) out.push(rest);
+  return out.filter(Boolean);
+}
 
-  const payload = media ? { text, media: { media_ids: [media.mediaId] } } : { text };
+function shouldFallbackToThread(error) {
+  if (!error) return false;
+  const status = Number(error.httpStatus || 0);
+  const code = String(error.code || "").trim().toLowerCase();
+  return status === 400 || status === 403 || code === "bad_request";
+}
+
+async function postXStatus(payload) {
   const postUrl = `${X_POSTS_BASE_URL}/2/tweets`;
   const posted = await xRequest("POST", postUrl, JSON.stringify(payload), "application/json", false);
 
@@ -593,16 +615,115 @@ async function publishToX(content) {
       rawBody: posted.raw
     });
   }
+  return {
+    externalPostId,
+    body,
+    raw: posted.raw
+  };
+}
+
+function buildSinglePayload(text, media) {
+  return media ? { text, media: { media_ids: [media.mediaId] } } : { text };
+}
+
+async function postXThread(text, media, fallbackError = null) {
+  const chunks = splitXTextForThread(text);
+  let rootId = null;
+  let replyToId = null;
+  const results = [];
+
+  for (let i = 0; i < chunks.length; i += 1) {
+    const payload = { text: chunks[i] };
+    if (i === 0 && media?.mediaId) {
+      payload.media = { media_ids: [media.mediaId] };
+    }
+    if (replyToId) {
+      payload.reply = { in_reply_to_tweet_id: replyToId };
+    }
+    const posted = await postXStatus(payload);
+    if (!rootId) rootId = posted.externalPostId;
+    replyToId = posted.externalPostId;
+    results.push({
+      id: posted.externalPostId,
+      text: chunks[i]
+    });
+  }
 
   return {
     channel: "x",
-    externalPostId,
-    postUrl: `https://x.com/i/web/status/${externalPostId}`,
+    externalPostId: rootId,
+    postUrl: `https://x.com/i/web/status/${rootId}`,
     rawResponseJson: safeJsonStringify({
-      tweet: body,
-      media: media?.rawResponseJson ? safeJsonParse(media.rawResponseJson, media.rawResponseJson) : null
+      mode: "thread",
+      chunk_count: chunks.length,
+      tweets: results,
+      media: media?.rawResponseJson ? safeJsonParse(media.rawResponseJson, media.rawResponseJson) : null,
+      fallback_from: fallbackError
+        ? {
+            code: fallbackError.code || "unknown",
+            message: fallbackError.message || "unknown",
+            http_status: fallbackError.httpStatus || null
+          }
+        : null
     })
   };
+}
+
+async function publishToX(content) {
+  if (!isXPublisherConfigured()) {
+    throw new PublishRequestError("bad_request", "x auth env is missing", {
+      retryable: false
+    });
+  }
+
+  const text = buildXText(content);
+  const mediaUrl = pickFirstString([content?.media_asset_url]);
+  let media = null;
+  if (mediaUrl) {
+    media = await uploadVideoToX(mediaUrl);
+  }
+
+  if (X_LONGFORM_STRATEGY === "truncate" && text.length > X_SHORT_TEXT_LIMIT) {
+    const clipped = `${text.slice(0, Math.max(1, X_SHORT_TEXT_LIMIT - 3)).trim()}...`;
+    const posted = await postXStatus(buildSinglePayload(clipped, media));
+    return {
+      channel: "x",
+      externalPostId: posted.externalPostId,
+      postUrl: `https://x.com/i/web/status/${posted.externalPostId}`,
+      rawResponseJson: safeJsonStringify({
+        mode: "truncate",
+        tweet: posted.body,
+        media: media?.rawResponseJson ? safeJsonParse(media.rawResponseJson, media.rawResponseJson) : null
+      })
+    };
+  }
+
+  const wantsThread = X_LONGFORM_STRATEGY === "thread";
+  const wantsSingleOnly = X_LONGFORM_STRATEGY === "single";
+  const isLongText = text.length > X_SHORT_TEXT_LIMIT;
+
+  if (wantsThread && isLongText) {
+    return postXThread(text, media, null);
+  }
+
+  try {
+    const posted = await postXStatus(buildSinglePayload(text, media));
+    return {
+      channel: "x",
+      externalPostId: posted.externalPostId,
+      postUrl: `https://x.com/i/web/status/${posted.externalPostId}`,
+      rawResponseJson: safeJsonStringify({
+        mode: isLongText ? "single_long" : "single",
+        tweet: posted.body,
+        media: media?.rawResponseJson ? safeJsonParse(media.rawResponseJson, media.rawResponseJson) : null
+      })
+    };
+  } catch (error) {
+    if (!wantsSingleOnly && isLongText && X_LONGFORM_STRATEGY === "auto" && shouldFallbackToThread(error)) {
+      return postXThread(text, media, error);
+    }
+    throw error;
+  }
 }
 
 function toErrorCodeFromTikTokApi(errorCode) {

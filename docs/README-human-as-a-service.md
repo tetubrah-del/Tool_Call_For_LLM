@@ -592,6 +592,14 @@ X publisher env (minimal):
 - `MARKETING_X_TIMEOUT_MS` (default `30000`)
 - `MARKETING_X_MEDIA_CHUNK_SIZE` (default `4194304`)
 - `MARKETING_X_MEDIA_PROCESSING_TIMEOUT_MS` (default `300000`)
+- Long-form handling:
+  - `MARKETING_X_LONGFORM_STRATEGY` (default `auto`)
+    - `auto`: try single post with full text; if rejected, fallback to thread
+    - `single`: only single post (no thread fallback)
+    - `thread`: force thread for long text
+    - `truncate`: legacy behavior (clip to short limit)
+  - `MARKETING_X_SHORT_TEXT_LIMIT` (default `280`)
+  - `MARKETING_X_THREAD_CHUNK_SIZE` (default `260`)
 
 Note:
 
