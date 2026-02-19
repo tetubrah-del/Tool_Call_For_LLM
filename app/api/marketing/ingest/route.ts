@@ -45,6 +45,10 @@ const CREATORS_AUTH_ENDPOINT = (
   ""
 ).trim();
 const MARKETING_ALERT_EMAIL = (process.env.MARKETING_ALERT_EMAIL || "tetubrah@gmail.com").trim();
+const XAI_API_KEY = (process.env.XAI_API_KEY || "").trim();
+const XAI_BASE_URL = (process.env.XAI_BASE_URL || "https://api.x.ai/v1").trim().replace(/\/$/, "");
+const XAI_MODEL = (process.env.XAI_MODEL || "grok-3-mini").trim();
+const XAI_TIMEOUT_MS = Number(process.env.XAI_TIMEOUT_MS || 20000);
 
 function normalizeText(value: unknown, max = 10000) {
   if (typeof value !== "string") return "";
@@ -128,6 +132,21 @@ function buildHashtags(brand: string, title: string) {
   return [smartBrandTag, "#Amazonおすすめ", hints].slice(0, 3);
 }
 
+function normalizeHashtags(value: unknown, fallback: string[]) {
+  if (!Array.isArray(value)) return fallback;
+  const tags = value
+    .map((item) => (typeof item === "string" ? item.trim() : ""))
+    .filter(Boolean)
+    .map((item) => {
+      const word = toHashtagWord(item);
+      return word ? `#${word}` : "";
+    })
+    .filter(Boolean)
+    .slice(0, 5);
+  if (tags.length === 0) return fallback;
+  return Array.from(new Set(tags));
+}
+
 function isMedicalContent(title: string, features: string[]) {
   const medicalKeywords = [
     /医療/i,
@@ -197,6 +216,185 @@ function buildSeedanceNegativePrompt() {
     "before-after cure claims, guaranteed results, fake review UI",
     "low quality, watermark, blurry, distorted hands, overexposed"
   ].join(", ");
+}
+
+function ensureProductUrl(text: string, productUrl: string) {
+  if (!text) return productUrl;
+  if (text.includes(productUrl)) return text;
+  return `${text}\n${productUrl}`;
+}
+
+function parseJsonObjectFromText(raw: string): any | null {
+  const text = normalizeText(raw, 30000);
+  if (!text) return null;
+
+  const tryParse = (value: string) => {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return null;
+    }
+  };
+
+  const direct = tryParse(text);
+  if (direct && typeof direct === "object") return direct;
+
+  const strippedFence = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
+  const parsedFence = tryParse(strippedFence);
+  if (parsedFence && typeof parsedFence === "object") return parsedFence;
+
+  const start = strippedFence.indexOf("{");
+  const end = strippedFence.lastIndexOf("}");
+  if (start >= 0 && end > start) {
+    const objectSlice = strippedFence.slice(start, end + 1);
+    const parsedSlice = tryParse(objectSlice);
+    if (parsedSlice && typeof parsedSlice === "object") return parsedSlice;
+  }
+  return null;
+}
+
+function buildGrokIdeaPrompt(params: {
+  asin: string;
+  title: string;
+  brand: string;
+  features: string[];
+  priceText: string;
+  productUrl: string;
+  channel: string;
+}) {
+  const featureLines = params.features.slice(0, 5).map((v, index) => `${index + 1}. ${v}`).join("\n");
+  return [
+    "あなたは日本語のECマーケ編集者です。",
+    "Amazon商品の情報を元に、X投稿とSEO記事企画のネタをJSONだけで返してください。",
+    "",
+    `ASIN: ${params.asin}`,
+    `タイトル: ${params.title}`,
+    params.brand ? `ブランド: ${params.brand}` : "",
+    params.priceText ? `価格情報: ${params.priceText}` : "",
+    featureLines ? `特徴:\n${featureLines}` : "",
+    `商品URL: ${params.productUrl}`,
+    `想定チャネル: ${params.channel}`,
+    "",
+    "制約:",
+    "- 医療効果を示唆しないこと",
+    "- 誇大広告を避けること",
+    "- X投稿文は250文字以内、自然な日本語",
+    "- ハッシュタグは3〜5個",
+    "- 必ず有効なJSONのみ出力すること（説明文は禁止）",
+    "",
+    "出力JSONスキーマ:",
+    "{",
+    '  "x_post_text": "string",',
+    '  "hashtags": ["#tag1", "#tag2"],',
+    '  "seedance_prompt": "string",',
+    '  "seo": {',
+    '    "title": "string",',
+    '    "meta_description": "string",',
+    '    "primary_keyword": "string",',
+    '    "outline": ["見出し1", "見出し2", "見出し3"]',
+    "  }",
+    "}"
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+async function buildIdeaWithGrok(params: {
+  asin: string;
+  title: string;
+  brand: string;
+  features: string[];
+  priceText: string;
+  productUrl: string;
+  channel: string;
+}) {
+  if (!XAI_API_KEY || !XAI_MODEL) {
+    return {
+      provider: "template",
+      status: "disabled",
+      reason: "xai_not_configured",
+      model: XAI_MODEL || null,
+      output: null,
+      rawResponseJson: null
+    };
+  }
+
+  const requestBody = {
+    model: XAI_MODEL,
+    temperature: 0.5,
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are a careful Japanese marketing copywriter. Reply with valid JSON only and follow the requested schema."
+      },
+      { role: "user", content: buildGrokIdeaPrompt(params) }
+    ]
+  };
+
+  try {
+    const response = await fetch(`${XAI_BASE_URL}/chat/completions`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${XAI_API_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(requestBody),
+      signal: AbortSignal.timeout(XAI_TIMEOUT_MS)
+    });
+    const rawText = await response.text();
+    const rawJson = parseJsonObjectFromText(rawText);
+    if (!response.ok) {
+      return {
+        provider: "template",
+        status: "failed",
+        reason: `xai_http_${response.status}`,
+        model: XAI_MODEL,
+        output: null,
+        rawResponseJson: safeJsonStringify(rawJson || { raw: rawText })
+      };
+    }
+
+    const completionText = findFirstString([
+      rawJson?.choices?.[0]?.message?.content,
+      Array.isArray(rawJson?.choices?.[0]?.message?.content)
+        ? rawJson.choices[0].message.content
+            .map((item: any) => findFirstString([item?.text, item?.content]))
+            .filter(Boolean)
+            .join("\n")
+        : ""
+    ]);
+    const output = parseJsonObjectFromText(completionText);
+    if (!output) {
+      return {
+        provider: "template",
+        status: "failed",
+        reason: "xai_invalid_json",
+        model: XAI_MODEL,
+        output: null,
+        rawResponseJson: safeJsonStringify(rawJson || { raw: rawText })
+      };
+    }
+
+    return {
+      provider: "xai_grok",
+      status: "ok",
+      reason: null,
+      model: XAI_MODEL,
+      output,
+      rawResponseJson: safeJsonStringify(rawJson || { raw: rawText })
+    };
+  } catch (error: any) {
+    const reason = findFirstString([error?.name, error?.message, "xai_request_failed"]) || "xai_request_failed";
+    return {
+      provider: "template",
+      status: "failed",
+      reason,
+      model: XAI_MODEL,
+      output: null,
+      rawResponseJson: null
+    };
+  }
 }
 
 async function queueAlertEmail(
@@ -316,6 +514,45 @@ async function fetchAmazonItem(asin: string) {
   };
 }
 
+function buildMetadata(params: {
+  asin: string;
+  scheduledAt: string;
+  idea: {
+    provider: string;
+    status: string;
+    reason: string | null;
+    model: string | null;
+    output: any;
+  };
+}) {
+  const seo = params.idea.output?.seo || {};
+  const outline = Array.isArray(seo?.outline)
+    ? seo.outline
+        .map((item: unknown) => normalizeText(item, 200))
+        .filter(Boolean)
+        .slice(0, 8)
+    : [];
+  return {
+    source: "amazon_creators_api",
+    asin: params.asin,
+    auto_publish: true,
+    duration_sec: 15,
+    aspect_ratio: "9:16",
+    alert_email: MARKETING_ALERT_EMAIL,
+    scheduled_at: params.scheduledAt || null,
+    idea_provider: params.idea.provider,
+    idea_status: params.idea.status,
+    idea_reason: params.idea.reason || null,
+    idea_model: params.idea.model || null,
+    seo: {
+      title: normalizeText(seo?.title, 300) || null,
+      meta_description: normalizeText(seo?.meta_description, 500) || null,
+      primary_keyword: normalizeText(seo?.primary_keyword, 120) || null,
+      outline
+    }
+  };
+}
+
 export async function POST(request: Request) {
   const authError = requireMarketingApiKey(request);
   if (authError) return authError;
@@ -381,21 +618,53 @@ export async function POST(request: Request) {
     return NextResponse.json({ status: "error", reason: "unsupported_medical_category" }, { status: 400 });
   }
 
-  const hashtags = buildHashtags(product.brand || "", product.title || "");
-  const bodyText = buildMarketingText({
+  const fallbackHashtags = buildHashtags(product.brand || "", product.title || "");
+  const fallbackBodyText = buildMarketingText({
     title: product.title,
     brand: product.brand || "",
     features: product.features || [],
     priceText: product.price_text || "",
     productUrl
   });
-  const prompt = buildSeedancePrompt({
+  const fallbackPrompt = buildSeedancePrompt({
     title: product.title,
     brand: product.brand || "",
     features: product.features || [],
     priceText: product.price_text || ""
   });
+  const idea = await buildIdeaWithGrok({
+    asin,
+    title: product.title,
+    brand: product.brand || "",
+    features: product.features || [],
+    priceText: product.price_text || "",
+    productUrl,
+    channel
+  });
+  const ideaOutput = idea.output || {};
+  const hashtags = normalizeHashtags(ideaOutput?.hashtags, fallbackHashtags);
+  const bodyTextCandidate = normalizeText(
+    findFirstString([ideaOutput?.x_post_text, ideaOutput?.post_text, ideaOutput?.body_text]),
+    5000
+  );
+  const bodyText = ensureProductUrl(bodyTextCandidate || fallbackBodyText, productUrl);
+  const promptCandidate = normalizeText(
+    findFirstString([ideaOutput?.seedance_prompt, ideaOutput?.video_prompt]),
+    5000
+  );
+  const prompt = promptCandidate || fallbackPrompt;
   const promptNegative = buildSeedanceNegativePrompt();
+  const metadata = buildMetadata({
+    asin,
+    scheduledAt,
+    idea: {
+      provider: idea.provider,
+      status: idea.status,
+      reason: idea.reason || null,
+      model: idea.model || null,
+      output: ideaOutput
+    }
+  });
 
   const now = nowIso();
   const contentId = crypto.randomUUID();
@@ -418,18 +687,21 @@ export async function POST(request: Request) {
       normalizeText(product.title, 300),
       normalizeText(bodyText, 5000),
       JSON.stringify(hashtags),
-      JSON.stringify({
-        source: "amazon_creators_api",
-        asin,
-        auto_publish: true,
-        duration_sec: 15,
-        aspect_ratio: "9:16",
-        alert_email: MARKETING_ALERT_EMAIL
-      }),
+      JSON.stringify(metadata),
       seedanceModel,
       normalizeText(prompt, 5000),
       productUrl,
-      safeJsonStringify(product),
+      safeJsonStringify({
+        product,
+        idea_source: {
+          provider: idea.provider,
+          status: idea.status,
+          reason: idea.reason || null,
+          model: idea.model || null,
+          output: ideaOutput,
+          raw_response_json: idea.rawResponseJson
+        }
+      }),
       now,
       now
     );
@@ -459,33 +731,15 @@ export async function POST(request: Request) {
         source: {
           kind: "amazon_creators_api",
           asin,
-          ai_account_id: aiAccountId
+          ai_account_id: aiAccountId,
+          idea_provider: idea.provider,
+          idea_status: idea.status,
+          idea_reason: idea.reason || null
         }
       }),
       now,
       now
     );
-
-  if (scheduledAt) {
-    await db
-      .prepare(
-        `UPDATE marketing_contents
-         SET metadata_json = ?
-         WHERE id = ?`
-      )
-      .run(
-        JSON.stringify({
-          source: "amazon_creators_api",
-          asin,
-          auto_publish: true,
-          scheduled_at: scheduledAt,
-          duration_sec: 15,
-          aspect_ratio: "9:16",
-          alert_email: MARKETING_ALERT_EMAIL
-        }),
-        contentId
-      );
-  }
 
   return NextResponse.json(
     {
@@ -503,6 +757,13 @@ export async function POST(request: Request) {
         aspect_ratio: "9:16",
         channel: "x",
         auto_publish: true
+      },
+      idea: {
+        provider: idea.provider,
+        status: idea.status,
+        reason: idea.reason || null,
+        model: idea.model || null,
+        seo: metadata.seo
       }
     },
     { status: 201 }

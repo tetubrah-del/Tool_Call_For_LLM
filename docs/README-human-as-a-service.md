@@ -545,6 +545,11 @@ Provider env (required for execution):
 
 - `SEEDREAM_API_KEY`, `SEEDREAM_BASE_URL`, `SEEDREAM_MODEL` (image)
 - `SEEDANCE_API_KEY`, `SEEDANCE_BASE_URL`, `SEEDANCE_MODEL` (video)
+- Grok idea source for SEO/X copy generation in `/api/marketing/ingest` (optional, auto-fallback when missing):
+  - `XAI_API_KEY`
+  - Optional: `XAI_BASE_URL` (default `https://api.x.ai/v1`)
+  - Optional: `XAI_MODEL` (default `grok-3-mini`)
+  - Optional: `XAI_TIMEOUT_MS` (default `20000`)
 - Amazon Creators API (required for `/api/marketing/ingest`):
   - `CREATORS_API_CREDENTIAL_ID`
   - `CREATORS_API_CREDENTIAL_SECRET`
