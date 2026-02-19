@@ -60,6 +60,21 @@ node scripts/moltbook-sinkai-agent.mjs scout \
   --out output/moltbook/sinkai-candidates-latest.json
 ```
 
+自動フォロー有効化例（上位条件一致から1件/実行）:
+
+```bash
+node scripts/moltbook-sinkai-agent.mjs scout \
+  --limit 20 \
+  --top 15 \
+  --min-similarity 0.35 \
+  --min-matches 2 \
+  --auto-follow \
+  --auto-follow-max 1 \
+  --auto-follow-min-score 70 \
+  --csv output/moltbook/sinkai-candidates-latest.csv \
+  --out output/moltbook/sinkai-candidates-latest.json
+```
+
 出力:
 - 上位候補
 - フォロー推奨候補（厳しめ条件）
@@ -133,3 +148,4 @@ npm run render:moltbook:cron -- apply --env-file .env.local --replace-changed
 - `--jobs sinkai-heartbeat,sinkai-scout-3h` で一部ジョブのみ更新可能。
 - 秘密値 `MOLTBOOK_API_KEY` は出力に表示しない。
 - `DATABASE_URL` / `PGSSLMODE` / `MOLTBOOK_STATE_BACKEND` を環境に渡すと、cron へ同時反映される。
+- `sinkai-scout-3h` は `--auto-follow` を有効化、`sinkai-scout-daily` は探索のみ（フォローなし）。

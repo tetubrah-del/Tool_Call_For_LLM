@@ -5,8 +5,9 @@
 ## 1. 目的
 
 - ローカル `crontab` 依存をやめ、Render上で 24/7 運用する。
-- `2本目投稿` と `返信監視/返信` を自動化し、手動オペレーションを最小化する。
-- 再起動・デプロイ後でも重複返信しないように state を永続化する。
+- `2本目投稿` と `scoutベースの自動フォロー` を自動化する。
+- コメント返信は手動（Codex運用）に寄せる。
+- 再起動・デプロイ後でも state が壊れないように永続化する。
 
 ## 2. 現状と課題
 
@@ -25,14 +26,14 @@
 1. Render Web Service（既存アプリ。必要なら維持）
 2. Render Cron Job: `sinkai-engagement-cycle`
    - `*/10 * * * *`
-   - `node scripts/moltbook-engagement-worker.mjs run-cycle --max-replies 1`
-   - 2本目投稿試行 + 返信監視を1ジョブに統合
+   - `node scripts/moltbook-engagement-worker.mjs autopost-second`
+   - 2本目投稿のみ自動実行（コメント返信は手動運用）
 3. Render Cron Job: `sinkai-heartbeat`
    - `*/30 * * * *`
    - `node scripts/moltbook-sinkai-agent.mjs heartbeat --feed-limit 15`
 4. Render Cron Job: `sinkai-scout-3h`
    - `15 */3 * * *`
-   - `node scripts/moltbook-sinkai-agent.mjs scout --limit 20 --top 15 --min-similarity 0.35 --min-matches 2 --out ... --csv ...`
+   - `node scripts/moltbook-sinkai-agent.mjs scout --limit 20 --top 15 --min-similarity 0.35 --min-matches 2 --auto-follow --auto-follow-max 1 --auto-follow-min-score 70 --out ... --csv ...`
 5. Render Cron Job: `sinkai-scout-daily`
    - `10 0 * * *`（JST 09:10 相当）
    - `node scripts/moltbook-sinkai-agent.mjs scout --limit 20 --top 20 --min-similarity 0.35 --min-matches 2 --csv true`
@@ -98,11 +99,10 @@ CREATE TABLE IF NOT EXISTS moltbook_handled_comment_events (
 - Render Cron run status 監視（失敗通知を有効化）。
 - ログ監視対象:
   - `autopost_second.action`
-  - `reply_monitor.replies_sent`
+  - `auto_follow.actions`
   - `rate_limited` の頻度
 - 目標:
-  - 返信ジョブ失敗率 < 1%
-  - 重複返信 0件
+  - scoutフォロー処理の失敗率 < 1%
   - 2本目投稿はレート制限解除後1実行以内に成功
 
 ## 7. 移行ステップ（MCPを使わずAPIで実施）

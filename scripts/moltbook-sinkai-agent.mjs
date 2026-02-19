@@ -3,12 +3,18 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
+import pg from "pg";
 
 const DEFAULT_BASE_URL = "https://www.moltbook.com/api/v1";
 const SAFE_HOSTNAME = "www.moltbook.com";
 const DEFAULT_SEARCH_LIMIT = 20;
 const DEFAULT_PROFILE_FETCH_LIMIT = 30;
 const DEFAULT_TOP_COUNT = 15;
+const DEFAULT_AUTO_FOLLOW_MAX = 1;
+const DEFAULT_AUTO_FOLLOW_MIN_SCORE = 70;
+const DEFAULT_AUTO_FOLLOW_STATE_PATH = path.join(process.cwd(), "output", "moltbook", "state", "followed-agents.json");
+const DATABASE_URL = (process.env.DATABASE_URL || "").trim();
+const { Pool } = pg;
 
 const SINKAI_KEYWORDS = [
   "sinkai",
@@ -59,6 +65,11 @@ scout flags:
   --top N                     (default: 15)
   --min-similarity 0-1        (default: 0)
   --min-matches N             (default: 1)
+  --auto-follow               (default: off)
+  --auto-follow-max N         (default: 1)
+  --auto-follow-min-score N   (default: 70)
+  --auto-follow-dry-run       (default: off)
+  --auto-follow-state-path P  (default: output/moltbook/state/followed-agents.json)
 `;
 }
 
@@ -99,6 +110,26 @@ function getFlagNumber(flags, key, fallback) {
   if (raw === undefined || raw === null || raw === true) return fallback;
   const value = Number(raw);
   return Number.isFinite(value) ? value : fallback;
+}
+
+function getFlagBoolean(flags, key, fallback = false) {
+  const raw = flags[key];
+  if (raw === true) return true;
+  if (typeof raw === "string") {
+    const normalized = raw.trim().toLowerCase();
+    if (["1", "true", "yes", "on"].includes(normalized)) return true;
+    if (["0", "false", "no", "off"].includes(normalized)) return false;
+  }
+  return fallback;
+}
+
+class ApiError extends Error {
+  constructor(message, status, data) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.data = data;
+  }
 }
 
 function clamp(value, min, max) {
@@ -197,7 +228,7 @@ async function apiRequest({ baseUrl, method, endpoint, apiKey, body, query, auth
   if (!response.ok) {
     const message = typeof data?.error === "string" ? data.error : response.statusText;
     const detail = typeof data?.message === "string" ? ` (${data.message})` : "";
-    throw new Error(`${method} ${url.pathname} failed: ${response.status} ${message}${detail}`);
+    throw new ApiError(`${method} ${url.pathname} failed: ${response.status} ${message}${detail}`, response.status, data);
   }
   return data;
 }
@@ -208,6 +239,185 @@ function nowStamp() {
 
 async function mkdirForFile(filePath) {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
+}
+
+async function readJsonIfExists(filePath, fallback) {
+  try {
+    const raw = await fs.readFile(filePath, "utf8");
+    return JSON.parse(raw);
+  } catch {
+    return fallback;
+  }
+}
+
+async function writeJson(filePath, value) {
+  await mkdirForFile(filePath);
+  await fs.writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+}
+
+function toPgSql(sql) {
+  let index = 0;
+  let out = "";
+  for (let i = 0; i < sql.length; i += 1) {
+    const ch = sql[i];
+    if (ch === "?") {
+      index += 1;
+      out += `$${index}`;
+    } else {
+      out += ch;
+    }
+  }
+  return out;
+}
+
+function getPgPool() {
+  const pgSslMode = (process.env.PGSSLMODE || "").trim().toLowerCase();
+  let useSsl = false;
+  let connectionString = DATABASE_URL;
+  try {
+    const parsed = new URL(DATABASE_URL);
+    const sslModeFromUrl = parsed.searchParams.get("sslmode")?.trim().toLowerCase();
+    const sslFromUrl = parsed.searchParams.get("ssl")?.trim().toLowerCase();
+    useSsl =
+      sslModeFromUrl === "require" ||
+      sslModeFromUrl === "prefer" ||
+      sslModeFromUrl === "verify-ca" ||
+      sslModeFromUrl === "verify-full" ||
+      sslModeFromUrl === "no-verify" ||
+      sslFromUrl === "true" ||
+      sslFromUrl === "1";
+    if (useSsl) {
+      parsed.searchParams.delete("sslmode");
+      parsed.searchParams.delete("ssl");
+      parsed.searchParams.delete("sslcert");
+      parsed.searchParams.delete("sslkey");
+      parsed.searchParams.delete("sslrootcert");
+      connectionString = parsed.toString();
+    }
+  } catch {
+    const lowerUrl = DATABASE_URL.toLowerCase();
+    useSsl =
+      lowerUrl.includes("sslmode=require") ||
+      lowerUrl.includes("sslmode=prefer") ||
+      lowerUrl.includes("ssl=true");
+    connectionString = DATABASE_URL
+      .replace(/sslmode=verify-full/gi, "")
+      .replace(/sslmode=verify-ca/gi, "")
+      .replace(/sslmode=require/gi, "")
+      .replace(/sslmode=prefer/gi, "")
+      .replace(/ssl=true/gi, "")
+      .replace(/\?&/g, "?")
+      .replace(/&&/g, "&")
+      .replace(/[?&]$/, "");
+  }
+  if (pgSslMode === "require") useSsl = true;
+
+  return new Pool({
+    connectionString,
+    ssl: useSsl ? { rejectUnauthorized: false } : undefined
+  });
+}
+
+function normalizeAgentName(name) {
+  return String(name || "")
+    .trim()
+    .toLowerCase();
+}
+
+async function createFollowStore(statePath) {
+  if (!DATABASE_URL) {
+    return {
+      backend: "file",
+      async hasFollowed(name) {
+        const normalized = normalizeAgentName(name);
+        if (!normalized) return false;
+        const state = await readJsonIfExists(statePath, { followed_agents: [] });
+        const rows = Array.isArray(state.followed_agents) ? state.followed_agents : [];
+        return rows.some((row) => normalizeAgentName(row?.agent_name) === normalized);
+      },
+      async markFollowed({ agentName, score, reason }) {
+        const normalized = normalizeAgentName(agentName);
+        if (!normalized) return;
+        const now = new Date().toISOString();
+        const state = await readJsonIfExists(statePath, { followed_agents: [] });
+        const rows = Array.isArray(state.followed_agents) ? state.followed_agents : [];
+        const next = rows.filter((row) => normalizeAgentName(row?.agent_name) !== normalized);
+        next.push({
+          agent_name: agentName,
+          normalized_name: normalized,
+          score_total: score,
+          reason: reason || "recommended",
+          followed_at: now
+        });
+        await writeJson(statePath, { followed_agents: next.slice(-2000) });
+      },
+      async close() {}
+    };
+  }
+
+  const pool = getPgPool();
+  const run = async (sql, params = []) => pool.query(toPgSql(sql), params);
+  await run(`CREATE TABLE IF NOT EXISTS moltbook_followed_agents (
+    normalized_name TEXT PRIMARY KEY,
+    agent_name TEXT NOT NULL,
+    score_total DOUBLE PRECISION,
+    reason TEXT,
+    followed_at TEXT NOT NULL,
+    last_seen_at TEXT NOT NULL
+  )`);
+  await run(`CREATE INDEX IF NOT EXISTS moltbook_followed_agents_followed_at_idx
+    ON moltbook_followed_agents (followed_at)`);
+
+  return {
+    backend: "postgres",
+    async hasFollowed(name) {
+      const normalized = normalizeAgentName(name);
+      if (!normalized) return false;
+      const result = await run(
+        `SELECT normalized_name
+         FROM moltbook_followed_agents
+         WHERE normalized_name = ?
+         LIMIT 1`,
+        [normalized]
+      );
+      return result.rowCount > 0;
+    },
+    async markFollowed({ agentName, score, reason }) {
+      const normalized = normalizeAgentName(agentName);
+      if (!normalized) return;
+      const now = new Date().toISOString();
+      await run(
+        `INSERT INTO moltbook_followed_agents (
+          normalized_name,
+          agent_name,
+          score_total,
+          reason,
+          followed_at,
+          last_seen_at
+        ) VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT(normalized_name) DO UPDATE SET
+          agent_name = excluded.agent_name,
+          score_total = excluded.score_total,
+          reason = excluded.reason,
+          last_seen_at = excluded.last_seen_at`,
+        [normalized, agentName, score, reason || "recommended", now, now]
+      );
+    },
+    async close() {
+      await pool.end();
+    }
+  };
+}
+
+async function followAgent(baseUrl, apiKey, name) {
+  const endpoint = `agents/${encodeURIComponent(name)}/follow`;
+  return apiRequest({
+    baseUrl,
+    method: "POST",
+    endpoint,
+    apiKey,
+    body: {}
+  });
 }
 
 function serializeCsv(rows, columns) {
@@ -406,6 +616,20 @@ async function loadProfile(baseUrl, apiKey, name) {
   }
 }
 
+async function loadMeAgent(baseUrl, apiKey) {
+  try {
+    const me = await apiRequest({
+      baseUrl,
+      method: "GET",
+      endpoint: "agents/me",
+      apiKey
+    });
+    return me?.agent || null;
+  } catch {
+    return null;
+  }
+}
+
 async function commandScout(flags) {
   const baseUrl = getBaseUrl(flags);
   const apiKey = getApiKey(flags);
@@ -426,6 +650,38 @@ async function commandScout(flags) {
   const profileFetchLimit = Math.max(1, Math.floor(getFlagNumber(flags, "profile-fetch-limit", DEFAULT_PROFILE_FETCH_LIMIT)));
   const minSimilarity = clamp(getFlagNumber(flags, "min-similarity", 0), 0, 1);
   const minMatches = Math.max(1, Math.floor(getFlagNumber(flags, "min-matches", 1)));
+  const autoFollow =
+    getFlagBoolean(flags, "auto-follow", false) ||
+    getFlagBoolean({ "auto-follow": process.env.MOLTBOOK_SCOUT_AUTO_FOLLOW || "" }, "auto-follow", false);
+  const autoFollowMax = Math.max(
+    1,
+    Math.floor(
+      getFlagNumber(
+        flags,
+        "auto-follow-max",
+        getFlagNumber({ "auto-follow-max": process.env.MOLTBOOK_SCOUT_AUTO_FOLLOW_MAX || "" }, "auto-follow-max", DEFAULT_AUTO_FOLLOW_MAX)
+      )
+    )
+  );
+  const autoFollowMinScore = Math.max(
+    0,
+    getFlagNumber(
+      flags,
+      "auto-follow-min-score",
+      getFlagNumber(
+        { "auto-follow-min-score": process.env.MOLTBOOK_SCOUT_AUTO_FOLLOW_MIN_SCORE || "" },
+        "auto-follow-min-score",
+        DEFAULT_AUTO_FOLLOW_MIN_SCORE
+      )
+    )
+  );
+  const autoFollowDryRun =
+    getFlagBoolean(flags, "auto-follow-dry-run", false) ||
+    getFlagBoolean({ "auto-follow-dry-run": process.env.MOLTBOOK_SCOUT_AUTO_FOLLOW_DRY_RUN || "" }, "auto-follow-dry-run", false);
+  const autoFollowStatePath =
+    getFlagString(flags, "auto-follow-state-path") ||
+    (process.env.MOLTBOOK_SCOUT_AUTO_FOLLOW_STATE_PATH || "").trim() ||
+    DEFAULT_AUTO_FOLLOW_STATE_PATH;
 
   const candidates = new Map();
   const searchLogs = [];
@@ -531,6 +787,74 @@ async function commandScout(flags) {
     );
   });
 
+  const followActions = [];
+  let followAttempted = 0;
+  let followSucceeded = 0;
+  if (autoFollow) {
+    const me = await loadMeAgent(baseUrl, apiKey);
+    const meNameNormalized = normalizeAgentName(me?.name || "");
+    const followStore = await createFollowStore(autoFollowStatePath);
+    try {
+      for (const item of recommended) {
+        if (followSucceeded >= autoFollowMax) break;
+        if (item.score_total < autoFollowMinScore) {
+          followActions.push({ agent_name: item.name, action: "skip_low_score", score_total: item.score_total });
+          continue;
+        }
+        if (normalizeAgentName(item.name) === meNameNormalized) {
+          followActions.push({ agent_name: item.name, action: "skip_self" });
+          continue;
+        }
+
+        const alreadyFollowed = await followStore.hasFollowed(item.name);
+        if (alreadyFollowed) {
+          followActions.push({ agent_name: item.name, action: "skip_already_followed" });
+          continue;
+        }
+
+        followAttempted += 1;
+        if (autoFollowDryRun) {
+          followActions.push({ agent_name: item.name, action: "would_follow", score_total: item.score_total });
+          followSucceeded += 1;
+          continue;
+        }
+
+        try {
+          const response = await followAgent(baseUrl, apiKey, item.name);
+          await followStore.markFollowed({
+            agentName: item.name,
+            score: item.score_total,
+            reason: "recommended_follow_candidates"
+          });
+          followSucceeded += 1;
+          followActions.push({
+            agent_name: item.name,
+            action: "followed",
+            score_total: item.score_total,
+            api_action: response?.action || null
+          });
+          await new Promise((resolve) => setTimeout(resolve, 240));
+        } catch (error) {
+          if (error instanceof ApiError && error.status === 429) {
+            followActions.push({
+              agent_name: item.name,
+              action: "rate_limited",
+              error: error.message
+            });
+            break;
+          }
+          followActions.push({
+            agent_name: item.name,
+            action: "follow_error",
+            error: error instanceof Error ? error.message : String(error)
+          });
+        }
+      }
+    } finally {
+      await followStore.close();
+    }
+  }
+
   const outputPath =
     getFlagString(flags, "out") || path.join(process.cwd(), "output", "moltbook", `sinkai-candidates-${nowStamp()}.json`);
   const csvPathFlag = getFlagString(flags, "csv");
@@ -555,6 +879,17 @@ async function commandScout(flags) {
     top_count: topN,
     top_candidates: scored.slice(0, topN),
     recommended_follow_candidates: recommended.slice(0, 10),
+    auto_follow: {
+      enabled: autoFollow,
+      dry_run: autoFollowDryRun,
+      max_per_run: autoFollowMax,
+      min_score: autoFollowMinScore,
+      state_path: DATABASE_URL ? null : autoFollowStatePath,
+      state_backend: DATABASE_URL ? "postgres" : "file",
+      attempted: followAttempted,
+      succeeded: followSucceeded,
+      actions: followActions
+    },
     scoring_model: {
       sinkai_relevance: "0-20",
       workflow_relevance: "0-10",
@@ -621,7 +956,14 @@ async function commandScout(flags) {
     recommended_follow_candidates: recommended.slice(0, 5).map((item) => ({
       name: item.name,
       score_total: item.score_total
-    }))
+    })),
+    auto_follow: {
+      enabled: autoFollow,
+      dry_run: autoFollowDryRun,
+      attempted: followAttempted,
+      succeeded: followSucceeded,
+      actions: followActions.slice(0, 10)
+    }
   };
 
   console.log(JSON.stringify(summary, null, 2));
