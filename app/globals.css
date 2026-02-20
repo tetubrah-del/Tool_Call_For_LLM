@@ -1953,6 +1953,30 @@ button.tag:hover {
   margin: 6px 0 0;
 }
 
+.blog-sort {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.blog-sort-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.blog-sort-link.active {
+  color: var(--ink);
+  border-color: rgba(255, 138, 28, 0.5);
+  background: rgba(255, 138, 28, 0.16);
+}
+
 .blog-badge {
   display: inline-flex;
   width: fit-content;

@@ -17,6 +17,9 @@ const featuredSlugs = [
   "white-collar-ai-transition-90days"
 ];
 
+type SortType = "recommended" | "new";
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+
 function formatDate(value: string): string {
   return new Date(value).toLocaleDateString("ja-JP", {
     year: "numeric",
@@ -25,13 +28,33 @@ function formatDate(value: string): string {
   });
 }
 
-export default async function BlogIndexPage() {
+function parseSort(value: string | string[] | undefined): SortType {
+  if (Array.isArray(value)) {
+    return value[0] === "new" ? "new" : "recommended";
+  }
+  return value === "new" ? "new" : "recommended";
+}
+
+function sortByNewest<T extends { updatedAt: string }>(items: T[]): T[] {
+  return [...items].sort(
+    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+  );
+}
+
+export default async function BlogIndexPage({
+  searchParams
+}: {
+  searchParams?: SearchParams;
+}) {
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const sort = parseSort(resolvedSearchParams?.sort);
   const posts = await listBlogPosts();
   const featuredPosts = featuredSlugs
     .map((slug) => posts.find((post) => post.slug === slug))
     .filter((post) => !!post);
   const featuredSlugSet = new Set(featuredPosts.map((post) => post.slug));
   const regularPosts = posts.filter((post) => !featuredSlugSet.has(post.slug));
+  const sortedRegularPosts = sort === "new" ? sortByNewest(regularPosts) : regularPosts;
 
   return (
     <div className="blog-page">
@@ -70,9 +93,24 @@ export default async function BlogIndexPage() {
 
       <section className="blog-section-head">
         <h2>その他のブログ</h2>
+        <div className="blog-sort">
+          <span className="muted">並び順:</span>
+          <Link
+            href="/blog"
+            className={sort === "recommended" ? "blog-sort-link active" : "blog-sort-link"}
+          >
+            おすすめ順
+          </Link>
+          <Link
+            href="/blog?sort=new"
+            className={sort === "new" ? "blog-sort-link active" : "blog-sort-link"}
+          >
+            新着順
+          </Link>
+        </div>
       </section>
       <section className="blog-grid">
-        {regularPosts.map((post) => (
+        {sortedRegularPosts.map((post) => (
           <article key={post.slug} className="card blog-card">
             <p className="muted">
               {formatDate(post.updatedAt)}
