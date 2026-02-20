@@ -14,6 +14,7 @@
 8. `08-white-collar-job-design.md`
 9. `09-white-collar-kpi.md`
 10. `10-white-collar-transition-plan.md`
+11. `11-ai-and-human-social-life-editorial.md`
 
 ## 公開順（推奨）
 
@@ -27,6 +28,7 @@
 8. 08（人とAIの分業設計）
 9. 09（KPI設計）
 10. 10（90日移行計画）
+11. 11（社説: AIと人間社会の10年）
 
 ## 内部リンク設計
 
