@@ -2,8 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { listBlogPosts } from "@/lib/blog";
 
-export const dynamic = "force-static";
-
 export const metadata: Metadata = {
   title: "Blog | Sinkai",
   description:
@@ -23,9 +21,9 @@ function formatDate(value: string): string {
 
 function parseSort(value: string | string[] | undefined): SortType {
   if (Array.isArray(value)) {
-    return value[0] === "new" ? "new" : "recommended";
+    return value[0] === "recommended" ? "recommended" : "new";
   }
-  return value === "new" ? "new" : "recommended";
+  return value === "recommended" ? "recommended" : "new";
 }
 
 function sortByNewest<T extends { publishedAt: string }>(items: T[]): T[] {
@@ -59,13 +57,13 @@ export default async function BlogIndexPage({
         <div className="blog-sort">
           <span className="muted">並び順:</span>
           <Link
-            href="/blog"
+            href="/blog?sort=recommended"
             className={sort === "recommended" ? "blog-sort-link active" : "blog-sort-link"}
           >
             おすすめ順
           </Link>
           <Link
-            href="/blog?sort=new"
+            href="/blog"
             className={sort === "new" ? "blog-sort-link active" : "blog-sort-link"}
           >
             新着順
