@@ -19,6 +19,82 @@ type TaskPreview = {
   created_at: string;
 };
 
+const HOME_STRINGS: Record<
+  UiLang,
+  {
+    agentStartTitle: string;
+    agentFlowTitle: string;
+    agentFlowSteps: string[];
+    agentFlowDetailsPrefix: string;
+    supplyTitle: string;
+    supplyAreas: string;
+    supplyRegionsSuffix: string;
+    supplyTimeSlot: string;
+    supplyCompletionRate: string;
+    supplyOpenRate: string;
+    collecting: string;
+    supplyEmptyPrefix: string;
+    noTasksAgentHintPrefix: string;
+    timeSlots: {
+      lateNight: string;
+      morning: string;
+      afternoon: string;
+      evening: string;
+    };
+  }
+> = {
+  ja: {
+    agentStartTitle: "AIエージェント向け開始導線",
+    agentFlowTitle: "Agent Flow",
+    agentFlowSteps: [
+      "POST /api/ai/accounts で account_id / api_key を取得",
+      "POST /api/call_human または /api/tasks でタスク作成",
+      "GET /api/tasks?task_id=... で status / submission を監視"
+    ],
+    agentFlowDetailsPrefix: "詳細手順は",
+    supplyTitle: "供給状況の目安（直近取得）",
+    supplyAreas: "対応エリア数",
+    supplyRegionsSuffix: "地域",
+    supplyTimeSlot: "時間帯目安",
+    supplyCompletionRate: "完了率",
+    supplyOpenRate: "オープンタスク比率",
+    collecting: "集計中",
+    supplyEmptyPrefix: "供給データ準備中です。まずは",
+    noTasksAgentHintPrefix: "Agent試験は",
+    timeSlots: {
+      lateNight: "深夜",
+      morning: "午前",
+      afternoon: "午後",
+      evening: "夜間"
+    }
+  },
+  en: {
+    agentStartTitle: "Agent quick links",
+    agentFlowTitle: "Agent Flow",
+    agentFlowSteps: [
+      "POST /api/ai/accounts to get account_id / api_key",
+      "POST /api/call_human or /api/tasks to create a task",
+      "GET /api/tasks?task_id=... to monitor status / submission"
+    ],
+    agentFlowDetailsPrefix: "See",
+    supplyTitle: "Supply snapshot (latest fetch)",
+    supplyAreas: "Covered areas",
+    supplyRegionsSuffix: "regions",
+    supplyTimeSlot: "Typical time slot",
+    supplyCompletionRate: "Completion rate",
+    supplyOpenRate: "Open-task ratio",
+    collecting: "Collecting",
+    supplyEmptyPrefix: "Supply data is not ready yet. Run one task first via",
+    noTasksAgentHintPrefix: "For agent tests, start with sample requests in",
+    timeSlots: {
+      lateNight: "Late night",
+      morning: "Morning",
+      afternoon: "Afternoon",
+      evening: "Evening"
+    }
+  }
+};
+
 export default function HomeClient() {
   const [lang, setLang] = useState<UiLang>("en");
   const searchParams = useSearchParams();
@@ -27,6 +103,7 @@ export default function HomeClient() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const strings = UI_STRINGS[lang];
+  const homeStrings = HOME_STRINGS[lang];
   const herePath = useMemo(() => {
     const qs = searchParams.toString();
     return qs ? `${pathname}?${qs}` : pathname;
@@ -52,17 +129,18 @@ export default function HomeClient() {
     const open = tasks.filter((task) => task.status === "open").length;
     const openRate = total > 0 ? Math.round((open / total) * 100) : null;
     const hour = new Date().getHours();
-    const slot =
+    const slotKey =
       hour < 6
-        ? "深夜"
+        ? "lateNight"
         : hour < 12
-          ? "午前"
+          ? "morning"
           : hour < 18
-            ? "午後"
-            : "夜間";
+            ? "afternoon"
+            : "evening";
+    const slot = homeStrings.timeSlots[slotKey];
 
     return { total, uniqueRegions, completionRate, openRate, slot };
-  }, [tasks]);
+  }, [tasks, homeStrings.timeSlots]);
 
   useEffect(() => {
     const saved = localStorage.getItem("lang");
@@ -131,11 +209,11 @@ export default function HomeClient() {
         </div>
         {showHumanUiOnly && <p className="note">{strings.humanUiOnly}</p>}
         <div className="agent-start-banner">
-          <strong>AIエージェント向け開始導線</strong>
+          <strong>{homeStrings.agentStartTitle}</strong>
           <p className="note">
             <a href={`/for-agents?lang=${lang}`}>for Agents</a> /{" "}
-            <a href="/for-agents/quickstart">Quickstart</a> /{" "}
-            <a href="/for-agents/reference">Reference</a> / <a href="/openapi.json">OpenAPI</a>
+            <a href={`/for-agents/quickstart?lang=${lang}`}>Quickstart</a> /{" "}
+            <a href={`/for-agents/reference?lang=${lang}`}>Reference</a> / <a href="/openapi.json">OpenAPI</a>
           </p>
         </div>
         {showBestEffort && (
@@ -146,14 +224,15 @@ export default function HomeClient() {
       </header>
 
       <section className="card">
-        <h3>Agent Flow</h3>
+        <h3>{homeStrings.agentFlowTitle}</h3>
         <ol>
-          <li>POST /api/ai/accounts で account_id / api_key を取得</li>
-          <li>POST /api/call_human または /api/tasks でタスク作成</li>
-          <li>GET /api/tasks?task_id=... で status / submission を監視</li>
+          {homeStrings.agentFlowSteps.map((step) => (
+            <li key={step}>{step}</li>
+          ))}
         </ol>
         <p className="muted">
-          詳細手順は <a href="/for-agents/quickstart">Quickstart</a> を参照。
+          {homeStrings.agentFlowDetailsPrefix}{" "}
+          <a href={`/for-agents/quickstart?lang=${lang}`}>Quickstart</a>.
         </p>
       </section>
 
@@ -189,25 +268,30 @@ export default function HomeClient() {
           </a>
         </div>
         <div className="card">
-          <h3>供給状況の目安（直近取得）</h3>
+          <h3>{homeStrings.supplyTitle}</h3>
           {supplyStats.total > 0 ? (
             <ul className="for-agents-list">
-              <li>対応エリア数: {supplyStats.uniqueRegions} 地域</li>
-              <li>時間帯目安: {supplyStats.slot}</li>
               <li>
-                完了率:{" "}
+                {homeStrings.supplyAreas}: {supplyStats.uniqueRegions} {homeStrings.supplyRegionsSuffix}
+              </li>
+              <li>
+                {homeStrings.supplyTimeSlot}: {supplyStats.slot}
+              </li>
+              <li>
+                {homeStrings.supplyCompletionRate}:{" "}
                 {supplyStats.completionRate == null
-                  ? "集計中"
+                  ? homeStrings.collecting
                   : `${supplyStats.completionRate}%（completed / (completed + failed)）`}
               </li>
               <li>
-                オープンタスク比率:{" "}
-                {supplyStats.openRate == null ? "集計中" : `${supplyStats.openRate}%`}
+                {homeStrings.supplyOpenRate}:{" "}
+                {supplyStats.openRate == null ? homeStrings.collecting : `${supplyStats.openRate}%`}
               </li>
             </ul>
           ) : (
             <p className="muted">
-              供給データ準備中です。まずは <a href="/for-agents/quickstart">Quickstart</a> で1件実行してください。
+              {homeStrings.supplyEmptyPrefix}{" "}
+              <a href={`/for-agents/quickstart?lang=${lang}`}>Quickstart</a>.
             </p>
           )}
         </div>
@@ -217,7 +301,8 @@ export default function HomeClient() {
           <div className="card">
             <p className="muted">{strings.noTasks}</p>
             <p className="muted">
-              Agent試験は <a href="/for-agents/quickstart">Quickstart</a> のサンプルリクエストで開始できます。
+              {homeStrings.noTasksAgentHintPrefix}{" "}
+              <a href={`/for-agents/quickstart?lang=${lang}`}>Quickstart</a>.
             </p>
             <pre className="for-agents-code"><code>{`# mock run (task creation)
 curl -X POST "$BASE_URL/api/call_human" \\
