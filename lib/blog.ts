@@ -12,12 +12,25 @@ export type BlogPost = {
   excerpt: string;
   order: number;
   sourceFile: string;
+  publishedAt: string;
   updatedAt: string;
   html: string;
 };
 
 const BLOG_DIR = path.join(process.cwd(), "docs", "seo", "for-agents-ja");
 const EXCLUDED_FILES = new Set(["README.md"]);
+const LEGACY_PUBLISHED_AT_BY_FILE: Record<string, string> = {
+  "01-onsite-verification-api-intro.md": "2026-02-17",
+  "02-mcp-quickstart.md": "2026-02-17",
+  "03-call-human-fast-implementation.md": "2026-02-17",
+  "04-no-human-timeout-ops.md": "2026-02-17",
+  "05-real-estate-template.md": "2026-02-17",
+  "06-jp-local-research-workflow.md": "2026-02-17",
+  "07-white-collar-ai-shift-overview.md": "2026-02-18",
+  "08-white-collar-job-design.md": "2026-02-18",
+  "09-white-collar-kpi.md": "2026-02-18",
+  "10-white-collar-transition-plan.md": "2026-02-18"
+};
 
 let postsPromise: Promise<BlogPost[]> | null = null;
 
@@ -68,10 +81,13 @@ async function parsePost(fileName: string): Promise<BlogPost> {
     extractMemoValue(seoSection, "meta description案") ||
     `${title} | Sinkai for Agents`;
   const primaryKeyword = extractMemoValue(seoSection, "primary keyword") || "";
+  const publishedAtFromMemo = extractMemoValue(seoSection, "published_at");
   const orderMatch = fileName.match(/^(\d+)-/);
   const order = orderMatch ? Number(orderMatch[1]) : Number.MAX_SAFE_INTEGER;
   const fallbackSlug = fileName.replace(/^\d+-/, "").replace(/\.md$/, "");
   const slug = slugFromMemo || fallbackSlug;
+  const publishedAt =
+    publishedAtFromMemo || LEGACY_PUBLISHED_AT_BY_FILE[fileName] || stat.mtime.toISOString();
 
   const markdownBody = stripLeadingHeading(stripSeoMemo(content));
   const excerpt = extractExcerpt(markdownBody);
@@ -85,6 +101,7 @@ async function parsePost(fileName: string): Promise<BlogPost> {
     excerpt,
     order,
     sourceFile: fileName,
+    publishedAt,
     updatedAt: stat.mtime.toISOString(),
     html
   };
@@ -110,4 +127,3 @@ export async function getBlogPostBySlug(slug: string): Promise<BlogPost | null> 
   const posts = await listBlogPosts();
   return posts.find((post) => post.slug === slug) || null;
 }
-

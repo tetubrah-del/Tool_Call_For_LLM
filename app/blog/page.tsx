@@ -10,13 +10,6 @@ export const metadata: Metadata = {
     "Sinkai for Agents blog. Implementation and operations guides for AI agents that execute real-world tasks."
 };
 
-const featuredSlugs = [
-  "white-collar-ai-shift-overview",
-  "white-collar-job-design-ai-human",
-  "white-collar-ai-kpi-design",
-  "white-collar-ai-transition-90days"
-];
-
 type SortType = "recommended" | "new";
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -35,9 +28,9 @@ function parseSort(value: string | string[] | undefined): SortType {
   return value === "new" ? "new" : "recommended";
 }
 
-function sortByNewest<T extends { updatedAt: string }>(items: T[]): T[] {
+function sortByNewest<T extends { publishedAt: string }>(items: T[]): T[] {
   return [...items].sort(
-    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    (a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
   );
 }
 
@@ -49,12 +42,7 @@ export default async function BlogIndexPage({
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const sort = parseSort(resolvedSearchParams?.sort);
   const posts = await listBlogPosts();
-  const featuredPosts = featuredSlugs
-    .map((slug) => posts.find((post) => post.slug === slug))
-    .filter((post) => !!post);
-  const featuredSlugSet = new Set(featuredPosts.map((post) => post.slug));
-  const regularPosts = posts.filter((post) => !featuredSlugSet.has(post.slug));
-  const sortedRegularPosts = sort === "new" ? sortByNewest(regularPosts) : regularPosts;
+  const sortedPosts = sort === "new" ? sortByNewest(posts) : posts;
 
   return (
     <div className="blog-page">
@@ -66,33 +54,8 @@ export default async function BlogIndexPage({
         </p>
       </section>
 
-      <section className="blog-featured">
-        <div className="blog-section-head">
-          <h2>注目ブログ: AIで変化するホワイトカラー業務</h2>
-          <p className="muted">まず読むべき4本を先頭にまとめています。</p>
-        </div>
-        <div className="blog-grid">
-          {featuredPosts.map((post) => (
-            <article key={post.slug} className="card blog-card blog-card-featured">
-              <p className="blog-badge">注目</p>
-              <p className="muted">
-                {formatDate(post.updatedAt)}
-                {post.primaryKeyword ? ` / ${post.primaryKeyword}` : ""}
-              </p>
-              <h2>
-                <Link href={`/blog/${post.slug}`}>{post.title}</Link>
-              </h2>
-              {post.excerpt && <p>{post.excerpt}</p>}
-              <Link className="text-link" href={`/blog/${post.slug}`}>
-                ブログを読む
-              </Link>
-            </article>
-          ))}
-        </div>
-      </section>
-
       <section className="blog-section-head">
-        <h2>その他のブログ</h2>
+        <h2>ブログ</h2>
         <div className="blog-sort">
           <span className="muted">並び順:</span>
           <Link
@@ -110,10 +73,10 @@ export default async function BlogIndexPage({
         </div>
       </section>
       <section className="blog-grid">
-        {sortedRegularPosts.map((post) => (
+        {sortedPosts.map((post) => (
           <article key={post.slug} className="card blog-card">
             <p className="muted">
-              {formatDate(post.updatedAt)}
+              {formatDate(post.publishedAt)}
               {post.primaryKeyword ? ` / ${post.primaryKeyword}` : ""}
             </p>
             <h2>

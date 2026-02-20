@@ -65,6 +65,7 @@ export default async function BlogArticlePage({
     "@context": "https://schema.org",
     "@type": "Article",
     headline: post.title,
+    datePublished: post.publishedAt,
     dateModified: post.updatedAt,
     description: post.description,
     author: {
@@ -76,7 +77,7 @@ export default async function BlogArticlePage({
   return (
     <article className="blog-page blog-article card">
       <p className="muted">
-        更新日: {formatDate(post.updatedAt)}
+        公開日: {formatDate(post.publishedAt)}
         {post.primaryKeyword ? ` / ${post.primaryKeyword}` : ""}
       </p>
       <h1>{post.title}</h1>
