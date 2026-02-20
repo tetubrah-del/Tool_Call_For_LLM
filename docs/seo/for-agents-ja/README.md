@@ -15,6 +15,10 @@
 9. `09-white-collar-kpi.md`
 10. `10-white-collar-transition-plan.md`
 11. `11-ai-and-human-social-life-editorial.md`
+12. `12-ai-era-middle-manager-editorial.md`
+13. `13-generative-ai-failure-patterns-editorial.md`
+14. `14-why-ai-work-feels-exhausting-editorial.md`
+15. `15-ai-era-hiring-editorial.md`
 
 ## 公開順（推奨）
 
@@ -29,6 +33,10 @@
 9. 09（KPI設計）
 10. 10（90日移行計画）
 11. 11（社説: AIと人間社会の10年）
+12. 12（社説: AI時代の中間管理職）
+13. 13（社説: 生成AI導入の失敗要因）
+14. 14（社説: AI時代の疲労と認知負荷）
+15. 15（社説: 10年後の採用基準）
 
 ## 内部リンク設計
 
