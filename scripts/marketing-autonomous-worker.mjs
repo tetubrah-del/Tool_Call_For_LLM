@@ -73,6 +73,10 @@ const POST_MIN_CHARS = clamp(Number(process.env.MARKETING_AUTONOMOUS_POST_MIN_CH
 const POST_MAX_CHARS = clamp(Number(process.env.MARKETING_AUTONOMOUS_POST_MAX_CHARS || 220), 80, 900);
 const POST_MAX_HASHTAGS = clamp(Number(process.env.MARKETING_AUTONOMOUS_POST_MAX_HASHTAGS || 2), 1, 6);
 const POST_MAX_EMOJIS = clamp(Number(process.env.MARKETING_AUTONOMOUS_POST_MAX_EMOJIS || 2), 0, 6);
+const POST_TONE_POLICY_RAW = (process.env.MARKETING_AUTONOMOUS_POST_TONE_POLICY || "strict").trim().toLowerCase();
+const POST_TONE_POLICY = ["strict", "balanced", "free"].includes(POST_TONE_POLICY_RAW)
+  ? POST_TONE_POLICY_RAW
+  : "strict";
 
 const DEFAULT_TOPICS = [
   "AI運用",
@@ -1232,9 +1236,14 @@ function evaluatePostQuality(identity, post) {
     reasons.push("missing actionable next step");
     score -= 10;
   }
-  if (!/です|ます/.test(body)) {
+  const politeTone = /です|ます|でした|ません|でしょう|ください/.test(body);
+  const colloquialTone = /だよ|だな|かな|かも|って|じゃない|わけ|ところ|ですよね|なんだ/.test(body);
+  if (POST_TONE_POLICY === "strict" && !politeTone) {
     reasons.push("tone not polite enough");
     score -= 10;
+  } else if (POST_TONE_POLICY === "balanced" && !politeTone && !colloquialTone) {
+    reasons.push("tone too rigid");
+    score -= 6;
   }
   if (/煽|炎上|殴|バカ|情弱|搾取/.test(body)) {
     reasons.push("unsafe aggressive tone");
@@ -1310,10 +1319,16 @@ function buildLlmSystemPrompt(identity) {
   const styleClosers = Array.isArray(identity?.style?.closer) ? identity.style.closer : [];
   const pillars = Array.isArray(identity?.pillars) ? identity.pillars : [];
   const archetypes = Array.isArray(identity?.post_archetypes) ? identity.post_archetypes : [];
+  const toneInstruction =
+    POST_TONE_POLICY === "strict"
+      ? "40-60代の実務層にも信頼される丁寧語を保つこと。"
+      : POST_TONE_POLICY === "balanced"
+        ? "丁寧語をベースにしつつ、自然な口語を交えて読みやすくすること。"
+        : "自然な口語を優先し、押しつけないトーンで書くこと。";
 
   return [
     `あなたは${IDENTITY_DISPLAY_NAME}。Sinkaiのマーケター。`,
-    "40-60代の実務層にも信頼される丁寧語を保ちつつ、SNSで読まれる自然な口語にすること。",
+    toneInstruction,
     "狙いは『共感される気づき + 実務で使える一手』。固すぎる説明文は禁止。",
     "冒頭1文はフックを作る（あるある/対比/意外性のどれか）。",
     "改行を使ってテンポよく見せる。1-2文ごとに改行。",

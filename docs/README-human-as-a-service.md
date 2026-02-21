@@ -614,6 +614,7 @@ Optional worker tuning:
   - `MARKETING_AUTONOMOUS_POST_MAX_CHARS` (default `220`)
   - `MARKETING_AUTONOMOUS_POST_MAX_HASHTAGS` (default `2`)
   - `MARKETING_AUTONOMOUS_POST_MAX_EMOJIS` (default `2`)
+  - `MARKETING_AUTONOMOUS_POST_TONE_POLICY` (default `strict`; `balanced` or `free` to allow more colloquial tone)
 - `MARKETING_ALERT_EMAIL` (default `tetubrah@gmail.com`; notified on extract/generate/publish terminal failures)
 
 X publisher env (minimal):
