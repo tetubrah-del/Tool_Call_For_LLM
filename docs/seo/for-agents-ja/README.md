@@ -19,6 +19,9 @@
 13. `13-generative-ai-failure-patterns-editorial.md`
 14. `14-why-ai-work-feels-exhausting-editorial.md`
 15. `15-ai-era-hiring-editorial.md`
+16. `16-ai-sales-relationship-shift.md`
+17. `17-non-tech-ai-education-painpoints.md`
+18. `18-ai-team-collaboration-practical-issues.md`
 
 ## 公開順（推奨）
 
@@ -37,6 +40,9 @@
 13. 13（生成AI導入の失敗要因）
 14. 14（AI時代の疲労と認知負荷）
 15. 15（10年後の採用基準）
+16. 16（AIと営業職の関係再設計）
+17. 17（非技術職AI教育の構造課題）
+18. 18（AI時代のチーム協働設計）
 
 ## 内部リンク設計
 
