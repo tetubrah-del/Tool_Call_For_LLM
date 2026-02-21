@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
@@ -31,7 +32,22 @@ const X_API_KEY = (process.env.MARKETING_X_API_KEY || "").trim();
 const X_API_SECRET = (process.env.MARKETING_X_API_SECRET || "").trim();
 const X_TIMEOUT_MS = Number(process.env.MARKETING_X_TIMEOUT_MS || 30000);
 
-const LLM_ENABLED = process.env.MARKETING_AUTONOMOUS_LLM_ENABLED !== "false";
+const AI_GENERATION_ENABLED = process.env.MARKETING_AUTONOMOUS_LLM_ENABLED !== "false";
+const AI_GENERATOR_RAW = (process.env.MARKETING_AUTONOMOUS_GENERATOR || "openclaw").trim().toLowerCase();
+const AI_GENERATOR = AI_GENERATOR_RAW === "api" ? "api" : "openclaw";
+
+const OPENCLAW_BIN = (process.env.MARKETING_AUTONOMOUS_OPENCLAW_BIN || "openclaw").trim();
+const OPENCLAW_AGENT_ID = (process.env.MARKETING_AUTONOMOUS_OPENCLAW_AGENT_ID || "main").trim();
+const OPENCLAW_SESSION_ID = (
+  process.env.MARKETING_AUTONOMOUS_OPENCLAW_SESSION_ID || `autonomous-${IDENTITY_ID}-x`
+).trim();
+const OPENCLAW_THINKING = (process.env.MARKETING_AUTONOMOUS_OPENCLAW_THINKING || "low").trim();
+const OPENCLAW_TIMEOUT_SECONDS = clamp(
+  Number(process.env.MARKETING_AUTONOMOUS_OPENCLAW_TIMEOUT_SECONDS || 180),
+  30,
+  900
+);
+
 const LLM_PROVIDER = (process.env.MARKETING_AUTONOMOUS_LLM_PROVIDER || "xai").trim().toLowerCase();
 const LLM_MODEL = (
   process.env.MARKETING_AUTONOMOUS_LLM_MODEL ||
@@ -50,8 +66,8 @@ const LLM_API_KEY = (
   ""
 ).trim();
 const LLM_TIMEOUT_MS = Number(process.env.MARKETING_AUTONOMOUS_LLM_TIMEOUT_MS || 30000);
-const LLM_MAX_ATTEMPTS = clamp(Number(process.env.MARKETING_AUTONOMOUS_LLM_MAX_ATTEMPTS || 3), 1, 6);
-const LLM_FALLBACK_TEMPLATE = process.env.MARKETING_AUTONOMOUS_LLM_FALLBACK_TEMPLATE !== "false";
+const AI_MAX_ATTEMPTS = clamp(Number(process.env.MARKETING_AUTONOMOUS_LLM_MAX_ATTEMPTS || 3), 1, 6);
+const AI_FALLBACK_TEMPLATE = process.env.MARKETING_AUTONOMOUS_LLM_FALLBACK_TEMPLATE !== "false";
 const POST_CHECK_MIN_SCORE = clamp(Number(process.env.MARKETING_AUTONOMOUS_POST_CHECK_MIN_SCORE || 70), 40, 100);
 const POST_MIN_CHARS = clamp(Number(process.env.MARKETING_AUTONOMOUS_POST_MIN_CHARS || 90), 40, 500);
 const POST_MAX_CHARS = clamp(Number(process.env.MARKETING_AUTONOMOUS_POST_MAX_CHARS || 220), 80, 900);
@@ -145,6 +161,99 @@ function parseJsonObjectFromText(raw) {
     if (parsedSliced && typeof parsedSliced === "object") return parsedSliced;
   }
   return null;
+}
+
+function extractJsonObjects(raw) {
+  const text = String(raw || "");
+  const parsed = [];
+
+  for (let start = 0; start < text.length; start += 1) {
+    if (text[start] !== "{") continue;
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+
+    for (let i = start; i < text.length; i += 1) {
+      const ch = text[i];
+      if (inString) {
+        if (escaped) {
+          escaped = false;
+          continue;
+        }
+        if (ch === "\\") {
+          escaped = true;
+          continue;
+        }
+        if (ch === '"') {
+          inString = false;
+        }
+        continue;
+      }
+
+      if (ch === '"') {
+        inString = true;
+        continue;
+      }
+      if (ch === "{") depth += 1;
+      if (ch === "}") {
+        depth -= 1;
+        if (depth === 0) {
+          const candidate = text.slice(start, i + 1);
+          const parsedCandidate = safeJsonParse(candidate, null);
+          if (parsedCandidate && typeof parsedCandidate === "object") {
+            parsed.push(parsedCandidate);
+          }
+          break;
+        }
+        if (depth < 0) break;
+      }
+    }
+  }
+
+  return parsed;
+}
+
+function collectStringCandidates(node, pathKeys = [], out = []) {
+  if (typeof node === "string") {
+    const value = node.trim();
+    if (value) out.push({ value, path: pathKeys.join(".") });
+    return out;
+  }
+  if (Array.isArray(node)) {
+    node.forEach((item, idx) => collectStringCandidates(item, [...pathKeys, String(idx)], out));
+    return out;
+  }
+  if (node && typeof node === "object") {
+    for (const [key, value] of Object.entries(node)) {
+      collectStringCandidates(value, [...pathKeys, key], out);
+    }
+  }
+  return out;
+}
+
+function pickBestTextCandidate(candidates) {
+  if (!Array.isArray(candidates) || !candidates.length) return "";
+
+  let best = "";
+  let bestScore = -Infinity;
+  for (const item of candidates) {
+    const value = String(item?.value || "").trim();
+    if (!value) continue;
+    const path = String(item?.path || "").toLowerCase();
+    let score = value.length;
+    if (path.includes("content")) score += 80;
+    if (path.includes("message")) score += 60;
+    if (path.includes("text")) score += 50;
+    if (path.includes("reply")) score += 45;
+    if (path.includes("output")) score += 40;
+    if (path.includes("error")) score -= 120;
+    if (path.includes("stderr")) score -= 120;
+    if (score > bestScore) {
+      best = value;
+      bestScore = score;
+    }
+  }
+  return best;
 }
 
 function pickFirstNumber(values, fallback = 0) {
@@ -424,12 +533,129 @@ async function xRequest(method, url) {
   return { response, raw };
 }
 
-function isLlmConfigured() {
-  return LLM_ENABLED && Boolean(LLM_API_KEY) && Boolean(LLM_BASE_URL) && Boolean(LLM_MODEL);
+function isApiLlmConfigured() {
+  return Boolean(LLM_API_KEY) && Boolean(LLM_BASE_URL) && Boolean(LLM_MODEL);
 }
 
-async function llmChatCompletion(messages, temperature = 0.8) {
-  if (!isLlmConfigured()) {
+function isOpenClawConfigured() {
+  return Boolean(OPENCLAW_BIN) && Boolean(OPENCLAW_AGENT_ID) && Boolean(OPENCLAW_SESSION_ID);
+}
+
+async function runCommand(bin, args, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    let stdout = "";
+    let stderr = "";
+    let settled = false;
+
+    const child = spawn(bin, args, {
+      env: process.env,
+      stdio: ["ignore", "pipe", "pipe"]
+    });
+
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      child.kill("SIGTERM");
+      setTimeout(() => child.kill("SIGKILL"), 1500).unref();
+      reject(new AutonomousError("openclaw_timeout", "openclaw command timeout", { retryable: true }));
+    }, timeoutMs);
+
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk.toString();
+    });
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+
+    child.on("error", (error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (error?.code === "ENOENT") {
+        reject(new AutonomousError("openclaw_not_found", "openclaw command not found", { retryable: false }));
+        return;
+      }
+      reject(new AutonomousError("openclaw_exec_failed", String(error?.message || "openclaw exec failed"), { retryable: true }));
+    });
+
+    child.on("close", (code) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (code !== 0) {
+        const rawBody = [stdout, stderr].filter(Boolean).join("\n");
+        const retryable = /timeout|gateway|temporar|rate|429|5\d\d/i.test(rawBody);
+        reject(
+          new AutonomousError("openclaw_nonzero_exit", `openclaw exited with code ${code}`, {
+            retryable,
+            rawBody
+          })
+        );
+        return;
+      }
+      resolve({ stdout, stderr });
+    });
+  });
+}
+
+function extractOpenClawReplyText(stdout) {
+  const raw = String(stdout || "").trim();
+  if (!raw) return "";
+
+  const topLevel = parseJsonObjectFromText(raw);
+  const allObjects = topLevel ? [topLevel, ...extractJsonObjects(raw)] : extractJsonObjects(raw);
+  for (const obj of allObjects) {
+    if (!obj || typeof obj !== "object") continue;
+    if (!Array.isArray(obj.payloads)) continue;
+    for (const payload of obj.payloads) {
+      const text = String(payload?.text || "").trim();
+      if (text) return text;
+    }
+  }
+
+  const candidates = [];
+  for (const obj of allObjects) {
+    collectStringCandidates(obj, [], candidates);
+  }
+  if (candidates.length) {
+    return pickBestTextCandidate(candidates);
+  }
+  return raw;
+}
+
+async function openclawAgentCompletion(prompt) {
+  if (!isOpenClawConfigured()) {
+    throw new AutonomousError("openclaw_not_configured", "openclaw generator is not configured", { retryable: false });
+  }
+
+  const args = [
+    "agent",
+    "--agent",
+    OPENCLAW_AGENT_ID,
+    "--session-id",
+    OPENCLAW_SESSION_ID,
+    "--message",
+    prompt,
+    "--json",
+    "--thinking",
+    OPENCLAW_THINKING,
+    "--timeout",
+    String(OPENCLAW_TIMEOUT_SECONDS)
+  ];
+
+  const { stdout } = await runCommand(OPENCLAW_BIN, args, OPENCLAW_TIMEOUT_SECONDS * 1000);
+  const replyText = extractOpenClawReplyText(stdout);
+  if (!replyText.trim()) {
+    throw new AutonomousError("openclaw_empty_reply", "openclaw returned empty reply", {
+      retryable: true,
+      rawBody: stdout
+    });
+  }
+  return replyText;
+}
+
+async function apiLlmChatCompletion(messages, temperature = 0.8) {
+  if (!isApiLlmConfigured()) {
     throw new AutonomousError("llm_not_configured", "autonomous llm is not configured", { retryable: false });
   }
 
@@ -527,20 +753,26 @@ function defaultIdentity() {
     core: {
       name: IDENTITY_DISPLAY_NAME,
       role: "Sinkai marketer",
-      tone: "warm-practical-data-driven"
+      tone: "sharp-friendly-social-commentary"
     },
-    pillars: ["AI活用", "業務改善", "マーケ実務", "小さな検証", "再現性"],
+    pillars: ["AI活用", "最新AI潮流", "業務改善", "日本企業あるある", "OpenClaw活用"],
+    post_archetypes: [
+      "最新AI潮流が社会/仕事に与える影響",
+      "日本の大企業あるある×AI",
+      "OpenClawを使った現場の学び",
+      "明日すぐ使えるAI小技"
+    ],
     audience: ["40-60代の実務担当者", "経営者・マネージャー", "現場リーダー"],
     style: {
       opener: [
-        "小雪です。今日の小雪メモを1つ。",
-        "お疲れさまです。小雪です。",
-        "現場で効いた小さな工夫を共有します。"
+        "これ、現場でよく見ます。",
+        "正直、ここが分かれ目です。",
+        "小雪です。今日の気づきです。"
       ],
       closer: [
-        "まずはこの1点だけ試してみてください。",
-        "数字で見て、次の一手を決めましょう。",
-        "ムリなく回る運用を一緒に作っていきます。"
+        "まず1週間だけ試してみてください。",
+        "小さく回して、数字で判断しましょう。",
+        "あなたの現場なら、どこから始めますか？"
       ],
       emoji: ["🌸", "📊", "✨"]
     },
@@ -992,13 +1224,13 @@ function evaluatePostQuality(identity, post) {
     }
   }
 
-  if (!/数字|検証|改善|実務|再現|工数|運用/.test(body)) {
+  if (!/数字|検証|改善|実務|再現|工数|運用|潮流|影響|現場|会社|導入|意思決定|大企業/.test(body)) {
     reasons.push("missing practical/data angle");
-    score -= 15;
+    score -= 10;
   }
-  if (!/試|やってみ|まずは|次の一手|一歩/.test(body)) {
+  if (!/試|やってみ|まずは|まず|次の一手|一歩|見直す|決める|変える|始める/.test(body)) {
     reasons.push("missing actionable next step");
-    score -= 15;
+    score -= 10;
   }
   if (!/です|ます/.test(body)) {
     reasons.push("tone not polite enough");
@@ -1077,12 +1309,17 @@ function buildLlmSystemPrompt(identity) {
   const styleOpeners = Array.isArray(identity?.style?.opener) ? identity.style.opener : [];
   const styleClosers = Array.isArray(identity?.style?.closer) ? identity.style.closer : [];
   const pillars = Array.isArray(identity?.pillars) ? identity.pillars : [];
+  const archetypes = Array.isArray(identity?.post_archetypes) ? identity.post_archetypes : [];
 
   return [
     `あなたは${IDENTITY_DISPLAY_NAME}。Sinkaiのマーケター。`,
-    "40-60代の実務層にも信頼される丁寧な文体で、上から目線にならないこと。",
-    "投稿は実務に効く内容。再現性・工数削減・小さな検証・数字で判断を重視する。",
+    "40-60代の実務層にも信頼される丁寧語を保ちつつ、SNSで読まれる自然な口語にすること。",
+    "狙いは『共感される気づき + 実務で使える一手』。固すぎる説明文は禁止。",
+    "冒頭1文はフックを作る（あるある/対比/意外性のどれか）。",
+    "改行を使ってテンポよく見せる。1-2文ごとに改行。",
+    "過度な煽り・断定・不安商法は禁止。",
     `主な投稿軸: ${pillars.join(" / ")}`,
+    `優先する切り口: ${archetypes.join(" / ") || "AI潮流の社会影響 / 現場あるある / 明日から使える工夫"}`,
     `使ってよい導入例: ${styleOpeners.join(" / ")}`,
     `使ってよい締め例: ${styleClosers.join(" / ")}`,
     `禁止表現: ${banned.join(" / ") || "過度な煽り・断定"}`,
@@ -1104,38 +1341,86 @@ function buildLlmUserPrompt(identity, topic, adaptation, retryReasons = []) {
   return [
     `${feedback}`,
     `今回の主題トピック: ${topic}`,
+    "目的: バズを狙いつつ、読む人が『自分ごと』化できる投稿にする。",
     `最近使ったトピック（重複回避）: ${recentTopics.join(", ") || "なし"}`,
     `反応が良かった傾向: tags=${winningTags.join(", ") || "なし"} / patterns=${winningPatterns.join(", ") || "なし"}`,
     `避けたい傾向: ${avoidPatterns.join(", ") || "なし"}`,
     "出力はJSONのみ。スキーマ:",
     '{"topic":"string","body_text":"string","hashtags":["#tag1","#tag2"]}',
-    "本文は次の構成にする: 気づき → 理由 → すぐ試せる1アクション → 一言締め。",
-    "実務で明日使える内容にする。"
+    "本文は次の構成にする: フック1文 → 背景/解像度1-2文 → すぐ試せる1アクション → 一言締め。",
+    "次のNGは避ける: 教科書口調、抽象論だけ、フォロワー運用の話だけ。"
   ].join("\n");
 }
 
-async function generateAutonomousBodyWithLlm(identity) {
+function normalizeGeneratedPayload(parsed, topic, identity) {
+  const normalizeFromObject = (value) => {
+    if (!value || typeof value !== "object") return null;
+    const bodyCandidate = value.body_text || value.body || value.text;
+    if (typeof bodyCandidate !== "string" || !bodyCandidate.trim()) return null;
+    return {
+      topic: String(value.topic || topic).trim() || topic,
+      body: normalizeBodyText(bodyCandidate),
+      hashtags: normalizeGeneratedHashtags(value.hashtags, identity)
+    };
+  };
+
+  const direct = normalizeFromObject(parsed);
+  if (direct) return direct;
+
+  const queue = [parsed];
+  for (let i = 0; i < queue.length; i += 1) {
+    const node = queue[i];
+    if (!node || typeof node !== "object") continue;
+
+    if (Array.isArray(node)) {
+      queue.push(...node);
+      continue;
+    }
+
+    for (const value of Object.values(node)) {
+      if (!value) continue;
+      if (typeof value === "string") {
+        const parsedText = parseJsonObjectFromText(value);
+        const normalizedFromText = normalizeFromObject(parsedText);
+        if (normalizedFromText) return normalizedFromText;
+        continue;
+      }
+      if (typeof value === "object") {
+        const normalizedNested = normalizeFromObject(value);
+        if (normalizedNested) return normalizedNested;
+        queue.push(value);
+      }
+    }
+  }
+
+  return null;
+}
+
+async function generateAutonomousBodyWithAi(identity) {
   const topic = pickTopic(TOPICS, identity?.memory?.recent_topic_keys);
   let retryReasons = [];
 
-  for (let i = 0; i < LLM_MAX_ATTEMPTS; i += 1) {
+  for (let i = 0; i < AI_MAX_ATTEMPTS; i += 1) {
     const messages = [
       { role: "system", content: buildLlmSystemPrompt(identity) },
       { role: "user", content: buildLlmUserPrompt(identity, topic, identity?.adaptation || {}, retryReasons) }
     ];
 
-    const llmText = await llmChatCompletion(messages, 0.9);
-    const parsed = parseJsonObjectFromText(llmText);
-    if (!parsed || typeof parsed !== "object") {
+    let rawOutput = "";
+    if (AI_GENERATOR === "openclaw") {
+      const fullPrompt = `${messages[0].content}\n\n${messages[1].content}\n\nJSONのみを返してください。コードブロックは禁止。`;
+      rawOutput = await openclawAgentCompletion(fullPrompt);
+    } else {
+      rawOutput = await apiLlmChatCompletion(messages, 0.9);
+    }
+
+    const parsed = parseJsonObjectFromText(rawOutput);
+    const candidate = normalizeGeneratedPayload(parsed, topic, identity);
+    if (!candidate) {
       retryReasons = ["json parse failed"];
       continue;
     }
 
-    const candidate = {
-      topic: String(parsed.topic || topic).trim() || topic,
-      body: normalizeBodyText(parsed.body_text || ""),
-      hashtags: normalizeGeneratedHashtags(parsed.hashtags, identity)
-    };
     const evaluated = evaluatePostQuality(identity, candidate);
     if (evaluated.passes) {
       return {
@@ -1144,13 +1429,13 @@ async function generateAutonomousBodyWithLlm(identity) {
         hashtags: evaluated.hashtags,
         textHash: evaluated.textHash,
         quality_score: evaluated.score,
-        source: "llm"
+        source: AI_GENERATOR === "openclaw" ? "openclaw" : "llm_api"
       };
     }
     retryReasons = evaluated.reasons.slice(0, 4);
   }
 
-  throw new AutonomousError("llm_post_check_failed", "llm output failed post checks", {
+  throw new AutonomousError("ai_post_check_failed", "ai output failed post checks", {
     retryable: false
   });
 }
@@ -1291,17 +1576,17 @@ async function runCycle(db) {
   let generationNote = "";
 
   try {
-    if (!LLM_ENABLED) {
-      throw new AutonomousError("llm_disabled", "llm generation is disabled", { retryable: false });
+    if (!AI_GENERATION_ENABLED) {
+      throw new AutonomousError("ai_generation_disabled", "ai generation is disabled", { retryable: false });
     }
-    bodyPayload = await generateAutonomousBodyWithLlm(profile.identity);
-    generationSource = "llm";
+    bodyPayload = await generateAutonomousBodyWithAi(profile.identity);
+    generationSource = `ai:${AI_GENERATOR}`;
   } catch (error) {
-    if (!LLM_FALLBACK_TEMPLATE) {
+    if (!AI_FALLBACK_TEMPLATE) {
       return {
-        action: "skip_llm_generation_failed",
+        action: "skip_ai_generation_failed",
         at: now,
-        reason: error?.code || "llm_generation_failed",
+        reason: error?.code || "ai_generation_failed",
         message: String(error?.message || "unknown"),
         metrics_sync: metricsSync,
         adaptation: adaptation.summary
@@ -1326,14 +1611,20 @@ async function runCycle(db) {
       textHash: checkedFallback.textHash
     };
     generationSource = "template_fallback";
-    generationNote = String(error?.code || "llm_generation_failed");
+    generationNote = String(error?.code || "ai_generation_failed");
   }
 
   for (let i = 0; i < 3 && hasRecentHash(profile.identity, bodyPayload.textHash); i += 1) {
-    bodyPayload =
-      generationSource === "llm"
-        ? await generateAutonomousBodyWithLlm(profile.identity)
-        : buildFallbackBody(profile.identity);
+    if (generationSource.startsWith("ai:")) {
+      try {
+        bodyPayload = await generateAutonomousBodyWithAi(profile.identity);
+      } catch {
+        bodyPayload = buildFallbackBody(profile.identity);
+        generationSource = "template_fallback";
+      }
+    } else {
+      bodyPayload = buildFallbackBody(profile.identity);
+    }
   }
 
   const queued = await queueAutonomousPost(db, profile.identity, bodyPayload);
