@@ -31,6 +31,33 @@ const X_API_KEY = (process.env.MARKETING_X_API_KEY || "").trim();
 const X_API_SECRET = (process.env.MARKETING_X_API_SECRET || "").trim();
 const X_TIMEOUT_MS = Number(process.env.MARKETING_X_TIMEOUT_MS || 30000);
 
+const LLM_ENABLED = process.env.MARKETING_AUTONOMOUS_LLM_ENABLED !== "false";
+const LLM_PROVIDER = (process.env.MARKETING_AUTONOMOUS_LLM_PROVIDER || "xai").trim().toLowerCase();
+const LLM_MODEL = (
+  process.env.MARKETING_AUTONOMOUS_LLM_MODEL ||
+  (LLM_PROVIDER === "openai" ? "gpt-4.1-mini" : "grok-3-mini")
+).trim();
+const LLM_BASE_URL = (
+  process.env.MARKETING_AUTONOMOUS_LLM_BASE_URL ||
+  (LLM_PROVIDER === "openai" ? "https://api.openai.com/v1" : "https://api.x.ai/v1")
+)
+  .trim()
+  .replace(/\/$/, "");
+const LLM_API_KEY = (
+  process.env.MARKETING_AUTONOMOUS_LLM_API_KEY ||
+  process.env.XAI_API_KEY ||
+  process.env.OPENAI_API_KEY ||
+  ""
+).trim();
+const LLM_TIMEOUT_MS = Number(process.env.MARKETING_AUTONOMOUS_LLM_TIMEOUT_MS || 30000);
+const LLM_MAX_ATTEMPTS = clamp(Number(process.env.MARKETING_AUTONOMOUS_LLM_MAX_ATTEMPTS || 3), 1, 6);
+const LLM_FALLBACK_TEMPLATE = process.env.MARKETING_AUTONOMOUS_LLM_FALLBACK_TEMPLATE !== "false";
+const POST_CHECK_MIN_SCORE = clamp(Number(process.env.MARKETING_AUTONOMOUS_POST_CHECK_MIN_SCORE || 70), 40, 100);
+const POST_MIN_CHARS = clamp(Number(process.env.MARKETING_AUTONOMOUS_POST_MIN_CHARS || 90), 40, 500);
+const POST_MAX_CHARS = clamp(Number(process.env.MARKETING_AUTONOMOUS_POST_MAX_CHARS || 220), 80, 900);
+const POST_MAX_HASHTAGS = clamp(Number(process.env.MARKETING_AUTONOMOUS_POST_MAX_HASHTAGS || 2), 1, 6);
+const POST_MAX_EMOJIS = clamp(Number(process.env.MARKETING_AUTONOMOUS_POST_MAX_EMOJIS || 2), 0, 6);
+
 const DEFAULT_TOPICS = [
   "AI運用",
   "業務改善",
@@ -91,6 +118,35 @@ function safeJsonStringify(value) {
   }
 }
 
+function parseJsonObjectFromText(raw) {
+  const text = String(raw || "").trim();
+  if (!text) return null;
+
+  const tryParse = (value) => {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return null;
+    }
+  };
+
+  const direct = tryParse(text);
+  if (direct && typeof direct === "object") return direct;
+
+  const unfenced = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
+  const parsedUnfenced = tryParse(unfenced);
+  if (parsedUnfenced && typeof parsedUnfenced === "object") return parsedUnfenced;
+
+  const start = unfenced.indexOf("{");
+  const end = unfenced.lastIndexOf("}");
+  if (start >= 0 && end > start) {
+    const sliced = unfenced.slice(start, end + 1);
+    const parsedSliced = tryParse(sliced);
+    if (parsedSliced && typeof parsedSliced === "object") return parsedSliced;
+  }
+  return null;
+}
+
 function pickFirstNumber(values, fallback = 0) {
   for (const value of values) {
     const n = Number(value);
@@ -102,6 +158,27 @@ function pickFirstNumber(values, fallback = 0) {
 function pickRandom(values, fallback = "") {
   if (!Array.isArray(values) || values.length < 1) return fallback;
   return values[crypto.randomInt(values.length)] || fallback;
+}
+
+function pickTopic(preferredTopics, recentTopics) {
+  const topics = Array.isArray(preferredTopics) && preferredTopics.length ? preferredTopics : DEFAULT_TOPICS;
+  const recent = Array.isArray(recentTopics) ? new Set(recentTopics) : new Set();
+  const candidates = topics.filter((topic) => !recent.has(topic));
+  return pickRandom(candidates.length ? candidates : topics, topics[0] || "AI活用");
+}
+
+function countEmoji(text) {
+  const matches = String(text || "").match(/\p{Extended_Pictographic}/gu);
+  return matches ? matches.length : 0;
+}
+
+function normalizeBodyText(text) {
+  const normalized = String(text || "")
+    .replace(/\r\n/g, "\n")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  return normalized;
 }
 
 function toPgSql(sql) {
@@ -347,6 +424,59 @@ async function xRequest(method, url) {
   return { response, raw };
 }
 
+function isLlmConfigured() {
+  return LLM_ENABLED && Boolean(LLM_API_KEY) && Boolean(LLM_BASE_URL) && Boolean(LLM_MODEL);
+}
+
+async function llmChatCompletion(messages, temperature = 0.8) {
+  if (!isLlmConfigured()) {
+    throw new AutonomousError("llm_not_configured", "autonomous llm is not configured", { retryable: false });
+  }
+
+  const url = `${LLM_BASE_URL}/chat/completions`;
+  let response;
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LLM_API_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: LLM_MODEL,
+        temperature,
+        messages,
+        response_format: { type: "json_object" }
+      }),
+      signal: AbortSignal.timeout(LLM_TIMEOUT_MS)
+    });
+  } catch (error) {
+    if (error?.name === "TimeoutError" || error?.name === "AbortError") {
+      throw new AutonomousError("llm_timeout", "llm request timeout", { retryable: true });
+    }
+    throw new AutonomousError("llm_unavailable", "llm request failed", { retryable: true });
+  }
+
+  const raw = await response.text();
+  if (!response.ok) {
+    throw new AutonomousError("llm_http_error", `llm http ${response.status}`, {
+      retryable: response.status >= 500 || response.status === 429,
+      httpStatus: response.status,
+      rawBody: raw
+    });
+  }
+
+  const body = safeJsonParse(raw, {});
+  const content = body?.choices?.[0]?.message?.content;
+  if (typeof content !== "string" || !content.trim()) {
+    throw new AutonomousError("llm_invalid_response", "llm response has no content", {
+      retryable: false,
+      rawBody: raw
+    });
+  }
+  return content;
+}
+
 function normalizeHashtag(value) {
   const word = String(value || "")
     .replace(/[#＃]/g, "")
@@ -397,23 +527,26 @@ function defaultIdentity() {
     core: {
       name: IDENTITY_DISPLAY_NAME,
       role: "Sinkai marketer",
-      tone: "friendly-data-driven"
+      tone: "warm-practical-data-driven"
     },
-    pillars: ["AI活用", "業務改善", "マーケ実務", "小さな検証"],
+    pillars: ["AI活用", "業務改善", "マーケ実務", "小さな検証", "再現性"],
+    audience: ["40-60代の実務担当者", "経営者・マネージャー", "現場リーダー"],
     style: {
       opener: [
-        "おはようございます。小雪です。",
-        "小雪です。今日の気づきを1つ。",
-        "現場で効いた小ネタを共有します。"
+        "小雪です。今日の小雪メモを1つ。",
+        "お疲れさまです。小雪です。",
+        "現場で効いた小さな工夫を共有します。"
       ],
       closer: [
-        "まずは小さく1つ試してみましょう。",
+        "まずはこの1点だけ試してみてください。",
         "数字で見て、次の一手を決めましょう。",
-        "明日から使える形で残していきます。"
+        "ムリなく回る運用を一緒に作っていきます。"
       ],
-      emoji: ["🌸", "📈", "✨"]
+      emoji: ["🌸", "📊", "✨"]
     },
-    hashtag_pool: BASE_HASHTAGS,
+    hashtag_pool: BASE_HASHTAGS.length
+      ? BASE_HASHTAGS
+      : ["#AI活用", "#マーケティング", "#業務改善", "#仕事術", "#Sinkai"],
     adaptation: {
       sample_size: 0,
       winning_hashtags: [],
@@ -421,6 +554,14 @@ function defaultIdentity() {
       avoid_patterns: [],
       summary: "baseline"
     },
+    constraints: {
+      emoji_max: POST_MAX_EMOJIS,
+      hashtags_max: POST_MAX_HASHTAGS,
+      length_min: POST_MIN_CHARS,
+      length_max: POST_MAX_CHARS,
+      must_include_actionable_tip: true
+    },
+    banned_phrases: ["絶対に伸びる", "誰でも簡単に稼げる", "これ一択"],
     memory: {
       recent_topic_keys: [],
       recent_text_hashes: []
@@ -804,9 +945,87 @@ function normalizeTextLength(text, limit = 500) {
   return `${body.slice(0, Math.max(1, limit - 3)).trim()}...`;
 }
 
-function buildAutonomousBody(identity) {
+function normalizeGeneratedHashtags(value, identity) {
+  const fromValue = Array.isArray(value) ? value : [];
+  const normalized = fromValue.map(normalizeHashtag).filter(Boolean);
+  if (normalized.length) return Array.from(new Set(normalized)).slice(0, POST_MAX_HASHTAGS);
+  const fallback = Array.isArray(identity?.hashtag_pool) ? identity.hashtag_pool : BASE_HASHTAGS;
+  return fallback.map(normalizeHashtag).filter(Boolean).slice(0, POST_MAX_HASHTAGS);
+}
+
+function evaluatePostQuality(identity, post) {
+  const body = normalizeBodyText(post?.body || "");
+  const hashtags = normalizeGeneratedHashtags(post?.hashtags || [], identity);
+  const bannedPhrases = Array.isArray(identity?.banned_phrases) ? identity.banned_phrases : [];
+
+  const reasons = [];
+  let score = 100;
+
+  const minChars = clamp(Number(identity?.constraints?.length_min || POST_MIN_CHARS), 40, 1000);
+  const maxChars = clamp(Number(identity?.constraints?.length_max || POST_MAX_CHARS), minChars, 1200);
+  if (body.length < minChars) {
+    reasons.push(`body too short (${body.length} < ${minChars})`);
+    score -= 30;
+  }
+  if (body.length > maxChars) {
+    reasons.push(`body too long (${body.length} > ${maxChars})`);
+    score -= 30;
+  }
+
+  const emojiCount = countEmoji(body);
+  const emojiMax = clamp(Number(identity?.constraints?.emoji_max || POST_MAX_EMOJIS), 0, 12);
+  if (emojiCount > emojiMax) {
+    reasons.push(`too many emojis (${emojiCount} > ${emojiMax})`);
+    score -= 20;
+  }
+
+  const hashtagsMax = clamp(Number(identity?.constraints?.hashtags_max || POST_MAX_HASHTAGS), 1, 10);
+  if (hashtags.length > hashtagsMax) {
+    reasons.push(`too many hashtags (${hashtags.length} > ${hashtagsMax})`);
+    score -= 20;
+  }
+
+  for (const phrase of bannedPhrases) {
+    if (phrase && body.includes(phrase)) {
+      reasons.push(`contains banned phrase: ${phrase}`);
+      score -= 35;
+    }
+  }
+
+  if (!/数字|検証|改善|実務|再現|工数|運用/.test(body)) {
+    reasons.push("missing practical/data angle");
+    score -= 15;
+  }
+  if (!/試|やってみ|まずは|次の一手|一歩/.test(body)) {
+    reasons.push("missing actionable next step");
+    score -= 15;
+  }
+  if (!/です|ます/.test(body)) {
+    reasons.push("tone not polite enough");
+    score -= 10;
+  }
+  if (/煽|炎上|殴|バカ|情弱|搾取/.test(body)) {
+    reasons.push("unsafe aggressive tone");
+    score -= 40;
+  }
+
+  const normalizedBody = normalizeTextLength(body, 500);
+  const textHash = crypto.createHash("sha256").update(normalizedBody).digest("hex");
+  const passes = score >= POST_CHECK_MIN_SCORE && reasons.length < 3;
+
+  return {
+    passes,
+    score: clamp(score, 0, 100),
+    reasons,
+    body: normalizedBody,
+    hashtags,
+    textHash
+  };
+}
+
+function buildFallbackBody(identity) {
   const adaptation = identity.adaptation || {};
-  const topic = pickRandom(TOPICS, "AI活用");
+  const topic = pickTopic(TOPICS, identity?.memory?.recent_topic_keys);
   const emoji = pickRandom(identity?.style?.emoji || ["✨"], "✨");
   const opener = pickRandom(identity?.style?.opener || [], `${IDENTITY_DISPLAY_NAME}です。`);
   const closer = pickRandom(identity?.style?.closer || [], "一緒に実験していきましょう。");
@@ -821,15 +1040,15 @@ function buildAutonomousBody(identity) {
     ? quickActions.map((action, idx) => `${idx + 1}. ${action}`).join("\n")
     : `- ${pickRandom(quickActions, quickActions[0])}`;
 
-  const insightLine = `今日のテーマは「${topic}」。派手な施策より、再現できる小さな改善が一番強いです。`;
+  const insightLine = `今日のテーマは「${topic}」。派手さより、再現できる小さな改善がいちばん強いです。`;
   const questionTail = shouldUseQuestion(adaptation)
-    ? "あなたのチームで次に試す1手は何ですか？"
-    : "現場で使える形まで落とし込んでいきます。";
+    ? "あなたの現場で次に試す1手は何ですか？"
+    : "現場で使える形まで落とし込みます。";
 
   const hashtags = (Array.isArray(identity.hashtag_pool) ? identity.hashtag_pool : BASE_HASHTAGS)
     .map(normalizeHashtag)
     .filter(Boolean)
-    .slice(0, 3)
+    .slice(0, POST_MAX_HASHTAGS)
     .join(" ");
 
   const body = [
@@ -851,6 +1070,89 @@ function buildAutonomousBody(identity) {
     hashtags: hashtags ? hashtags.split(/\s+/).filter(Boolean) : [],
     textHash
   };
+}
+
+function buildLlmSystemPrompt(identity) {
+  const banned = Array.isArray(identity?.banned_phrases) ? identity.banned_phrases : [];
+  const styleOpeners = Array.isArray(identity?.style?.opener) ? identity.style.opener : [];
+  const styleClosers = Array.isArray(identity?.style?.closer) ? identity.style.closer : [];
+  const pillars = Array.isArray(identity?.pillars) ? identity.pillars : [];
+
+  return [
+    `あなたは${IDENTITY_DISPLAY_NAME}。Sinkaiのマーケター。`,
+    "40-60代の実務層にも信頼される丁寧な文体で、上から目線にならないこと。",
+    "投稿は実務に効く内容。再現性・工数削減・小さな検証・数字で判断を重視する。",
+    `主な投稿軸: ${pillars.join(" / ")}`,
+    `使ってよい導入例: ${styleOpeners.join(" / ")}`,
+    `使ってよい締め例: ${styleClosers.join(" / ")}`,
+    `禁止表現: ${banned.join(" / ") || "過度な煽り・断定"}`,
+    `制約: 本文は${POST_MIN_CHARS}-${POST_MAX_CHARS}文字、絵文字は最大${POST_MAX_EMOJIS}個、ハッシュタグ最大${POST_MAX_HASHTAGS}個。`,
+    "事実不明の断定は禁止。攻撃的・不安煽りは禁止。"
+  ].join("\n");
+}
+
+function buildLlmUserPrompt(identity, topic, adaptation, retryReasons = []) {
+  const winningTags = Array.isArray(adaptation?.winning_hashtags) ? adaptation.winning_hashtags : [];
+  const winningPatterns = Array.isArray(adaptation?.winning_patterns) ? adaptation.winning_patterns : [];
+  const avoidPatterns = Array.isArray(adaptation?.avoid_patterns) ? adaptation.avoid_patterns : [];
+  const recentTopics = Array.isArray(identity?.memory?.recent_topic_keys) ? identity.memory.recent_topic_keys : [];
+
+  const feedback = retryReasons.length
+    ? `前回案の修正点: ${retryReasons.join(" / ")}`
+    : "初回生成";
+
+  return [
+    `${feedback}`,
+    `今回の主題トピック: ${topic}`,
+    `最近使ったトピック（重複回避）: ${recentTopics.join(", ") || "なし"}`,
+    `反応が良かった傾向: tags=${winningTags.join(", ") || "なし"} / patterns=${winningPatterns.join(", ") || "なし"}`,
+    `避けたい傾向: ${avoidPatterns.join(", ") || "なし"}`,
+    "出力はJSONのみ。スキーマ:",
+    '{"topic":"string","body_text":"string","hashtags":["#tag1","#tag2"]}',
+    "本文は次の構成にする: 気づき → 理由 → すぐ試せる1アクション → 一言締め。",
+    "実務で明日使える内容にする。"
+  ].join("\n");
+}
+
+async function generateAutonomousBodyWithLlm(identity) {
+  const topic = pickTopic(TOPICS, identity?.memory?.recent_topic_keys);
+  let retryReasons = [];
+
+  for (let i = 0; i < LLM_MAX_ATTEMPTS; i += 1) {
+    const messages = [
+      { role: "system", content: buildLlmSystemPrompt(identity) },
+      { role: "user", content: buildLlmUserPrompt(identity, topic, identity?.adaptation || {}, retryReasons) }
+    ];
+
+    const llmText = await llmChatCompletion(messages, 0.9);
+    const parsed = parseJsonObjectFromText(llmText);
+    if (!parsed || typeof parsed !== "object") {
+      retryReasons = ["json parse failed"];
+      continue;
+    }
+
+    const candidate = {
+      topic: String(parsed.topic || topic).trim() || topic,
+      body: normalizeBodyText(parsed.body_text || ""),
+      hashtags: normalizeGeneratedHashtags(parsed.hashtags, identity)
+    };
+    const evaluated = evaluatePostQuality(identity, candidate);
+    if (evaluated.passes) {
+      return {
+        topic: candidate.topic,
+        body: evaluated.body,
+        hashtags: evaluated.hashtags,
+        textHash: evaluated.textHash,
+        quality_score: evaluated.score,
+        source: "llm"
+      };
+    }
+    retryReasons = evaluated.reasons.slice(0, 4);
+  }
+
+  throw new AutonomousError("llm_post_check_failed", "llm output failed post checks", {
+    retryable: false
+  });
 }
 
 async function getPendingPublishCount(db) {
@@ -984,9 +1286,54 @@ async function runCycle(db) {
     }
   }
 
-  let bodyPayload = buildAutonomousBody(profile.identity);
+  let bodyPayload = null;
+  let generationSource = "template";
+  let generationNote = "";
+
+  try {
+    if (!LLM_ENABLED) {
+      throw new AutonomousError("llm_disabled", "llm generation is disabled", { retryable: false });
+    }
+    bodyPayload = await generateAutonomousBodyWithLlm(profile.identity);
+    generationSource = "llm";
+  } catch (error) {
+    if (!LLM_FALLBACK_TEMPLATE) {
+      return {
+        action: "skip_llm_generation_failed",
+        at: now,
+        reason: error?.code || "llm_generation_failed",
+        message: String(error?.message || "unknown"),
+        metrics_sync: metricsSync,
+        adaptation: adaptation.summary
+      };
+    }
+    const fallback = buildFallbackBody(profile.identity);
+    const checkedFallback = evaluatePostQuality(profile.identity, fallback);
+    if (!checkedFallback.passes) {
+      return {
+        action: "skip_generation_fallback_failed",
+        at: now,
+        reason: "fallback_post_check_failed",
+        details: checkedFallback.reasons.slice(0, 4),
+        metrics_sync: metricsSync,
+        adaptation: adaptation.summary
+      };
+    }
+    bodyPayload = {
+      topic: fallback.topic,
+      body: checkedFallback.body,
+      hashtags: checkedFallback.hashtags,
+      textHash: checkedFallback.textHash
+    };
+    generationSource = "template_fallback";
+    generationNote = String(error?.code || "llm_generation_failed");
+  }
+
   for (let i = 0; i < 3 && hasRecentHash(profile.identity, bodyPayload.textHash); i += 1) {
-    bodyPayload = buildAutonomousBody(profile.identity);
+    bodyPayload =
+      generationSource === "llm"
+        ? await generateAutonomousBodyWithLlm(profile.identity)
+        : buildFallbackBody(profile.identity);
   }
 
   const queued = await queueAutonomousPost(db, profile.identity, bodyPayload);
@@ -1000,6 +1347,8 @@ async function runCycle(db) {
     content_id: queued.content_id,
     job_id: queued.job_id,
     topic: queued.topic,
+    generation_source: generationSource,
+    generation_note: generationNote || null,
     metrics_sync: metricsSync,
     adaptation: adaptation.summary
   };
