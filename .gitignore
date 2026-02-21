@@ -17,3 +17,4 @@ coverage/
 output/playwright/*.json
 output/playwright/*.txt
 output/stripe-worker-test/
+generated/
