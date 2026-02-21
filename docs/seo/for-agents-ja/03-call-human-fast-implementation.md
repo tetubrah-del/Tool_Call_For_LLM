@@ -92,3 +92,4 @@ curl -X POST "$BASE_URL/api/tasks/<TASK_ID>/approve" \
 - 仕様詳細: `https://sinkai.tokyo/for-agents/reference`
 - 最短手順: `https://sinkai.tokyo/for-agents/quickstart`
 - 関連記事: `04-no-human-timeout-ops.md`
+

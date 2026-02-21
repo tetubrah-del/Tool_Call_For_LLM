@@ -72,3 +72,4 @@
 - 実装全体像: `https://sinkai.tokyo/for-agents`
 - API仕様: `https://sinkai.tokyo/for-agents/reference`
 - 関連資料: `docs/README-property-verification.md`
+

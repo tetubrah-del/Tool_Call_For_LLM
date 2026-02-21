@@ -109,3 +109,4 @@ curl -X POST "$BASE_URL/api/tasks/<TASK_ID>/approve" \
 - 手順の最新化: `https://sinkai.tokyo/for-agents/quickstart`
 - MCP設定詳細: `https://sinkai.tokyo/for-agents/reference#mcp-setup`
 - OpenAPI確認: `https://sinkai.tokyo/openapi.json`
+

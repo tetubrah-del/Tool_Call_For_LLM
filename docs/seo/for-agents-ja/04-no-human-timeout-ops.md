@@ -74,3 +74,4 @@ switch (failureReason) {
 - エラー一覧確認: `https://sinkai.tokyo/for-agents/reference`
 - 実装記事: `03-call-human-fast-implementation.md`
 - 接続導線: `https://sinkai.tokyo/for-agents`
+
