@@ -2112,6 +2112,33 @@ button.tag:hover {
   gap: 14px;
 }
 
+.blog-cta-buttons {
+  margin: 12px 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.blog-cta-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 138, 28, 0.5);
+  background: rgba(255, 138, 28, 0.15);
+  color: #ffd9bd;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.blog-cta-button:hover {
+  border-color: rgba(255, 138, 28, 0.8);
+  background: rgba(255, 138, 28, 0.25);
+  color: #ffe7d3;
+}
+
 @media (max-width: 720px) {
   .thread-messages {
     max-height: clamp(450px, 60vh, 560px);

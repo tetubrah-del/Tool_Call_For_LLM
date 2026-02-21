@@ -52,6 +52,64 @@ function stripLeadingHeading(markdown: string): string {
   return markdown.replace(/^#\s+.+\n+/, "").trim();
 }
 
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function convertCtaSection(markdown: string): string {
+  const lines = markdown.split("\n");
+  const out: string[] = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+    if (line.trim() !== "## CTA") {
+      out.push(line);
+      i += 1;
+      continue;
+    }
+
+    out.push(line);
+    i += 1;
+
+    while (i < lines.length && lines[i].trim() === "") {
+      i += 1;
+    }
+
+    const ctaLinks: Array<{ label: string; url: string }> = [];
+    while (i < lines.length) {
+      const current = lines[i];
+      if (current.startsWith("## ")) {
+        break;
+      }
+      const match = current.match(/^\s*-\s*(.+?):\s*`(https?:\/\/[^`]+)`\s*$/);
+      if (match) {
+        ctaLinks.push({
+          label: match[1].trim(),
+          url: match[2].trim()
+        });
+      }
+      i += 1;
+    }
+
+    if (ctaLinks.length > 0) {
+      out.push('<div class="blog-cta-buttons">');
+      for (const link of ctaLinks) {
+        out.push(
+          `<a class="blog-cta-button" href="${escapeHtml(link.url)}">${escapeHtml(link.label)}</a>`
+        );
+      }
+      out.push("</div>");
+    }
+  }
+
+  return out.join("\n");
+}
+
 function extractExcerpt(markdown: string): string {
   const withoutCode = markdown.replace(/```[\s\S]*?```/g, "");
   const paragraphs = withoutCode
@@ -89,7 +147,7 @@ async function parsePost(fileName: string): Promise<BlogPost> {
   const publishedAt =
     publishedAtFromMemo || LEGACY_PUBLISHED_AT_BY_FILE[fileName] || stat.mtime.toISOString();
 
-  const markdownBody = stripLeadingHeading(stripSeoMemo(content));
+  const markdownBody = convertCtaSection(stripLeadingHeading(stripSeoMemo(content)));
   const excerpt = extractExcerpt(markdownBody);
   const html = await marked.parse(markdownBody);
 
