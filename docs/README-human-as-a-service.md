@@ -576,6 +576,22 @@ Optional worker tuning:
 - `MARKETING_PUBLISH_WORKER_POLL_MS` (default `15000`)
 - `MARKETING_PUBLISH_WORKER_BATCH_SIZE` (default `10`)
 - `MARKETING_PUBLISH_MAX_ATTEMPTS` (default `5`)
+- Autonomous posting + identity adaptation worker:
+  - `MARKETING_AUTONOMOUS_WORKER_ENABLED=true`
+  - `MARKETING_AUTONOMOUS_PLACEHOLDER_EXECUTE=true`
+  - `MARKETING_AUTONOMOUS_WORKER_CONTINUOUS=true`
+  - `MARKETING_AUTONOMOUS_WORKER_POLL_MS` (default `300000`)
+  - `MARKETING_AUTONOMOUS_DAILY_POST_LIMIT` (default `3`)
+  - `MARKETING_AUTONOMOUS_MIN_INTERVAL_MINUTES` (default `120`)
+  - `MARKETING_AUTONOMOUS_TIMEZONE` (default `Asia/Tokyo`)
+  - `MARKETING_AUTONOMOUS_ACTIVE_HOUR_START` (default `8`)
+  - `MARKETING_AUTONOMOUS_ACTIVE_HOUR_END` (default `23`, exclusive)
+  - `MARKETING_AUTONOMOUS_IDENTITY_ID` (default `koyuki`)
+  - `MARKETING_AUTONOMOUS_DISPLAY_NAME` (default `小雪`)
+  - `MARKETING_AUTONOMOUS_TOPICS` (comma-separated topics)
+  - `MARKETING_AUTONOMOUS_BASE_HASHTAGS` (comma-separated hashtags)
+  - `MARKETING_AUTONOMOUS_METRICS_FETCH_LIMIT` (default `20`)
+  - `MARKETING_AUTONOMOUS_REQUIRE_X_AUTH` (default `true`)
 - `MARKETING_ALERT_EMAIL` (default `tetubrah@gmail.com`; notified on extract/generate/publish terminal failures)
 
 X publisher env (minimal):
@@ -607,6 +623,8 @@ Note:
 - With OAuth 2.0 bearer-only setup, text/link posting still works, but media upload is not attempted.
 - `/api/marketing/ingest` enforces duplicate guard for same `product_url` within 24 hours.
 - Generation success auto-enqueues publish job for channel `x`.
+- `marketing:autonomous-worker` updates a persisted identity profile from recent X reaction metrics
+  (`marketing_metrics_daily`) and auto-enqueues text posts while respecting daily limit and interval.
 
 Seedance/ModelArk note:
 

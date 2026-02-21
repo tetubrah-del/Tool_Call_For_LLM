@@ -14,7 +14,8 @@
     "stripe:webhook-worker": "node scripts/stripe-webhook-worker.mjs",
     "notifications:worker": "node scripts/email-notification-worker.mjs",
     "marketing:generation-worker": "node scripts/marketing-generation-worker.mjs",
-    "marketing:publish-worker": "node scripts/marketing-publish-worker.mjs"
+    "marketing:publish-worker": "node scripts/marketing-publish-worker.mjs",
+    "marketing:autonomous-worker": "node scripts/marketing-autonomous-worker.mjs"
   },
   "dependencies": {
     "@amzn/creatorsapi-nodejs-sdk": "file:vendor/amzn-creatorsapi-nodejs-sdk-1.1.3.tgz",
