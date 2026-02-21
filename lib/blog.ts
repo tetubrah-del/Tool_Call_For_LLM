@@ -20,16 +20,21 @@ export type BlogPost = {
 const BLOG_DIR = path.join(process.cwd(), "docs", "seo", "for-agents-ja");
 const EXCLUDED_FILES = new Set(["README.md"]);
 const LEGACY_PUBLISHED_AT_BY_FILE: Record<string, string> = {
-  "01-onsite-verification-api-intro.md": "2026-02-17",
-  "02-mcp-quickstart.md": "2026-02-17",
-  "03-call-human-fast-implementation.md": "2026-02-17",
-  "04-no-human-timeout-ops.md": "2026-02-17",
-  "05-real-estate-template.md": "2026-02-17",
-  "06-jp-local-research-workflow.md": "2026-02-17",
-  "07-white-collar-ai-shift-overview.md": "2026-02-18",
-  "08-white-collar-job-design.md": "2026-02-18",
-  "09-white-collar-kpi.md": "2026-02-18",
-  "10-white-collar-transition-plan.md": "2026-02-18"
+  "01-onsite-verification-api-intro.md": "2026-02-17T09:00:00+09:00",
+  "02-mcp-quickstart.md": "2026-02-17T09:20:00+09:00",
+  "03-call-human-fast-implementation.md": "2026-02-17T09:40:00+09:00",
+  "04-no-human-timeout-ops.md": "2026-02-17T10:00:00+09:00",
+  "05-real-estate-template.md": "2026-02-17T10:20:00+09:00",
+  "06-jp-local-research-workflow.md": "2026-02-17T10:40:00+09:00",
+  "07-white-collar-ai-shift-overview.md": "2026-02-18T09:00:00+09:00",
+  "08-white-collar-job-design.md": "2026-02-18T09:20:00+09:00",
+  "09-white-collar-kpi.md": "2026-02-18T09:40:00+09:00",
+  "10-white-collar-transition-plan.md": "2026-02-18T10:00:00+09:00",
+  "11-ai-and-human-social-life-editorial.md": "2026-02-20T21:40:00+09:00",
+  "12-ai-era-middle-manager-editorial.md": "2026-02-20T21:46:00+09:00",
+  "13-generative-ai-failure-patterns-editorial.md": "2026-02-20T21:52:00+09:00",
+  "14-why-ai-work-feels-exhausting-editorial.md": "2026-02-20T21:58:00+09:00",
+  "15-ai-era-hiring-editorial.md": "2026-02-20T22:04:00+09:00"
 };
 
 let postsPromise: Promise<BlogPost[]> | null = null;

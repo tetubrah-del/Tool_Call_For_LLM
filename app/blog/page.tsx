@@ -12,10 +12,13 @@ type SortType = "recommended" | "new";
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 function formatDate(value: string): string {
-  return new Date(value).toLocaleDateString("ja-JP", {
+  return new Date(value).toLocaleString("ja-JP", {
     year: "numeric",
     month: "2-digit",
-    day: "2-digit"
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
   });
 }
 
@@ -26,10 +29,12 @@ function parseSort(value: string | string[] | undefined): SortType {
   return value === "recommended" ? "recommended" : "new";
 }
 
-function sortByNewest<T extends { publishedAt: string }>(items: T[]): T[] {
-  return [...items].sort(
-    (a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
-  );
+function sortByNewest<T extends { publishedAt: string; order: number }>(items: T[]): T[] {
+  return [...items].sort((a, b) => {
+    const timeDiff = new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
+    if (timeDiff !== 0) return timeDiff;
+    return b.order - a.order;
+  });
 }
 
 export default async function BlogIndexPage({
