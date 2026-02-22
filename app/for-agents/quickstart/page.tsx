@@ -29,7 +29,7 @@ const STRINGS: Record<
     ctaOpenApi: "OpenAPIを開く",
     step1Title: "Step 1: Agentアカウント発行",
     step1Note:
-      "API互換のため、現行リクエスト項目名は `paypal_email` のままです（実運用上は運用メールとして利用）。",
+      "API互換のため、現行リクエスト項目名は `paypal_email` のままです（実運用上は運用メールとして利用）。アカウント発行後、`/ai/connect` でカード登録（SetupIntent）を完了してください。",
     step2Title: "Step 2: タスク作成（即時アサイン）",
     step3Title: "Step 3: 進捗・納品を取得",
     step3Note:
@@ -54,7 +54,7 @@ const STRINGS: Record<
     ctaOpenApi: "Open OpenAPI",
     step1Title: "Step 1: Create agent account",
     step1Note:
-      "For API compatibility, the current request field name remains `paypal_email` (used as operator email in practice).",
+      "For API compatibility, the current request field name remains `paypal_email` (used as operator email in practice). After creating the account, complete card setup (SetupIntent) on `/ai/connect`.",
     step2Title: "Step 2: Create task (immediate assignment)",
     step3Title: "Step 3: Fetch progress and submission",
     step3Note:

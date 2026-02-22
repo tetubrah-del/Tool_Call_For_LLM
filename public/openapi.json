@@ -38,6 +38,132 @@
         }
       }
     },
+    "/api/ai/billing/setup-intent": {
+      "post": {
+        "summary": "Create Stripe SetupIntent for AI account card registration",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AiBillingSetupIntentPayload" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "SetupIntent created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AiBillingSetupIntentResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "404": {
+            "description": "AI account not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "409": {
+            "description": "Billing setup conflict",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "502": {
+            "description": "Stripe provider error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ai/billing/payment-method": {
+      "post": {
+        "summary": "Set default Stripe payment method for AI account",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AiBillingPaymentMethodPayload" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Payment method saved",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AiBillingPaymentMethodResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "404": {
+            "description": "AI account not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "409": {
+            "description": "Billing setup conflict",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "502": {
+            "description": "Stripe provider error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/tasks": {
       "post": {
         "summary": "Create open task",
@@ -939,6 +1065,42 @@
           "status": { "type": "string", "enum": ["connected"] },
           "account_id": { "type": "string" },
           "api_key": { "type": "string" }
+        }
+      },
+      "AiBillingSetupIntentPayload": {
+        "type": "object",
+        "required": ["ai_account_id", "ai_api_key"],
+        "properties": {
+          "ai_account_id": { "type": "string" },
+          "ai_api_key": { "type": "string" }
+        }
+      },
+      "AiBillingSetupIntentResponse": {
+        "type": "object",
+        "required": ["status", "setup_intent_id", "client_secret", "stripe_customer_id"],
+        "properties": {
+          "status": { "type": "string", "enum": ["ok"] },
+          "setup_intent_id": { "type": "string" },
+          "client_secret": { "type": "string" },
+          "stripe_customer_id": { "type": "string" }
+        }
+      },
+      "AiBillingPaymentMethodPayload": {
+        "type": "object",
+        "required": ["ai_account_id", "ai_api_key", "payment_method_id"],
+        "properties": {
+          "ai_account_id": { "type": "string" },
+          "ai_api_key": { "type": "string" },
+          "payment_method_id": { "type": "string" }
+        }
+      },
+      "AiBillingPaymentMethodResponse": {
+        "type": "object",
+        "required": ["status", "stripe_customer_id", "default_payment_method_id"],
+        "properties": {
+          "status": { "type": "string", "enum": ["ok"] },
+          "stripe_customer_id": { "type": "string" },
+          "default_payment_method_id": { "type": "string" }
         }
       },
       "CreateTaskPayload": {

@@ -1285,6 +1285,7 @@ function evaluatePostQuality(identity, post) {
   const hashtags = normalizeGeneratedHashtags(post?.hashtags || [], identity);
   const bannedPhrases = Array.isArray(identity?.banned_phrases) ? identity.banned_phrases : [];
   const sourceType = String(post?.source_context?.source_type || "").trim().toLowerCase();
+  const topicText = String(post?.topic || "").trim();
 
   const reasons = [];
   let score = 100;
@@ -1345,6 +1346,15 @@ function evaluatePostQuality(identity, post) {
     reasons.push("meta operational wording is not allowed");
     score -= 35;
   }
+  if (/対象読者は|明日は.+してください|KPIは|定型化して|入力条件|採用基準|合格条件/.test(body)) {
+    reasons.push("too operator-like; not follower-value oriented");
+    score -= 30;
+  }
+  if (/明日使えるAI小技|運用手順の説明/.test(topicText)) {
+    reasons.push("topic too generic or operator-like");
+    score -= 12;
+  }
+
   const hasTarget = containsAny(body, [
     /中小企業|中堅企業|大企業|現場/,
     /マーケ担当|広報担当|CS担当|営業担当|人事担当|マネージャー|経営者/,
@@ -1366,6 +1376,7 @@ function evaluatePostQuality(identity, post) {
     /回避|防ぐ|避ける|気をつけ/
   ]);
   const hasStepStructure = containsAny(body, [/(^|\n)\s*[1-3][\).]/, /(^|\n)\s*[・\-]/]);
+  const hasConcreteExample = containsAny(body, [/例えば|たとえば|例:|例：|実例|具体例|具体的には|ケース/]);
 
   const tipSignals = [hasTarget, hasUseCase, hasMetric, hasPitfall, hasStepStructure].filter(Boolean).length;
   if (tipSignals < 3) {
@@ -1382,6 +1393,10 @@ function evaluatePostQuality(identity, post) {
   }
   if (!hasPitfall) {
     reasons.push("missing pitfall and avoidance hint");
+    score -= 8;
+  }
+  if (!hasConcreteExample) {
+    reasons.push("missing concrete example");
     score -= 8;
   }
 
@@ -1428,10 +1443,10 @@ function buildFallbackBody(identity) {
     : `- ${pickRandom(quickActions, quickActions[0])}`;
 
   const insightLine = `今日のテーマは「${topic}」。派手さより、再現できる小さな改善がいちばん強いです。`;
-  const audienceLine = "対象は、日々の運用を回すマーケ担当・CS担当の方です。";
-  const useCaseLine = "ユースケースは「問い合わせ返信」か「SNS投稿文」のどちらか1つに絞るのがおすすめ。";
-  const metricLine = "見る指標は、一次回答時間（またはCTR）と修正回数の2つだけで十分です。";
-  const pitfallLine = "注意点は、最初から全業務に広げないこと。対象業務を1つに固定すると失敗を回避できます。";
+  const audienceLine = "社内でAI運用を任されたマーケ担当・CS担当に、まず効くやり方です。";
+  const useCaseLine = "たとえば問い合わせ返信なら、最初は『一次回答の下書き』だけをAIに任せるのが安全です。";
+  const metricLine = "見る数字は、一次回答時間と修正回数の2つ。ここが改善すれば導入効果は十分出ます。";
+  const pitfallLine = "失敗しやすいのは、最初から全部自動化すること。1工程だけ固定すると安定します。";
   const questionTail = shouldUseQuestion(adaptation)
     ? "あなたの現場で次に試す1手は何ですか？"
     : "現場で使える形まで落とし込みます。";
@@ -1496,6 +1511,8 @@ function buildLlmSystemPrompt(identity) {
     `制約: 本文は${POST_MIN_CHARS}-${POST_MAX_CHARS}文字、絵文字は最大${POST_MAX_EMOJIS}個、ハッシュタグ最大${POST_MAX_HASHTAGS}個。`,
     "引用投稿では、引用内容の要約だけで終わらせず『小雪の見解』を必ず1-2文入れること。",
     "見解には、マーケ施策の優先順位/KPI/導線設計/日本企業の運用課題のいずれかを含めること。",
+    "フォロワー価値最優先。運用者向けの説明文（対象読者は〜、KPIは〜、明日は〜してください）は使わない。",
+    "専門用語だけで終わらせず、必ず具体例を1つ入れる。",
     "事実不明の断定は禁止。攻撃的・不安煽りは禁止。"
   ].join("\n");
 }
@@ -1516,6 +1533,7 @@ function buildLlmUserPrompt(identity, topic, adaptation, retryReasons = []) {
     "目的: バズを狙いつつ、読む人が『自分ごと』化できる投稿にする。",
     "必須: 本文に『対象読者』『具体ユースケース』『見る指標(KPI)』『失敗しやすい点と回避策』の要素を必ず含める。",
     "書き方: 抽象論は避ける。明日そのまま試せる具体度で書く。",
+    "口調: フォロワーに語りかける文章にする。運用マニュアル口調は禁止。",
     `最近使ったトピック（重複回避）: ${recentTopics.join(", ") || "なし"}`,
     `反応が良かった傾向: tags=${winningTags.join(", ") || "なし"} / patterns=${winningPatterns.join(", ") || "なし"}`,
     `避けたい傾向: ${avoidPatterns.join(", ") || "なし"}`,
@@ -1526,6 +1544,8 @@ function buildLlmUserPrompt(identity, topic, adaptation, retryReasons = []) {
     "source_type=x_post のときは、本文に『小雪の見解（女性マーケターとしての示唆）』を必ず明記する。",
     "見解は、導線・訴求・ターゲット・KPI・検証設計のいずれかに具体的に触れる。",
     "本文テンプレの目安: フック1文 → 対象とユースケース → KPI/判断軸 → 注意点と回避策 → 一言締め。",
+    "悪い例: 『対象読者は〜』『KPIは〜』『明日は〜してください』",
+    "良い例: 『現場で実際に効いた具体例』を1つ添えて、すぐ試せる形で伝える。",
     "運用メタ発言（投稿テスト/動作確認/実装アップデート）は禁止。",
     "本文は次の構成にする: フック1文 → 背景/解像度1-2文 → すぐ試せる1アクション → 一言締め。",
     "次のNGは避ける: 教科書口調、抽象論だけ、フォロワー運用の話だけ。"

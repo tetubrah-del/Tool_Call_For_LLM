@@ -504,6 +504,7 @@ Env vars (optional, defaults exist):
 ### Required env vars / ops
 
 - `STRIPE_SECRET_KEY` (sk_...)
+- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` (pk_..., required for AI card registration UI on `/ai/connect`)
 - `STRIPE_WEBHOOK_SECRET`
 - `APP_BASE_URL` (used to validate checkout success/cancel redirect URLs)
 
