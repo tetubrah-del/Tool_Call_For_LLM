@@ -623,6 +623,7 @@ Optional worker tuning:
   - `MARKETING_AUTONOMOUS_POST_MAX_HASHTAGS` (default `2`)
   - `MARKETING_AUTONOMOUS_POST_MAX_EMOJIS` (default `2`)
   - `MARKETING_AUTONOMOUS_POST_TONE_POLICY` (default `strict`; `balanced` or `free` to allow more colloquial tone)
+  - OpenClaw/API generator can optionally return `source_context`; when `source_type=x_post` + `source_post_id` the publish worker posts as native quote, otherwise it appends `source_url` for non-X sources
 - `MARKETING_ALERT_EMAIL` (default `tetubrah@gmail.com`; notified on extract/generate/publish terminal failures)
 
 X publisher env (minimal):

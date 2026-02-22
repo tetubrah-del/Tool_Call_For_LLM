@@ -1247,6 +1247,35 @@ function normalizeGeneratedHashtags(value, identity) {
   return fallback.map(normalizeHashtag).filter(Boolean).slice(0, POST_MAX_HASHTAGS);
 }
 
+function normalizeSourceType(value) {
+  const v = String(value || "").trim().toLowerCase();
+  if (!v) return null;
+  if (["x_post", "article", "rss", "blog", "official"].includes(v)) return v;
+  return null;
+}
+
+function normalizeSourceContext(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const sourceType = normalizeSourceType(value.source_type || value.type);
+  const sourcePostId = String(value.source_post_id || value.post_id || value.tweet_id || "").trim().slice(0, 120);
+  const sourceUrl = String(value.source_url || value.url || "").trim().slice(0, 2000);
+  const sourceTitle = String(value.source_title || value.title || "").trim().slice(0, 300);
+  const sourcePublisher = String(value.source_publisher || value.publisher || "").trim().slice(0, 120);
+
+  const out = {};
+  if (sourceType) out.source_type = sourceType;
+  if (sourcePostId) out.source_post_id = sourcePostId;
+  if (sourceUrl) out.source_url = sourceUrl;
+  if (sourceTitle) out.source_title = sourceTitle;
+  if (sourcePublisher) out.source_publisher = sourcePublisher;
+
+  const keys = Object.keys(out);
+  if (!keys.length) return null;
+  if (out.source_type === "x_post" && !out.source_post_id) return null;
+  if (out.source_type !== "x_post" && !out.source_url) return null;
+  return out;
+}
+
 function evaluatePostQuality(identity, post) {
   const body = normalizeBodyText(post?.body || "");
   const hashtags = normalizeGeneratedHashtags(post?.hashtags || [], identity);
@@ -1306,6 +1335,10 @@ function evaluatePostQuality(identity, post) {
   if (/煽|炎上|殴|バカ|情弱|搾取/.test(body)) {
     reasons.push("unsafe aggressive tone");
     score -= 40;
+  }
+  if (/投稿テスト|動作確認|実装アップデート|検証中|テストです/.test(body)) {
+    reasons.push("meta operational wording is not allowed");
+    score -= 35;
   }
 
   const normalizedBody = normalizeTextLength(body, 500);
@@ -1419,7 +1452,10 @@ function buildLlmUserPrompt(identity, topic, adaptation, retryReasons = []) {
     `反応が良かった傾向: tags=${winningTags.join(", ") || "なし"} / patterns=${winningPatterns.join(", ") || "なし"}`,
     `避けたい傾向: ${avoidPatterns.join(", ") || "なし"}`,
     "出力はJSONのみ。スキーマ:",
-    '{"topic":"string","body_text":"string","hashtags":["#tag1","#tag2"]}',
+    '{"topic":"string","body_text":"string","hashtags":["#tag1","#tag2"],"source_context":{"source_type":"x_post|article|rss|blog|official","source_post_id":"string?","source_url":"string?","source_title":"string?","source_publisher":"string?"}}',
+    "source_contextは任意。自然に参照すべき情報源がある時だけ入れる。なければnullでよい。",
+    "x投稿を参照する場合は source_type=x_post と source_post_id を必ず入れる。",
+    "運用メタ発言（投稿テスト/動作確認/実装アップデート）は禁止。",
     "本文は次の構成にする: フック1文 → 背景/解像度1-2文 → すぐ試せる1アクション → 一言締め。",
     "次のNGは避ける: 教科書口調、抽象論だけ、フォロワー運用の話だけ。"
   ].join("\n");
@@ -1430,10 +1466,23 @@ function normalizeGeneratedPayload(parsed, topic, identity) {
     if (!value || typeof value !== "object") return null;
     const bodyCandidate = value.body_text || value.body || value.text;
     if (typeof bodyCandidate !== "string" || !bodyCandidate.trim()) return null;
+    const sourceContext = normalizeSourceContext(
+      value.source_context ||
+        value.source || {
+          source_type: value.source_type,
+          source_post_id: value.source_post_id,
+          source_url: value.source_url,
+          source_title: value.source_title,
+          source_publisher: value.source_publisher
+        }
+    );
+    const productUrl = String(value.product_url || "").trim().slice(0, 2000) || null;
     return {
       topic: String(value.topic || topic).trim() || topic,
       body: normalizeBodyText(bodyCandidate),
-      hashtags: normalizeGeneratedHashtags(value.hashtags, identity)
+      hashtags: normalizeGeneratedHashtags(value.hashtags, identity),
+      source_context: sourceContext,
+      product_url: productUrl
     };
   };
 
@@ -1502,7 +1551,9 @@ async function generateAutonomousBodyWithAi(identity) {
         hashtags: evaluated.hashtags,
         textHash: evaluated.textHash,
         quality_score: evaluated.score,
-        source: AI_GENERATOR === "openclaw" ? "openclaw" : "llm_api"
+        source: AI_GENERATOR === "openclaw" ? "openclaw" : "llm_api",
+        source_context: candidate.source_context || null,
+        product_url: candidate.product_url || null
       };
     }
     retryReasons = evaluated.reasons.slice(0, 4);
@@ -1543,9 +1594,18 @@ async function queueAutonomousPost(db, identity, bodyPayload) {
   await db.run(
     `INSERT INTO marketing_contents (
       id, brief_id, channel, format, title, body_text, hashtags_json,
-      status, media_asset_url, created_at, updated_at
-    ) VALUES (?, ?, 'x', 'text', NULL, ?, ?, 'approved', NULL, ?, ?)`,
-    [contentId, briefId, bodyPayload.body, safeJsonStringify(bodyPayload.hashtags) || "[]", now, now]
+      status, media_asset_url, product_url, source_context_json, created_at, updated_at
+    ) VALUES (?, ?, 'x', 'text', NULL, ?, ?, 'approved', NULL, ?, ?, ?, ?)`,
+    [
+      contentId,
+      briefId,
+      bodyPayload.body,
+      safeJsonStringify(bodyPayload.hashtags) || "[]",
+      bodyPayload.product_url || null,
+      safeJsonStringify(bodyPayload.source_context) || null,
+      now,
+      now
+    ]
   );
 
   await db.run(
@@ -1573,7 +1633,8 @@ async function queueAutonomousPost(db, identity, bodyPayload) {
   return {
     content_id: contentId,
     job_id: jobId,
-    topic: bodyPayload.topic
+    topic: bodyPayload.topic,
+    source_type: bodyPayload?.source_context?.source_type || null
   };
 }
 
@@ -1681,7 +1742,9 @@ async function runCycle(db) {
       topic: fallback.topic,
       body: checkedFallback.body,
       hashtags: checkedFallback.hashtags,
-      textHash: checkedFallback.textHash
+      textHash: checkedFallback.textHash,
+      source_context: null,
+      product_url: null
     };
     generationSource = "template_fallback";
     generationNote = String(error?.code || "ai_generation_failed");
@@ -1711,6 +1774,7 @@ async function runCycle(db) {
     content_id: queued.content_id,
     job_id: queued.job_id,
     topic: queued.topic,
+    source_type: queued.source_type,
     generation_source: generationSource,
     generation_note: generationNote || null,
     metrics_sync: metricsSync,
