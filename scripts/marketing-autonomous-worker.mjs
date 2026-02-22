@@ -95,6 +95,40 @@ const BASE_HASHTAGS = parseCsv(process.env.MARKETING_AUTONOMOUS_BASE_HASHTAGS ||
   ? parseCsv(process.env.MARKETING_AUTONOMOUS_BASE_HASHTAGS || "").map(normalizeHashtag).filter(Boolean)
   : DEFAULT_HASHTAGS;
 
+const SOURCE_BUCKETS = ["international_quote", "domestic_quote", "original"];
+const SOURCE_MIX_RAW = {
+  international_quote: Math.max(
+    0,
+    Number(process.env.MARKETING_AUTONOMOUS_MIX_INTERNATIONAL_QUOTE || 4)
+  ),
+  domestic_quote: Math.max(0, Number(process.env.MARKETING_AUTONOMOUS_MIX_DOMESTIC_QUOTE || 2)),
+  original: Math.max(0, Number(process.env.MARKETING_AUTONOMOUS_MIX_ORIGINAL || 2))
+};
+const DAILY_SOURCE_MIX = normalizeDailySourceMix(DAILY_POST_LIMIT, SOURCE_MIX_RAW);
+
+const DEFAULT_INTERNATIONAL_QUOTE_ACCOUNTS = [
+  "OpenAI",
+  "AnthropicAI",
+  "GoogleDeepMind",
+  "MistralAI",
+  "huggingface",
+  "AIatMeta",
+  "NVIDIAAI"
+];
+const DEFAULT_DOMESTIC_QUOTE_ACCOUNTS = ["masahirochaen"];
+
+const INTERNATIONAL_QUOTE_ACCOUNTS = parseHandleList(
+  process.env.MARKETING_AUTONOMOUS_INTERNATIONAL_QUOTE_ACCOUNTS || "",
+  DEFAULT_INTERNATIONAL_QUOTE_ACCOUNTS
+);
+const DOMESTIC_QUOTE_ACCOUNTS = parseHandleList(
+  process.env.MARKETING_AUTONOMOUS_DOMESTIC_QUOTE_ACCOUNTS || "",
+  DEFAULT_DOMESTIC_QUOTE_ACCOUNTS
+);
+const INTERNATIONAL_ACCOUNT_SET = new Set(INTERNATIONAL_QUOTE_ACCOUNTS);
+const DOMESTIC_ACCOUNT_SET = new Set(DOMESTIC_QUOTE_ACCOUNTS);
+const X_USER_ID_CACHE = new Map();
+
 class AutonomousError extends Error {
   constructor(code, message, options = {}) {
     super(message);
@@ -120,6 +154,75 @@ function parseCsv(value) {
     .split(",")
     .map((v) => v.trim())
     .filter(Boolean);
+}
+
+function normalizeHandle(value) {
+  return String(value || "")
+    .trim()
+    .replace(/^@+/, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, "")
+    .slice(0, 30);
+}
+
+function parseHandleList(raw, fallback = []) {
+  const parsed = parseCsv(raw).map(normalizeHandle).filter(Boolean);
+  if (parsed.length) return Array.from(new Set(parsed));
+  return Array.from(new Set((fallback || []).map(normalizeHandle).filter(Boolean)));
+}
+
+function normalizeDailySourceMix(limit, rawMix) {
+  const normalized = {
+    international_quote: Math.max(0, Number(rawMix?.international_quote || 0)),
+    domestic_quote: Math.max(0, Number(rawMix?.domestic_quote || 0)),
+    original: Math.max(0, Number(rawMix?.original || 0))
+  };
+  const total = Object.values(normalized).reduce((sum, value) => sum + value, 0);
+  if (limit <= 0) {
+    return { international_quote: 0, domestic_quote: 0, original: 0 };
+  }
+  if (total <= 0) {
+    return { international_quote: 0, domestic_quote: 0, original: limit };
+  }
+  if (Math.abs(total - limit) < 1e-6) {
+    return normalized;
+  }
+
+  const scaled = {};
+  let assigned = 0;
+  for (const bucket of SOURCE_BUCKETS) {
+    const ratio = normalized[bucket] / total;
+    const base = Math.floor(ratio * limit);
+    scaled[bucket] = {
+      value: base,
+      frac: ratio * limit - base
+    };
+    assigned += base;
+  }
+
+  let remain = limit - assigned;
+  if (remain > 0) {
+    const ordered = SOURCE_BUCKETS.slice().sort((a, b) => scaled[b].frac - scaled[a].frac);
+    for (let i = 0; i < ordered.length && remain > 0; i += 1) {
+      scaled[ordered[i]].value += 1;
+      remain -= 1;
+    }
+  }
+
+  return {
+    international_quote: scaled.international_quote.value,
+    domestic_quote: scaled.domestic_quote.value,
+    original: scaled.original.value
+  };
+}
+
+function shuffle(values) {
+  const arr = Array.isArray(values) ? values.slice() : [];
+  for (let i = arr.length - 1; i > 0; i -= 1) {
+    const j = crypto.randomInt(i + 1);
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
 }
 
 function safeJsonParse(raw, fallback = null) {
@@ -1276,6 +1379,64 @@ function normalizeSourceContext(value) {
   return out;
 }
 
+function extractHandleFromSourceContext(sourceContext) {
+  const publisher = normalizeHandle(sourceContext?.source_publisher || "");
+  if (publisher) return publisher;
+
+  const sourceUrl = String(sourceContext?.source_url || "").trim();
+  if (!sourceUrl) return "";
+  const match = sourceUrl.match(/x\.com\/([A-Za-z0-9_]{1,30})/i);
+  if (!match?.[1]) return "";
+  return normalizeHandle(match[1]);
+}
+
+function classifySourceBucket(sourceContext) {
+  const normalized = normalizeSourceContext(sourceContext || {});
+  if (!normalized || normalized.source_type !== "x_post") {
+    return "original";
+  }
+  const handle = extractHandleFromSourceContext(normalized);
+  if (INTERNATIONAL_ACCOUNT_SET.has(handle)) return "international_quote";
+  if (DOMESTIC_ACCOUNT_SET.has(handle)) return "domestic_quote";
+  return "domestic_quote";
+}
+
+function summarizeSourceMix(posts, todayKey) {
+  const summary = {
+    international_quote: 0,
+    domestic_quote: 0,
+    original: 0
+  };
+  const usedSourcePostIds = new Set();
+  for (const post of posts || []) {
+    if (dateKeyInTz(post?.published_at, TIMEZONE) !== todayKey) continue;
+    const sourceContext = safeJsonParse(post?.source_context_json, null);
+    const bucket = classifySourceBucket(sourceContext);
+    summary[bucket] += 1;
+    const sourcePostId = String(sourceContext?.source_post_id || "").trim();
+    if (sourcePostId) usedSourcePostIds.add(sourcePostId);
+  }
+  return { ...summary, used_source_post_ids: Array.from(usedSourcePostIds) };
+}
+
+function pickNextSourceBucket(sourceMixToday) {
+  let selected = "original";
+  let bestDeficit = -Infinity;
+  for (const bucket of SOURCE_BUCKETS) {
+    const target = Number(DAILY_SOURCE_MIX[bucket] || 0);
+    const current = Number(sourceMixToday?.[bucket] || 0);
+    const deficit = target - current;
+    if (deficit > bestDeficit) {
+      selected = bucket;
+      bestDeficit = deficit;
+    }
+  }
+  if (bestDeficit <= 0) {
+    return "original";
+  }
+  return selected;
+}
+
 function containsAny(text, patterns) {
   return patterns.some((pattern) => pattern.test(text));
 }
@@ -1342,7 +1503,7 @@ function evaluatePostQuality(identity, post) {
     reasons.push("unsafe aggressive tone");
     score -= 40;
   }
-  if (/投稿テスト|動作確認|実装アップデート|検証中|テストです/.test(body)) {
+  if (/投稿テスト|動作確認|実装アップデート|検証中|テストです|接続確認|疎通確認/.test(body)) {
     reasons.push("meta operational wording is not allowed");
     score -= 35;
   }
@@ -1425,12 +1586,47 @@ function evaluatePostQuality(identity, post) {
   };
 }
 
-function buildFallbackBody(identity) {
+function buildFallbackBody(identity, generationPlan = { bucket: "original", source_context: null }) {
   const adaptation = identity.adaptation || {};
   const topic = pickTopic(TOPICS, identity?.memory?.recent_topic_keys);
   const emoji = pickRandom(identity?.style?.emoji || ["✨"], "✨");
   const opener = pickRandom(identity?.style?.opener || [], `${IDENTITY_DISPLAY_NAME}です。`);
   const closer = pickRandom(identity?.style?.closer || [], "一緒に実験していきましょう。");
+  const mode = generationPlan?.bucket || "original";
+
+  if (mode !== "original" && generationPlan?.source_context) {
+    const src = generationPlan.source_context;
+    const sourcePublisher = src.source_publisher || "注目投稿";
+    const sourceTitle = normalizeTextLength(src.source_title || "最新AIトピック", 90);
+    const hashtags = (Array.isArray(identity.hashtag_pool) ? identity.hashtag_pool : BASE_HASHTAGS)
+      .map(normalizeHashtag)
+      .filter(Boolean)
+      .slice(0, POST_MAX_HASHTAGS)
+      .join(" ");
+
+    const quoteBody = [
+      `${opener}${emoji}`,
+      `${sourcePublisher}の話題「${sourceTitle}」、小雪の現場でも示唆が大きいです。`,
+      "小雪の見立てでは、まず『誰に何を3秒で伝えるか』を固定してから制作すると、訴求がブレません。",
+      "たとえばLP動画なら、3秒で課題提示→15秒で解決イメージ→最後にCTA1つ、の順にすると導線が整理されます。",
+      "失敗しやすいのは、機能説明を詰め込みすぎてメッセージが散ること。",
+      "最初に見るKPIはCTRと完視聴率の2つだけ。ここが上がれば次の改善が判断しやすいです。",
+      `${closer}`,
+      hashtags
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+
+    const normalizedBody = normalizeTextLength(quoteBody, 500);
+    const textHash = crypto.createHash("sha256").update(normalizedBody).digest("hex");
+    return {
+      topic,
+      body: normalizedBody,
+      hashtags: hashtags ? hashtags.split(/\s+/).filter(Boolean) : [],
+      textHash,
+      source_context: src
+    };
+  }
 
   const quickActions = [
     "まず30分で試せる最小タスクを1つ切り出す",
@@ -1478,7 +1674,8 @@ function buildFallbackBody(identity) {
     topic,
     body: normalizedBody,
     hashtags: hashtags ? hashtags.split(/\s+/).filter(Boolean) : [],
-    textHash
+    textHash,
+    source_context: null
   };
 }
 
@@ -1517,7 +1714,7 @@ function buildLlmSystemPrompt(identity) {
   ].join("\n");
 }
 
-function buildLlmUserPrompt(identity, topic, adaptation, retryReasons = []) {
+function buildLlmUserPrompt(identity, topic, adaptation, generationPlan, retryReasons = []) {
   const winningTags = Array.isArray(adaptation?.winning_hashtags) ? adaptation.winning_hashtags : [];
   const winningPatterns = Array.isArray(adaptation?.winning_patterns) ? adaptation.winning_patterns : [];
   const avoidPatterns = Array.isArray(adaptation?.avoid_patterns) ? adaptation.avoid_patterns : [];
@@ -1526,6 +1723,22 @@ function buildLlmUserPrompt(identity, topic, adaptation, retryReasons = []) {
   const feedback = retryReasons.length
     ? `前回案の修正点: ${retryReasons.join(" / ")}`
     : "初回生成";
+  const targetBucket = generationPlan?.bucket || "original";
+  const targetLabel =
+    targetBucket === "international_quote"
+      ? "海外引用"
+      : targetBucket === "domestic_quote"
+        ? "国内引用"
+        : "オリジナル";
+  const source = generationPlan?.source_context || null;
+  const sourceRequirement = source
+    ? [
+        `今回の投稿タイプ: ${targetLabel}（必須）`,
+        "今回の引用元は固定。以下を source_context にそのまま設定すること。",
+        safeJsonStringify(source) || "{}",
+        "本文中で引用内容を1文要約し、その後に小雪の見解（マーケ実務の示唆）を必ず入れる。"
+      ]
+    : [`今回の投稿タイプ: ${targetLabel}（source_context は null 固定）`];
 
   return [
     `${feedback}`,
@@ -1537,6 +1750,7 @@ function buildLlmUserPrompt(identity, topic, adaptation, retryReasons = []) {
     `最近使ったトピック（重複回避）: ${recentTopics.join(", ") || "なし"}`,
     `反応が良かった傾向: tags=${winningTags.join(", ") || "なし"} / patterns=${winningPatterns.join(", ") || "なし"}`,
     `避けたい傾向: ${avoidPatterns.join(", ") || "なし"}`,
+    ...sourceRequirement,
     "出力はJSONのみ。スキーマ:",
     '{"topic":"string","body_text":"string","hashtags":["#tag1","#tag2"],"source_context":{"source_type":"x_post|article|rss|blog|official","source_post_id":"string?","source_url":"string?","source_title":"string?","source_publisher":"string?"}}',
     "source_contextは任意。自然に参照すべき情報源がある時だけ入れる。なければnullでよい。",
@@ -1550,6 +1764,22 @@ function buildLlmUserPrompt(identity, topic, adaptation, retryReasons = []) {
     "本文は次の構成にする: フック1文 → 背景/解像度1-2文 → すぐ試せる1アクション → 一言締め。",
     "次のNGは避ける: 教科書口調、抽象論だけ、フォロワー運用の話だけ。"
   ].join("\n");
+}
+
+function applyGenerationPlan(candidate, generationPlan) {
+  const plan = generationPlan || { bucket: "original", source_context: null };
+  const normalized = {
+    ...candidate,
+    source_context: normalizeSourceContext(candidate?.source_context || null)
+  };
+  if (plan.bucket === "original") {
+    normalized.source_context = null;
+    return normalized;
+  }
+  if (plan.source_context) {
+    normalized.source_context = normalizeSourceContext(plan.source_context);
+  }
+  return normalized;
 }
 
 function normalizeGeneratedPayload(parsed, topic, identity) {
@@ -1609,14 +1839,17 @@ function normalizeGeneratedPayload(parsed, topic, identity) {
   return null;
 }
 
-async function generateAutonomousBodyWithAi(identity) {
+async function generateAutonomousBodyWithAi(identity, generationPlan) {
   const topic = pickTopic(TOPICS, identity?.memory?.recent_topic_keys);
   let retryReasons = [];
 
   for (let i = 0; i < AI_MAX_ATTEMPTS; i += 1) {
     const messages = [
       { role: "system", content: buildLlmSystemPrompt(identity) },
-      { role: "user", content: buildLlmUserPrompt(identity, topic, identity?.adaptation || {}, retryReasons) }
+      {
+        role: "user",
+        content: buildLlmUserPrompt(identity, topic, identity?.adaptation || {}, generationPlan, retryReasons)
+      }
     ];
 
     let rawOutput = "";
@@ -1634,17 +1867,18 @@ async function generateAutonomousBodyWithAi(identity) {
       continue;
     }
 
-    const evaluated = evaluatePostQuality(identity, candidate);
+    const plannedCandidate = applyGenerationPlan(candidate, generationPlan);
+    const evaluated = evaluatePostQuality(identity, plannedCandidate);
     if (evaluated.passes) {
       return {
-        topic: candidate.topic,
+        topic: plannedCandidate.topic,
         body: evaluated.body,
         hashtags: evaluated.hashtags,
         textHash: evaluated.textHash,
         quality_score: evaluated.score,
         source: AI_GENERATOR === "openclaw" ? "openclaw" : "llm_api",
-        source_context: candidate.source_context || null,
-        product_url: candidate.product_url || null
+        source_context: plannedCandidate.source_context || null,
+        product_url: plannedCandidate.product_url || null
       };
     }
     retryReasons = evaluated.reasons.slice(0, 4);
@@ -1667,13 +1901,112 @@ async function getPendingPublishCount(db) {
 
 async function getRecentPublishedPosts(db, limit = 200) {
   return db.all(
-    `SELECT id, published_at
-     FROM marketing_posts
-     WHERE channel = 'x'
-     ORDER BY published_at DESC
+    `SELECT p.id, p.published_at, c.source_context_json
+     FROM marketing_posts p
+     LEFT JOIN marketing_contents c ON c.id = p.content_id
+     WHERE p.channel = 'x'
+     ORDER BY p.published_at DESC
      LIMIT ?`,
     [limit]
   );
+}
+
+async function fetchXUserIdByHandle(handle) {
+  const normalizedHandle = normalizeHandle(handle);
+  if (!normalizedHandle) return null;
+  if (X_USER_ID_CACHE.has(normalizedHandle)) {
+    return X_USER_ID_CACHE.get(normalizedHandle);
+  }
+  const url = `${X_POSTS_BASE_URL}/2/users/by/username/${encodeURIComponent(normalizedHandle)}?user.fields=id`;
+  const response = await xRequest("GET", url);
+  if (!response.response.ok) {
+    throw new AutonomousError("x_http_error", `x user lookup http ${response.response.status}`, {
+      retryable: response.response.status >= 500 || response.response.status === 429,
+      httpStatus: response.response.status,
+      rawBody: response.raw
+    });
+  }
+  const body = safeJsonParse(response.raw, {});
+  const userId = String(body?.data?.id || "").trim();
+  if (!userId) return null;
+  X_USER_ID_CACHE.set(normalizedHandle, userId);
+  return userId;
+}
+
+async function fetchRecentTweetCandidate(handle, excludedSourceIds = new Set()) {
+  const userId = await fetchXUserIdByHandle(handle);
+  if (!userId) return null;
+
+  const url = new URL(`${X_POSTS_BASE_URL}/2/users/${encodeURIComponent(userId)}/tweets`);
+  url.searchParams.set("max_results", "8");
+  url.searchParams.set("exclude", "retweets,replies");
+  url.searchParams.set("tweet.fields", "created_at,text");
+
+  const response = await xRequest("GET", url.toString());
+  if (!response.response.ok) {
+    throw new AutonomousError("x_http_error", `x user tweets http ${response.response.status}`, {
+      retryable: response.response.status >= 500 || response.response.status === 429,
+      httpStatus: response.response.status,
+      rawBody: response.raw
+    });
+  }
+  const body = safeJsonParse(response.raw, {});
+  const tweets = Array.isArray(body?.data) ? body.data : [];
+  for (const tweet of tweets) {
+    const sourcePostId = String(tweet?.id || "").trim();
+    if (!sourcePostId || excludedSourceIds.has(sourcePostId)) continue;
+    const text = normalizeBodyText(String(tweet?.text || "").replace(/\s+/g, " "));
+    if (!text) continue;
+    return {
+      source_post_id: sourcePostId,
+      source_title: normalizeTextLength(text, 130),
+      source_url: `https://x.com/${normalizeHandle(handle)}/status/${sourcePostId}`,
+      source_publisher: `@${normalizeHandle(handle)}`
+    };
+  }
+  return null;
+}
+
+async function buildGenerationPlan(targetBucket, sourceMixToday) {
+  if (targetBucket === "original") {
+    return {
+      bucket: "original",
+      source_context: null,
+      reason: null
+    };
+  }
+
+  const usedIds = new Set(Array.isArray(sourceMixToday?.used_source_post_ids) ? sourceMixToday.used_source_post_ids : []);
+  const accounts =
+    targetBucket === "international_quote"
+      ? INTERNATIONAL_QUOTE_ACCOUNTS
+      : DOMESTIC_QUOTE_ACCOUNTS;
+
+  for (const account of shuffle(accounts)) {
+    try {
+      const source = await fetchRecentTweetCandidate(account, usedIds);
+      if (!source) continue;
+      return {
+        bucket: targetBucket,
+        source_context: {
+          source_type: "x_post",
+          source_post_id: source.source_post_id,
+          source_url: source.source_url,
+          source_title: source.source_title,
+          source_publisher: source.source_publisher
+        },
+        reason: null
+      };
+    } catch {
+      continue;
+    }
+  }
+
+  return {
+    bucket: targetBucket,
+    source_context: null,
+    reason: "quote_source_unavailable"
+  };
 }
 
 async function queueAutonomousPost(db, identity, bodyPayload) {
@@ -1769,12 +2102,19 @@ async function runCycle(db) {
   const recentPosts = await getRecentPublishedPosts(db, 400);
   const todayKey = dateKeyInTz(now, TIMEZONE);
   const postedToday = recentPosts.filter((row) => dateKeyInTz(row.published_at, TIMEZONE) === todayKey).length;
+  const sourceMixToday = summarizeSourceMix(recentPosts, todayKey);
   if (postedToday >= DAILY_POST_LIMIT) {
     return {
       action: "skip_daily_limit_reached",
       at: now,
       posted_today: postedToday,
       daily_limit: DAILY_POST_LIMIT,
+      source_mix_today: {
+        international_quote: sourceMixToday.international_quote,
+        domestic_quote: sourceMixToday.domestic_quote,
+        original: sourceMixToday.original
+      },
+      source_mix_target: DAILY_SOURCE_MIX,
       metrics_sync: metricsSync,
       adaptation: adaptation.summary
     };
@@ -1788,12 +2128,38 @@ async function runCycle(db) {
         action: "skip_min_interval",
         at: now,
         posted_today: postedToday,
+        source_mix_today: {
+          international_quote: sourceMixToday.international_quote,
+          domestic_quote: sourceMixToday.domestic_quote,
+          original: sourceMixToday.original
+        },
+        source_mix_target: DAILY_SOURCE_MIX,
         minutes_since_last_post: Math.floor(elapsedMs / 60000),
         min_interval_minutes: MIN_INTERVAL_MINUTES,
         metrics_sync: metricsSync,
         adaptation: adaptation.summary
       };
     }
+  }
+
+  const targetBucket = pickNextSourceBucket(sourceMixToday);
+  const generationPlan = await buildGenerationPlan(targetBucket, sourceMixToday);
+  if (targetBucket !== "original" && !generationPlan.source_context) {
+    return {
+      action: "skip_quote_source_unavailable",
+      at: now,
+      posted_today: postedToday,
+      target_bucket: targetBucket,
+      source_mix_today: {
+        international_quote: sourceMixToday.international_quote,
+        domestic_quote: sourceMixToday.domestic_quote,
+        original: sourceMixToday.original
+      },
+      source_mix_target: DAILY_SOURCE_MIX,
+      reason: generationPlan.reason || "quote_source_unavailable",
+      metrics_sync: metricsSync,
+      adaptation: adaptation.summary
+    };
   }
 
   let bodyPayload = null;
@@ -1804,7 +2170,7 @@ async function runCycle(db) {
     if (!AI_GENERATION_ENABLED) {
       throw new AutonomousError("ai_generation_disabled", "ai generation is disabled", { retryable: false });
     }
-    bodyPayload = await generateAutonomousBodyWithAi(profile.identity);
+    bodyPayload = await generateAutonomousBodyWithAi(profile.identity, generationPlan);
     generationSource = `ai:${AI_GENERATOR}`;
   } catch (error) {
     if (!AI_FALLBACK_TEMPLATE) {
@@ -1817,7 +2183,7 @@ async function runCycle(db) {
         adaptation: adaptation.summary
       };
     }
-    const fallback = buildFallbackBody(profile.identity);
+    const fallback = buildFallbackBody(profile.identity, generationPlan);
     const checkedFallback = evaluatePostQuality(profile.identity, fallback);
     if (!checkedFallback.passes) {
       return {
@@ -1834,7 +2200,7 @@ async function runCycle(db) {
       body: checkedFallback.body,
       hashtags: checkedFallback.hashtags,
       textHash: checkedFallback.textHash,
-      source_context: null,
+      source_context: fallback.source_context || null,
       product_url: null
     };
     generationSource = "template_fallback";
@@ -1844,13 +2210,13 @@ async function runCycle(db) {
   for (let i = 0; i < 3 && hasRecentHash(profile.identity, bodyPayload.textHash); i += 1) {
     if (generationSource.startsWith("ai:")) {
       try {
-        bodyPayload = await generateAutonomousBodyWithAi(profile.identity);
+        bodyPayload = await generateAutonomousBodyWithAi(profile.identity, generationPlan);
       } catch {
-        bodyPayload = buildFallbackBody(profile.identity);
+        bodyPayload = buildFallbackBody(profile.identity, generationPlan);
         generationSource = "template_fallback";
       }
     } else {
-      bodyPayload = buildFallbackBody(profile.identity);
+      bodyPayload = buildFallbackBody(profile.identity, generationPlan);
     }
   }
 
@@ -1862,6 +2228,13 @@ async function runCycle(db) {
     at: now,
     posted_today: postedToday,
     daily_limit: DAILY_POST_LIMIT,
+    source_bucket_target: targetBucket,
+    source_mix_today: {
+      international_quote: sourceMixToday.international_quote,
+      domestic_quote: sourceMixToday.domestic_quote,
+      original: sourceMixToday.original
+    },
+    source_mix_target: DAILY_SOURCE_MIX,
     content_id: queued.content_id,
     job_id: queued.job_id,
     topic: queued.topic,
