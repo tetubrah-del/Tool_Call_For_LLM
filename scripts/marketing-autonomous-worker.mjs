@@ -1276,6 +1276,10 @@ function normalizeSourceContext(value) {
   return out;
 }
 
+function containsAny(text, patterns) {
+  return patterns.some((pattern) => pattern.test(text));
+}
+
 function evaluatePostQuality(identity, post) {
   const body = normalizeBodyText(post?.body || "");
   const hashtags = normalizeGeneratedHashtags(post?.hashtags || [], identity);
@@ -1341,6 +1345,46 @@ function evaluatePostQuality(identity, post) {
     reasons.push("meta operational wording is not allowed");
     score -= 35;
   }
+  const hasTarget = containsAny(body, [
+    /中小企業|中堅企業|大企業|現場/,
+    /マーケ担当|広報担当|CS担当|営業担当|人事担当|マネージャー|経営者/,
+    /BtoB|B2B|BtoC|B2C|EC/
+  ]);
+  const hasUseCase = containsAny(body, [
+    /問い合わせ返信|一次回答|カスタマーサポート|CS対応/,
+    /LP|ランディングページ|広告文|クリエイティブ|訴求/,
+    /メルマガ|SNS運用|投稿文|記事作成|要約|社内報|FAQ/,
+    /営業メール|提案資料|レポート/
+  ]);
+  const hasMetric = containsAny(body, [
+    /CTR|CVR|CPA|ROAS|LTV|NPS/,
+    /クリック率|成約率|開封率|離脱率|返信速度|一次回答時間/,
+    /工数|作業時間|再作業|修正回数|反応率|投稿保存率/
+  ]);
+  const hasPitfall = containsAny(body, [
+    /失敗|落とし穴|注意点|やりがち|詰まりがち|ハマりがち|NG/,
+    /回避|防ぐ|避ける|気をつけ/
+  ]);
+  const hasStepStructure = containsAny(body, [/(^|\n)\s*[1-3][\).]/, /(^|\n)\s*[・\-]/]);
+
+  const tipSignals = [hasTarget, hasUseCase, hasMetric, hasPitfall, hasStepStructure].filter(Boolean).length;
+  if (tipSignals < 3) {
+    reasons.push("tip lacks concrete utility (target/usecase/metric/pitfall/steps)");
+    score -= 25;
+  }
+  if (!hasMetric) {
+    reasons.push("missing measurable KPI or outcome metric");
+    score -= 12;
+  }
+  if (!hasUseCase) {
+    reasons.push("missing concrete use-case");
+    score -= 10;
+  }
+  if (!hasPitfall) {
+    reasons.push("missing pitfall and avoidance hint");
+    score -= 8;
+  }
+
   if (sourceType === "x_post") {
     if (!/小雪|現場目線|マーケ目線|私の見立て|私なら|実務では|運用では/.test(body)) {
       reasons.push("quote post missing koyuki viewpoint");
@@ -1384,6 +1428,10 @@ function buildFallbackBody(identity) {
     : `- ${pickRandom(quickActions, quickActions[0])}`;
 
   const insightLine = `今日のテーマは「${topic}」。派手さより、再現できる小さな改善がいちばん強いです。`;
+  const audienceLine = "対象は、日々の運用を回すマーケ担当・CS担当の方です。";
+  const useCaseLine = "ユースケースは「問い合わせ返信」か「SNS投稿文」のどちらか1つに絞るのがおすすめ。";
+  const metricLine = "見る指標は、一次回答時間（またはCTR）と修正回数の2つだけで十分です。";
+  const pitfallLine = "注意点は、最初から全業務に広げないこと。対象業務を1つに固定すると失敗を回避できます。";
   const questionTail = shouldUseQuestion(adaptation)
     ? "あなたの現場で次に試す1手は何ですか？"
     : "現場で使える形まで落とし込みます。";
@@ -1397,7 +1445,11 @@ function buildFallbackBody(identity) {
   const body = [
     `${opener}${emoji}`,
     insightLine,
+    audienceLine,
+    useCaseLine,
     selectedActions,
+    metricLine,
+    pitfallLine,
     `${closer} ${questionTail}`,
     hashtags
   ]
@@ -1462,6 +1514,8 @@ function buildLlmUserPrompt(identity, topic, adaptation, retryReasons = []) {
     `${feedback}`,
     `今回の主題トピック: ${topic}`,
     "目的: バズを狙いつつ、読む人が『自分ごと』化できる投稿にする。",
+    "必須: 本文に『対象読者』『具体ユースケース』『見る指標(KPI)』『失敗しやすい点と回避策』の要素を必ず含める。",
+    "書き方: 抽象論は避ける。明日そのまま試せる具体度で書く。",
     `最近使ったトピック（重複回避）: ${recentTopics.join(", ") || "なし"}`,
     `反応が良かった傾向: tags=${winningTags.join(", ") || "なし"} / patterns=${winningPatterns.join(", ") || "なし"}`,
     `避けたい傾向: ${avoidPatterns.join(", ") || "なし"}`,
@@ -1471,6 +1525,7 @@ function buildLlmUserPrompt(identity, topic, adaptation, retryReasons = []) {
     "x投稿を参照する場合は source_type=x_post と source_post_id を必ず入れる。",
     "source_type=x_post のときは、本文に『小雪の見解（女性マーケターとしての示唆）』を必ず明記する。",
     "見解は、導線・訴求・ターゲット・KPI・検証設計のいずれかに具体的に触れる。",
+    "本文テンプレの目安: フック1文 → 対象とユースケース → KPI/判断軸 → 注意点と回避策 → 一言締め。",
     "運用メタ発言（投稿テスト/動作確認/実装アップデート）は禁止。",
     "本文は次の構成にする: フック1文 → 背景/解像度1-2文 → すぐ試せる1アクション → 一言締め。",
     "次のNGは避ける: 教科書口調、抽象論だけ、フォロワー運用の話だけ。"
