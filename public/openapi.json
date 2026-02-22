@@ -1007,7 +1007,17 @@
         "properties": {
           "status": {
             "type": "string",
-            "enum": ["checkout_created", "error", "created", "paid", "failed", "canceled"]
+            "enum": [
+              "captured",
+              "authorized",
+              "created",
+              "paid",
+              "failed",
+              "failed_provider",
+              "canceled",
+              "checkout_created",
+              "error"
+            ]
           },
           "step": { "type": ["string", "null"] },
           "reason": { "type": ["string", "null"] },
@@ -1016,6 +1026,9 @@
           "version": { "type": ["integer", "null"] },
           "currency": { "type": ["string", "null"], "enum": ["usd", "jpy", null] },
           "amount_minor": { "type": ["integer", "null"] },
+          "payment_intent_id": { "type": ["string", "null"] },
+          "capture_before": { "type": ["string", "null"], "format": "date-time" },
+          "already_captured": { "type": ["boolean", "null"] },
           "checkout_session_id": { "type": ["string", "null"] },
           "checkout_url": { "type": ["string", "null"] }
         },

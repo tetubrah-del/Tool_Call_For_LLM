@@ -5,7 +5,7 @@ import { currencyFromCountry2, normalizeCountry2 } from "@/lib/stripe";
 import { computeReviewDeadlineAt } from "@/lib/task-reviews";
 import { dispatchTaskEvent } from "@/lib/webhooks";
 import { POST as createOrderRoute } from "@/app/api/stripe/orders/route";
-import { POST as createCheckoutRoute } from "@/app/api/stripe/orders/[orderId]/checkout/route";
+import { authorizeOrderPayment, captureOrderAuthorization } from "@/lib/ai-billing";
 import { verifyAiActorDetailed } from "../contact/_auth";
 
 function normalizeText(value: unknown): string {
@@ -48,7 +48,7 @@ export async function POST(
   const aiActor = aiAuth.actor;
 
   const existingOrder = await db
-    .prepare(`SELECT id, version, currency, total_amount_jpy, status, checkout_session_id FROM orders WHERE task_id = ? ORDER BY created_at DESC LIMIT 1`)
+    .prepare(`SELECT id, version, currency, total_amount_jpy, status, checkout_session_id, payment_intent_id FROM orders WHERE task_id = ? ORDER BY created_at DESC LIMIT 1`)
     .get<{
       id: string;
       version: number;
@@ -56,6 +56,7 @@ export async function POST(
       total_amount_jpy: number;
       status: string;
       checkout_session_id: string | null;
+      payment_intent_id: string | null;
     }>(taskId);
 
   const task = await db
@@ -154,29 +155,11 @@ export async function POST(
     );
   }
 
-  const now = new Date().toISOString();
-  await db
-    .prepare(
-      `UPDATE tasks
-       SET status = 'completed',
-           review_pending_deadline_at = NULL,
-           completed_at = ?,
-           review_deadline_at = ?,
-           paid_status = CASE
-             WHEN paid_status IS NULL OR paid_status = 'unpaid' THEN 'pending'
-             ELSE paid_status
-           END
-       WHERE id = ?`
-    )
-    .run(now, computeReviewDeadlineAt(now), task.id);
-  void dispatchTaskEvent(db, { eventType: "task.completed", taskId: task.id }).catch(() => {});
-
   if (!task.human_id) {
     return NextResponse.json({
-      status: "completed",
-      task_id: task.id,
-      payment: { status: "error", reason: "missing_human" }
-    });
+      status: "error",
+      reason: "missing_human"
+    }, { status: 409 });
   }
 
   const human = await db
@@ -184,11 +167,14 @@ export async function POST(
     .get<{ country: string | null }>(task.human_id);
   const payeeCountry = normalizeCountry2(human?.country || null);
   if (!payeeCountry) {
-    return NextResponse.json({
-      status: "completed",
-      task_id: task.id,
-      payment: { status: "error", reason: "unsupported_payee_country", country: human?.country || null }
-    });
+    return NextResponse.json(
+      {
+        status: "error",
+        reason: "unsupported_payee_country",
+        country: human?.country || null
+      },
+      { status: 409 }
+    );
   }
 
   const orderCurrency = currencyFromCountry2(payeeCountry);
@@ -200,80 +186,108 @@ export async function POST(
       : usdToMinor(Number(task.budget_usd || 0), orderCurrency);
 
   const baseUrl = resolveBaseUrl(request);
-  const orderId = buildOrderId(task.id);
-  const orderCreateRequest = new Request(`${baseUrl}/api/stripe/orders`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      ai_account_id: aiAccountId,
-      ai_api_key: aiApiKey,
-      task_id: task.id,
-      order_id: orderId,
-      version: 1,
-      base_amount_minor: baseAmountMinor,
-      fx_cost_minor: 0
-    })
-  });
-  const orderCreateResponse = await createOrderRoute(orderCreateRequest);
-  const orderCreateBody = await safeReadJson(orderCreateResponse);
-  if (!orderCreateResponse.ok) {
-    return NextResponse.json({
-      status: "completed",
-      task_id: task.id,
-      payment: {
-        status: "error",
-        step: "create_order",
-        reason: orderCreateBody?.reason || "create_order_failed",
-        detail: orderCreateBody?.detail || null
-      }
-    });
-  }
+  const orderId = existingOrder?.id || buildOrderId(task.id);
+  const orderVersion = Number(existingOrder?.version || 1);
+  let orderTotalAmountMinor = Number(existingOrder?.total_amount_jpy ?? baseAmountMinor);
 
-  const orderTotalAmountMinor = Number(orderCreateBody?.order?.total_amount_jpy ?? baseAmountMinor);
-
-  const checkoutRequest = new Request(`${baseUrl}/api/stripe/orders/${orderId}/checkout`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      ai_account_id: aiAccountId,
-      ai_api_key: aiApiKey,
-      version: 1,
-      success_url: `${baseUrl}/for-agents?status=success&task_id=${encodeURIComponent(task.id)}`,
-      cancel_url: `${baseUrl}/for-agents?status=cancel&task_id=${encodeURIComponent(task.id)}`
-    })
-  });
-  const checkoutResponse = await createCheckoutRoute(checkoutRequest, {
-    params: Promise.resolve({ orderId })
-  });
-  const checkoutBody = await safeReadJson(checkoutResponse);
-  if (!checkoutResponse.ok) {
-    return NextResponse.json({
-      status: "completed",
-      task_id: task.id,
-      payment: {
-        status: "error",
-        step: "create_checkout",
+  if (!existingOrder?.id) {
+    const orderCreateRequest = new Request(`${baseUrl}/api/stripe/orders`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ai_account_id: aiAccountId,
+        ai_api_key: aiApiKey,
+        task_id: task.id,
         order_id: orderId,
-        version: 1,
-        currency: orderCurrency,
-        amount_minor: orderTotalAmountMinor,
-        reason: checkoutBody?.reason || "create_checkout_failed",
-        detail: checkoutBody?.detail || null
-      }
+        version: orderVersion,
+        base_amount_minor: baseAmountMinor,
+        fx_cost_minor: 0
+      })
+    });
+    const orderCreateResponse = await createOrderRoute(orderCreateRequest);
+    const orderCreateBody = await safeReadJson(orderCreateResponse);
+    if (!orderCreateResponse.ok) {
+      return NextResponse.json(
+        {
+          status: "error",
+          reason: "create_order_failed",
+          detail: orderCreateBody?.reason || "create_order_failed"
+        },
+        { status: 409 }
+      );
+    }
+    orderTotalAmountMinor = Number(orderCreateBody?.order?.total_amount_jpy ?? baseAmountMinor);
+  }
+
+  let captureResult = await captureOrderAuthorization(db, {
+    aiAccountId,
+    orderId,
+    orderVersion
+  });
+  if (captureResult.ok === false && captureResult.reason === "authorization_missing") {
+    const authorizeResult = await authorizeOrderPayment(db, {
+      aiAccountId,
+      orderId,
+      orderVersion
+    });
+    if (authorizeResult.ok === false) {
+      return NextResponse.json(
+        {
+          status: "error",
+          reason: "payment_authorization_failed",
+          detail: authorizeResult.reason,
+          message: authorizeResult.message || null
+        },
+        { status: 409 }
+      );
+    }
+    captureResult = await captureOrderAuthorization(db, {
+      aiAccountId,
+      orderId,
+      orderVersion
     });
   }
+  if (captureResult.ok === false) {
+    return NextResponse.json(
+      {
+        status: "error",
+        reason: "payment_capture_failed",
+        detail: captureResult.reason,
+        message: captureResult.message || null
+      },
+      { status: 409 }
+    );
+  }
+
+  const now = new Date().toISOString();
+  await db
+    .prepare(
+      `UPDATE tasks
+       SET status = 'completed',
+           review_pending_deadline_at = NULL,
+           completed_at = ?,
+           review_deadline_at = ?,
+           paid_status = 'paid',
+           paid_at = ?,
+           paid_method = 'stripe',
+           payment_error_message = NULL
+       WHERE id = ?`
+    )
+    .run(now, computeReviewDeadlineAt(now), now, task.id);
+  void dispatchTaskEvent(db, { eventType: "task.completed", taskId: task.id }).catch(() => {});
 
   return NextResponse.json({
     status: "completed",
     task_id: task.id,
     payment: {
-      status: "checkout_created",
+      status: "captured",
       order_id: orderId,
-      version: 1,
+      version: orderVersion,
       currency: orderCurrency,
       amount_minor: orderTotalAmountMinor,
-      checkout_session_id: checkoutBody?.checkout_session_id ?? null,
-      checkout_url: checkoutBody?.checkout_url ?? null
+      payment_intent_id: captureResult.value.payment_intent_id,
+      capture_before: captureResult.value.capture_before,
+      already_captured: captureResult.value.already_captured
     }
   });
 }

@@ -36,7 +36,7 @@ const STRINGS: Record<
       "納品直後は `status=review_pending` で `submission` に `content_url` または `text` が返ります。",
     step4Title: "Step 4: 発注者（AI）最終承認",
     step4Note:
-      "承認後に `status=completed` へ遷移し、通常タスクは Stripe Checkout 用の `payment.checkout_url` が返ります。",
+      "承認時にオーソリ済み決済をキャプチャし、`status=completed` と `payment.status=captured`（`payment_intent_id` 含む）が返ります。",
     mockTitle: "モック/試験運用の目安",
     mockList: [
       "最初は `budget_usd=5~20` の小タスクで疎通確認",
@@ -61,7 +61,7 @@ const STRINGS: Record<
       "Right after submission, the response is `status=review_pending` and returns `content_url` or `text` under `submission`.",
     step4Title: "Step 4: Final approval by requester (AI)",
     step4Note:
-      "After approval, status moves to `completed`, and standard tasks return `payment.checkout_url` for Stripe Checkout.",
+      "Approval captures the pre-authorized payment and returns `status=completed` with `payment.status=captured` (including `payment_intent_id`).",
     mockTitle: "Mock/testing rollout tips",
     mockList: [
       "Start with small tasks (`budget_usd=5~20`) to verify connectivity",

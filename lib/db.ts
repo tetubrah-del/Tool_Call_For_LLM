@@ -184,6 +184,10 @@ async function initPostgres() {
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       paypal_email TEXT NOT NULL,
+      stripe_customer_id TEXT,
+      default_payment_method_id TEXT,
+      billing_consent_at TEXT,
+      collection_disabled_at TEXT,
       api_key TEXT NOT NULL DEFAULT '',
       api_key_hash TEXT,
       api_key_prefix TEXT,
@@ -264,6 +268,49 @@ async function initPostgres() {
       updated_at TEXT NOT NULL,
       PRIMARY KEY (id, version)
     )`,
+    `CREATE TABLE IF NOT EXISTS payment_authorizations (
+      id TEXT PRIMARY KEY,
+      task_id TEXT NOT NULL,
+      ai_account_id TEXT NOT NULL,
+      order_id TEXT,
+      order_version INTEGER,
+      payment_intent_id TEXT NOT NULL UNIQUE,
+      amount_minor INTEGER NOT NULL,
+      currency TEXT NOT NULL,
+      status TEXT NOT NULL,
+      capture_before TEXT,
+      authorized_at TEXT NOT NULL,
+      captured_at TEXT,
+      canceled_at TEXT,
+      attempt_count INTEGER NOT NULL DEFAULT 0,
+      next_retry_at TEXT,
+      last_error TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS payment_arrears (
+      id TEXT PRIMARY KEY,
+      ai_account_id TEXT NOT NULL,
+      task_id TEXT NOT NULL,
+      payment_authorization_id TEXT,
+      currency TEXT NOT NULL,
+      amount_minor INTEGER NOT NULL,
+      reason TEXT,
+      status TEXT NOT NULL,
+      due_at TEXT NOT NULL,
+      last_attempt_at TEXT,
+      settled_at TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`,
+    `CREATE INDEX IF NOT EXISTS payment_authorizations_order_idx
+      ON payment_authorizations (order_id, order_version, created_at)`,
+    `CREATE INDEX IF NOT EXISTS payment_authorizations_task_idx
+      ON payment_authorizations (task_id, created_at)`,
+    `CREATE INDEX IF NOT EXISTS payment_arrears_status_due_idx
+      ON payment_arrears (status, due_at)`,
+    `CREATE INDEX IF NOT EXISTS payment_arrears_ai_status_due_idx
+      ON payment_arrears (ai_account_id, status, due_at)`,
     `CREATE TABLE IF NOT EXISTS stripe_webhook_events (
       event_id TEXT PRIMARY KEY,
       event_type TEXT NOT NULL,
@@ -675,6 +722,10 @@ async function initPostgres() {
     `ALTER TABLE humans ADD COLUMN IF NOT EXISTS api_monthly_limit INTEGER`,
     `ALTER TABLE humans ADD COLUMN IF NOT EXISTS deleted_at TEXT`,
     `ALTER TABLE ai_accounts ADD COLUMN IF NOT EXISTS deleted_at TEXT`,
+    `ALTER TABLE ai_accounts ADD COLUMN IF NOT EXISTS stripe_customer_id TEXT`,
+    `ALTER TABLE ai_accounts ADD COLUMN IF NOT EXISTS default_payment_method_id TEXT`,
+    `ALTER TABLE ai_accounts ADD COLUMN IF NOT EXISTS billing_consent_at TEXT`,
+    `ALTER TABLE ai_accounts ADD COLUMN IF NOT EXISTS collection_disabled_at TEXT`,
     `ALTER TABLE ai_accounts ADD COLUMN IF NOT EXISTS api_key_hash TEXT`,
     `ALTER TABLE ai_accounts ADD COLUMN IF NOT EXISTS api_key_prefix TEXT`,
     `ALTER TABLE ai_accounts ADD COLUMN IF NOT EXISTS api_access_status TEXT`,
@@ -715,6 +766,49 @@ async function initPostgres() {
     `ALTER TABLE contact_messages ADD COLUMN IF NOT EXISTS attachment_url TEXT`,
     `ALTER TABLE contact_messages ADD COLUMN IF NOT EXISTS read_by_ai INTEGER`,
     `ALTER TABLE contact_messages ADD COLUMN IF NOT EXISTS read_by_human INTEGER`,
+    `CREATE TABLE IF NOT EXISTS payment_authorizations (
+      id TEXT PRIMARY KEY,
+      task_id TEXT NOT NULL,
+      ai_account_id TEXT NOT NULL,
+      order_id TEXT,
+      order_version INTEGER,
+      payment_intent_id TEXT NOT NULL UNIQUE,
+      amount_minor INTEGER NOT NULL,
+      currency TEXT NOT NULL,
+      status TEXT NOT NULL,
+      capture_before TEXT,
+      authorized_at TEXT NOT NULL,
+      captured_at TEXT,
+      canceled_at TEXT,
+      attempt_count INTEGER NOT NULL DEFAULT 0,
+      next_retry_at TEXT,
+      last_error TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS payment_arrears (
+      id TEXT PRIMARY KEY,
+      ai_account_id TEXT NOT NULL,
+      task_id TEXT NOT NULL,
+      payment_authorization_id TEXT,
+      currency TEXT NOT NULL,
+      amount_minor INTEGER NOT NULL,
+      reason TEXT,
+      status TEXT NOT NULL,
+      due_at TEXT NOT NULL,
+      last_attempt_at TEXT,
+      settled_at TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`,
+    `CREATE INDEX IF NOT EXISTS payment_authorizations_order_idx
+      ON payment_authorizations (order_id, order_version, created_at)`,
+    `CREATE INDEX IF NOT EXISTS payment_authorizations_task_idx
+      ON payment_authorizations (task_id, created_at)`,
+    `CREATE INDEX IF NOT EXISTS payment_arrears_status_due_idx
+      ON payment_arrears (status, due_at)`,
+    `CREATE INDEX IF NOT EXISTS payment_arrears_ai_status_due_idx
+      ON payment_arrears (ai_account_id, status, due_at)`,
     `CREATE TABLE IF NOT EXISTS task_review_guards (
       task_id TEXT PRIMARY KEY,
       ai_account_id TEXT NOT NULL,
@@ -1154,6 +1248,10 @@ async function initSqlite() {
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       paypal_email TEXT NOT NULL,
+      stripe_customer_id TEXT,
+      default_payment_method_id TEXT,
+      billing_consent_at TEXT,
+      collection_disabled_at TEXT,
       api_key TEXT NOT NULL DEFAULT '',
       api_key_hash TEXT,
       api_key_prefix TEXT,
@@ -1627,6 +1725,51 @@ async function initSqlite() {
       PRIMARY KEY (id, version)
     );
 
+    CREATE TABLE IF NOT EXISTS payment_authorizations (
+      id TEXT PRIMARY KEY,
+      task_id TEXT NOT NULL,
+      ai_account_id TEXT NOT NULL,
+      order_id TEXT,
+      order_version INTEGER,
+      payment_intent_id TEXT NOT NULL UNIQUE,
+      amount_minor INTEGER NOT NULL,
+      currency TEXT NOT NULL,
+      status TEXT NOT NULL,
+      capture_before TEXT,
+      authorized_at TEXT NOT NULL,
+      captured_at TEXT,
+      canceled_at TEXT,
+      attempt_count INTEGER NOT NULL DEFAULT 0,
+      next_retry_at TEXT,
+      last_error TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS payment_authorizations_order_idx
+      ON payment_authorizations (order_id, order_version, created_at);
+    CREATE INDEX IF NOT EXISTS payment_authorizations_task_idx
+      ON payment_authorizations (task_id, created_at);
+
+    CREATE TABLE IF NOT EXISTS payment_arrears (
+      id TEXT PRIMARY KEY,
+      ai_account_id TEXT NOT NULL,
+      task_id TEXT NOT NULL,
+      payment_authorization_id TEXT,
+      currency TEXT NOT NULL,
+      amount_minor INTEGER NOT NULL,
+      reason TEXT,
+      status TEXT NOT NULL,
+      due_at TEXT NOT NULL,
+      last_attempt_at TEXT,
+      settled_at TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS payment_arrears_status_due_idx
+      ON payment_arrears (status, due_at);
+    CREATE INDEX IF NOT EXISTS payment_arrears_ai_status_due_idx
+      ON payment_arrears (ai_account_id, status, due_at);
+
     CREATE TABLE IF NOT EXISTS stripe_webhook_events (
       event_id TEXT PRIMARY KEY,
       event_type TEXT NOT NULL,
@@ -1692,6 +1835,10 @@ async function initSqlite() {
   ensureSqliteColumn(db, "humans", "api_monthly_limit", "INTEGER");
   ensureSqliteColumn(db, "humans", "deleted_at", "TEXT");
   ensureSqliteColumn(db, "ai_accounts", "deleted_at", "TEXT");
+  ensureSqliteColumn(db, "ai_accounts", "stripe_customer_id", "TEXT");
+  ensureSqliteColumn(db, "ai_accounts", "default_payment_method_id", "TEXT");
+  ensureSqliteColumn(db, "ai_accounts", "billing_consent_at", "TEXT");
+  ensureSqliteColumn(db, "ai_accounts", "collection_disabled_at", "TEXT");
   ensureSqliteColumn(db, "ai_accounts", "api_key_hash", "TEXT");
   ensureSqliteColumn(db, "ai_accounts", "api_key_prefix", "TEXT");
   ensureSqliteColumn(db, "ai_accounts", "api_access_status", "TEXT");
@@ -2081,11 +2228,52 @@ export type AiAccount = {
   id: string;
   name: string;
   paypal_email: string;
+  stripe_customer_id: string | null;
+  default_payment_method_id: string | null;
+  billing_consent_at: string | null;
+  collection_disabled_at: string | null;
   api_key: string;
   api_key_hash: string | null;
   api_key_prefix: string | null;
   status: "active" | "disabled";
   created_at: string;
+};
+
+export type PaymentAuthorization = {
+  id: string;
+  task_id: string;
+  ai_account_id: string;
+  order_id: string | null;
+  order_version: number | null;
+  payment_intent_id: string;
+  amount_minor: number;
+  currency: "jpy" | "usd";
+  status: "authorized" | "capture_pending" | "captured" | "canceled" | "expired" | "capture_failed";
+  capture_before: string | null;
+  authorized_at: string;
+  captured_at: string | null;
+  canceled_at: string | null;
+  attempt_count: number;
+  next_retry_at: string | null;
+  last_error: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PaymentArrear = {
+  id: string;
+  ai_account_id: string;
+  task_id: string;
+  payment_authorization_id: string | null;
+  currency: "jpy" | "usd";
+  amount_minor: number;
+  reason: string | null;
+  status: "open" | "collecting" | "settled" | "written_off";
+  due_at: string;
+  last_attempt_at: string | null;
+  settled_at: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 export type Submission = {

@@ -9,6 +9,9 @@ import { dispatchTaskEvent } from "@/lib/webhooks";
 import { openContactChannel } from "@/lib/contact-channel";
 import { applyAiRateLimitHeaders, authenticateAiApiRequest, type AiAuthSuccess } from "@/lib/ai-api-auth";
 import { minorToUsd, normalizeCurrencyCode, usdToMinor } from "@/lib/currency-display";
+import { currencyFromCountry2, normalizeCountry2 } from "@/lib/stripe";
+import { POST as createOrderRoute } from "@/app/api/stripe/orders/route";
+import { authorizeOrderPayment } from "@/lib/ai-billing";
 
 type FieldError = {
   field: string;
@@ -21,6 +24,24 @@ type FieldError = {
     | "invalid_credentials";
   message?: string;
 };
+
+function resolveBaseUrl(request: Request): string {
+  const configured = (process.env.APP_BASE_URL || "").trim().replace(/\/+$/, "");
+  if (configured) return configured;
+  return new URL(request.url).origin;
+}
+
+function buildOrderId(taskId: string): string {
+  return `order_${taskId}`;
+}
+
+async function safeReadJson(response: Response): Promise<any> {
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
+}
 
 export async function POST(request: Request) {
   const idemKey = request.headers.get("Idempotency-Key")?.trim() || null;
@@ -231,12 +252,124 @@ export async function POST(request: Request) {
     human.paypal_email || null,
     taskId
   );
+
+  const payeeCountry = normalizeCountry2((human as any)?.country || null);
+  if (!payeeCountry) {
+    await db
+      .prepare(
+        `UPDATE tasks
+         SET status = 'failed',
+             failure_reason = 'invalid_request',
+             human_id = NULL,
+             payee_paypal_email = NULL,
+             payment_error_message = 'unsupported_payee_country'
+         WHERE id = ?`
+      )
+      .run(taskId);
+    void dispatchTaskEvent(db, { eventType: "task.failed", taskId }).catch(() => {});
+    return respond({
+      status: "rejected",
+      reason: "payment_authorization_failed",
+      detail: "unsupported_payee_country",
+      task_id: taskId
+    }, 409);
+  }
+
+  const orderCurrency = currencyFromCountry2(payeeCountry);
+  const normalizedQuoteCurrency = normalizeCurrencyCode(quoteCurrency);
+  const baseAmountMinor =
+    normalizedQuoteCurrency === orderCurrency && Number.isInteger(quoteAmountMinor) && quoteAmountMinor >= 0
+      ? quoteAmountMinor
+      : usdToMinor(Number(budgetUsd || 0), orderCurrency);
+  const baseUrl = resolveBaseUrl(request);
+  const orderId = buildOrderId(taskId);
+  const orderCreateRequest = new Request(`${baseUrl}/api/stripe/orders`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      ai_account_id: aiAccountId,
+      ai_api_key: aiApiKey,
+      task_id: taskId,
+      order_id: orderId,
+      version: 1,
+      base_amount_minor: baseAmountMinor,
+      fx_cost_minor: 0
+    })
+  });
+  const orderCreateResponse = await createOrderRoute(orderCreateRequest);
+  const orderCreateBody = await safeReadJson(orderCreateResponse);
+  if (!orderCreateResponse.ok) {
+    await db
+      .prepare(
+        `UPDATE tasks
+         SET status = 'failed',
+             failure_reason = 'invalid_request',
+             human_id = NULL,
+             payee_paypal_email = NULL,
+             payment_error_message = ?
+         WHERE id = ?`
+      )
+      .run(
+        String(orderCreateBody?.reason || "create_order_failed"),
+        taskId
+      );
+    void dispatchTaskEvent(db, { eventType: "task.failed", taskId }).catch(() => {});
+    return respond({
+      status: "rejected",
+      reason: "payment_authorization_failed",
+      detail: orderCreateBody?.reason || "create_order_failed",
+      task_id: taskId
+    }, 409);
+  }
+
+  const authResult = await authorizeOrderPayment(db, {
+    aiAccountId,
+    orderId,
+    orderVersion: 1
+  });
+  if (authResult.ok === false) {
+    await db
+      .prepare(
+        `UPDATE tasks
+         SET status = 'failed',
+             failure_reason = 'invalid_request',
+             human_id = NULL,
+             payee_paypal_email = NULL,
+             payment_error_message = ?
+         WHERE id = ?`
+      )
+      .run(String(authResult.reason), taskId);
+    await db
+      .prepare(
+        `UPDATE orders
+         SET status = 'failed_provider',
+             provider_error = ?,
+             updated_at = ?
+         WHERE id = ? AND version = ?`
+      )
+      .run(String(authResult.reason), new Date().toISOString(), orderId, 1);
+    void dispatchTaskEvent(db, { eventType: "task.failed", taskId }).catch(() => {});
+    return respond({
+      status: "rejected",
+      reason: "payment_authorization_failed",
+      detail: authResult.reason,
+      message: authResult.message || null,
+      task_id: taskId
+    }, 409);
+  }
+
   await openContactChannel(db, taskId);
-  // Payment is mocked for MVP; integrate Stripe here later if needed.
   void dispatchTaskEvent(db, { eventType: "task.accepted", taskId }).catch(() => {});
 
   return respond({
     task_id: taskId,
-    status: "accepted"
+    status: "accepted",
+    payment: {
+      status: "authorized",
+      order_id: orderId,
+      version: 1,
+      payment_intent_id: authResult.value.payment_intent_id,
+      capture_before: authResult.value.capture_before
+    }
   });
 }

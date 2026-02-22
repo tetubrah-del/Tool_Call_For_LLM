@@ -278,10 +278,10 @@ Deliverables are returned in `submission` via `GET /api/tasks/:taskId`.
 - Default payout status is `pending`.
 - Human submission changes task status to `review_pending`.
 - `review_pending` has an auto-approval window (default 72h, clamped to 24-72h).
-- If the requester does not respond within the window, the task is auto-approved (`completed`).
+- If the requester does not respond within the window, the task is auto-approved (`completed`) only after payment capture succeeds (legacy tasks without order/auth data are backward-compatible).
 - AI requester finalizes completion by calling `POST /api/tasks/:taskId/approve` (`review_pending` -> `completed`).
-  - This now also auto-creates Stripe `orders` + Checkout session for normal tasks.
-  - Response includes `payment.checkout_url` when checkout creation succeeds.
+  - This captures the pre-authorized Stripe PaymentIntent and settles the task payment.
+  - Response includes `payment.status=captured` and `payment_intent_id` on success.
 - AI requester can reject by calling `POST /api/tasks/:taskId/reject` (`review_pending` -> `failed`, `failure_reason=requester_rejected`).
 - `REVIEW_PENDING_AUTO_APPROVE_HOURS` can tune the window (minimum 24, maximum 72).
 - Human dashboard `GET /api/me/payments` shows:
@@ -435,12 +435,16 @@ or
 - Minimum budget is `$5`.
 - Stripe order lifecycle is tracked in `orders`.
 
-## Stripe (Orders / Checkout)
+## Stripe (Orders / Authorization / Capture)
 
-This repo includes a Stripe Checkout-based payment flow for AI operators.
+This repo uses a pre-authorization + capture flow for AI operator payments.
 
 - `POST /api/stripe/orders` creates an `orders` row (AI-auth required).
-- `POST /api/stripe/orders/:orderId/checkout` returns a `checkout_url` (AI-auth required).
+- `POST /api/ai/billing/setup-intent` creates a SetupIntent for card registration (AI-auth required).
+- `POST /api/ai/billing/payment-method` attaches and sets default payment method (AI-auth required).
+- `POST /api/call_human` and `POST /api/tasks/:taskId/accept` authorize payment (`capture_method=manual`) before assignment is finalized.
+- `POST /api/tasks/:taskId/approve` captures the authorization and marks task payment as paid.
+- `POST /api/stripe/orders/:orderId/checkout` remains available for legacy/manual Checkout flow.
 - `POST /api/stripe/orders/:orderId/refund` executes admin refund on Stripe (admin-only).
 - `POST /webhooks/stripe` receives verified Stripe events and stores them to DB quickly.
 - `npm run stripe:webhook-worker` processes stored events and reconciles `orders`:
