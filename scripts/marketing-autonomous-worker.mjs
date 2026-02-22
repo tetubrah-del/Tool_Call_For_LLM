@@ -1280,6 +1280,7 @@ function evaluatePostQuality(identity, post) {
   const body = normalizeBodyText(post?.body || "");
   const hashtags = normalizeGeneratedHashtags(post?.hashtags || [], identity);
   const bannedPhrases = Array.isArray(identity?.banned_phrases) ? identity.banned_phrases : [];
+  const sourceType = String(post?.source_context?.source_type || "").trim().toLowerCase();
 
   const reasons = [];
   let score = 100;
@@ -1339,6 +1340,16 @@ function evaluatePostQuality(identity, post) {
   if (/投稿テスト|動作確認|実装アップデート|検証中|テストです/.test(body)) {
     reasons.push("meta operational wording is not allowed");
     score -= 35;
+  }
+  if (sourceType === "x_post") {
+    if (!/小雪|現場目線|マーケ目線|私の見立て|私なら|実務では|運用では/.test(body)) {
+      reasons.push("quote post missing koyuki viewpoint");
+      score -= 20;
+    }
+    if (!/KPI|CVR|CTR|CPA|LTV|導線|訴求|ターゲット|セグメント|クリエイティブ|運用設計|検証/.test(body)) {
+      reasons.push("quote post missing marketer-level insight");
+      score -= 15;
+    }
   }
 
   const normalizedBody = normalizeTextLength(body, 500);
@@ -1419,6 +1430,7 @@ function buildLlmSystemPrompt(identity) {
 
   return [
     `あなたは${IDENTITY_DISPLAY_NAME}。Sinkaiのマーケター。`,
+    "あなたはAIが得意な女性マーケター。実務数字と生活者感覚の両方で語ること。",
     toneInstruction,
     "狙いは『共感される気づき + 実務で使える一手』。固すぎる説明文は禁止。",
     "冒頭1文はフックを作る（あるある/対比/意外性のどれか）。",
@@ -1430,6 +1442,8 @@ function buildLlmSystemPrompt(identity) {
     `使ってよい締め例: ${styleClosers.join(" / ")}`,
     `禁止表現: ${banned.join(" / ") || "過度な煽り・断定"}`,
     `制約: 本文は${POST_MIN_CHARS}-${POST_MAX_CHARS}文字、絵文字は最大${POST_MAX_EMOJIS}個、ハッシュタグ最大${POST_MAX_HASHTAGS}個。`,
+    "引用投稿では、引用内容の要約だけで終わらせず『小雪の見解』を必ず1-2文入れること。",
+    "見解には、マーケ施策の優先順位/KPI/導線設計/日本企業の運用課題のいずれかを含めること。",
     "事実不明の断定は禁止。攻撃的・不安煽りは禁止。"
   ].join("\n");
 }
@@ -1455,6 +1469,8 @@ function buildLlmUserPrompt(identity, topic, adaptation, retryReasons = []) {
     '{"topic":"string","body_text":"string","hashtags":["#tag1","#tag2"],"source_context":{"source_type":"x_post|article|rss|blog|official","source_post_id":"string?","source_url":"string?","source_title":"string?","source_publisher":"string?"}}',
     "source_contextは任意。自然に参照すべき情報源がある時だけ入れる。なければnullでよい。",
     "x投稿を参照する場合は source_type=x_post と source_post_id を必ず入れる。",
+    "source_type=x_post のときは、本文に『小雪の見解（女性マーケターとしての示唆）』を必ず明記する。",
+    "見解は、導線・訴求・ターゲット・KPI・検証設計のいずれかに具体的に触れる。",
     "運用メタ発言（投稿テスト/動作確認/実装アップデート）は禁止。",
     "本文は次の構成にする: フック1文 → 背景/解像度1-2文 → すぐ試せる1アクション → 一言締め。",
     "次のNGは避ける: 教科書口調、抽象論だけ、フォロワー運用の話だけ。"
