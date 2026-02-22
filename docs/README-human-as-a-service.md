@@ -530,6 +530,14 @@ Marketing job APIs are isolated from core Sinkai task/payment flows and require 
 - `GET /api/marketing/publish?job_id=<JOB_ID>` get publish job status
 - `GET /api/marketing/publish/<JOB_ID>` get publish job + related content/post status
 
+`POST /api/marketing/contents` supports optional source metadata for news-driven workflows:
+
+- direct fields: `source_type`, `source_url`, `source_post_id`, `source_title`, `source_publisher`, `source_domain`, `source_published_at`, `product_url`
+- or structured object: `source_context` / `source_context_json`
+- publish behavior on X:
+  - `source_type=x_post` + `source_post_id` -> native quote post (`quote_tweet_id`)
+  - non-X sources (RSS/blog/news) -> source URL appended to post text when missing
+
 Required env for API auth:
 
 - `MARKETING_API_KEY`

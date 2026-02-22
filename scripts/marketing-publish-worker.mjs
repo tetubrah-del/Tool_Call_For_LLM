@@ -99,11 +99,12 @@ function nextBackoffSeconds(attemptCount) {
 async function queueAlertEmail(db, subject, bodyText) {
   if (!MARKETING_ALERT_EMAIL) return;
   const createdAt = nowIso();
+  const eventId = crypto.randomUUID();
   await db.run(
     `INSERT INTO email_deliveries
      (id, event_id, to_email, template_key, subject, body_text, status, attempt_count, next_attempt_at, provider_message_id, last_error, created_at, updated_at, sent_at)
-     VALUES (?, NULL, ?, 'marketing_alert', ?, ?, 'queued', 0, ?, NULL, NULL, ?, ?, NULL)`,
-    [crypto.randomUUID(), MARKETING_ALERT_EMAIL, subject, bodyText, createdAt, createdAt, createdAt]
+     VALUES (?, ?, ?, 'marketing_alert', ?, ?, 'queued', 0, ?, NULL, NULL, ?, ?, NULL)`,
+    [crypto.randomUUID(), eventId, MARKETING_ALERT_EMAIL, subject, bodyText, createdAt, createdAt, createdAt]
   );
 }
 
@@ -184,6 +185,7 @@ function buildDb() {
   if (DATABASE_URL) {
     const pool = getPgPool();
     return {
+      dialect: "postgres",
       async all(sql, params = []) {
         const result = await pool.query(toPgSql(sql), params);
         return result.rows;
@@ -204,6 +206,7 @@ function buildDb() {
 
   const db = openSqlite();
   return {
+    dialect: "sqlite",
     async all(sql, params = []) {
       return db.prepare(sql).all(...params);
     },
@@ -220,6 +223,13 @@ function buildDb() {
   };
 }
 
+async function ensureSqliteColumn(db, tableName, columnName, columnDef) {
+  const rows = await db.all(`PRAGMA table_info(${tableName})`);
+  const exists = rows.some((row) => String(row?.name || "").toLowerCase() === columnName.toLowerCase());
+  if (exists) return;
+  await db.run(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnDef}`);
+}
+
 async function ensurePublishTables(db) {
   const statements = [
     `CREATE TABLE IF NOT EXISTS marketing_contents (
@@ -229,9 +239,29 @@ async function ensurePublishTables(db) {
       format TEXT NOT NULL,
       title TEXT,
       body_text TEXT NOT NULL,
+      asset_manifest_json TEXT,
       hashtags_json TEXT,
+      metadata_json TEXT,
+      version INTEGER NOT NULL DEFAULT 1,
       status TEXT NOT NULL,
+      generation_provider TEXT,
+      generation_model TEXT,
+      generation_prompt TEXT,
+      generation_seed INTEGER,
+      generation_status TEXT,
+      generation_error_code TEXT,
+      generation_error_message TEXT,
+      generation_latency_ms INTEGER,
+      generation_cost_jpy INTEGER,
+      generation_raw_response_json TEXT,
       media_asset_url TEXT,
+      media_thumb_url TEXT,
+      media_duration_sec DOUBLE PRECISION,
+      media_width INTEGER,
+      media_height INTEGER,
+      media_mime_type TEXT,
+      product_url TEXT,
+      source_context_json TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     )`,
@@ -277,6 +307,35 @@ async function ensurePublishTables(db) {
   ];
   for (const sql of statements) {
     await db.run(sql);
+  }
+
+  if (db.dialect === "sqlite") {
+    const marketingContentColumns = [
+      ["asset_manifest_json", "TEXT"],
+      ["metadata_json", "TEXT"],
+      ["version", "INTEGER"],
+      ["generation_provider", "TEXT"],
+      ["generation_model", "TEXT"],
+      ["generation_prompt", "TEXT"],
+      ["generation_seed", "INTEGER"],
+      ["generation_status", "TEXT"],
+      ["generation_error_code", "TEXT"],
+      ["generation_error_message", "TEXT"],
+      ["generation_latency_ms", "INTEGER"],
+      ["generation_cost_jpy", "INTEGER"],
+      ["generation_raw_response_json", "TEXT"],
+      ["media_thumb_url", "TEXT"],
+      ["media_duration_sec", "REAL"],
+      ["media_width", "INTEGER"],
+      ["media_height", "INTEGER"],
+      ["media_mime_type", "TEXT"],
+      ["product_url", "TEXT"],
+      ["source_context_json", "TEXT"],
+      ["updated_at", "TEXT"]
+    ];
+    for (const [columnName, columnDef] of marketingContentColumns) {
+      await ensureSqliteColumn(db, "marketing_contents", columnName, columnDef);
+    }
   }
 }
 
@@ -563,6 +622,33 @@ function buildXText(content) {
   return text;
 }
 
+function appendSourceUrl(text, sourceUrl) {
+  const url = String(sourceUrl || "").trim();
+  if (!url) return text;
+  if (text.includes(url)) return text;
+  return `${text}\n\n${url}`.trim();
+}
+
+function getSourceContext(content) {
+  const parsed = safeJsonParse(content?.source_context_json, null);
+  if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return parsed;
+  return null;
+}
+
+function buildSourcePublishContext(content) {
+  const source = getSourceContext(content);
+  const sourceType = pickFirstString([source?.source_type, source?.type])?.toLowerCase() || null;
+  const sourcePostId = pickFirstString([source?.source_post_id, source?.post_id, source?.tweet_id]);
+  const sourceUrl = pickFirstString([source?.source_url, source?.url, content?.product_url]);
+  const quoteTweetId = sourceType === "x_post" && sourcePostId ? sourcePostId : null;
+  return {
+    sourceType,
+    sourcePostId: sourcePostId || null,
+    sourceUrl: sourceUrl || null,
+    quoteTweetId
+  };
+}
+
 function pickThreadSplitIndex(text, maxLen) {
   if (text.length <= maxLen) return text.length;
   const breakChars = ["\n", "。", "！", "？", ".", "!", "?", "、", ",", " "];
@@ -622,11 +708,15 @@ async function postXStatus(payload) {
   };
 }
 
-function buildSinglePayload(text, media) {
-  return media ? { text, media: { media_ids: [media.mediaId] } } : { text };
+function buildSinglePayload(text, media, options = {}) {
+  const payload = media ? { text, media: { media_ids: [media.mediaId] } } : { text };
+  if (options.quoteTweetId) {
+    payload.quote_tweet_id = options.quoteTweetId;
+  }
+  return payload;
 }
 
-async function postXThread(text, media, fallbackError = null) {
+async function postXThread(text, media, fallbackError = null, options = {}) {
   const chunks = splitXTextForThread(text);
   let rootId = null;
   let replyToId = null;
@@ -639,6 +729,8 @@ async function postXThread(text, media, fallbackError = null) {
     }
     if (replyToId) {
       payload.reply = { in_reply_to_tweet_id: replyToId };
+    } else if (options.quoteTweetId) {
+      payload.quote_tweet_id = options.quoteTweetId;
     }
     const posted = await postXStatus(payload);
     if (!rootId) rootId = posted.externalPostId;
@@ -664,7 +756,8 @@ async function postXThread(text, media, fallbackError = null) {
             message: fallbackError.message || "unknown",
             http_status: fallbackError.httpStatus || null
           }
-        : null
+        : null,
+      quote_tweet_id: options.quoteTweetId || null
     })
   };
 }
@@ -676,7 +769,11 @@ async function publishToX(content) {
     });
   }
 
-  const text = buildXText(content);
+  const sourceContext = buildSourcePublishContext(content);
+  let text = buildXText(content);
+  if (!sourceContext.quoteTweetId && sourceContext.sourceUrl) {
+    text = appendSourceUrl(text, sourceContext.sourceUrl);
+  }
   const mediaUrl = pickFirstString([content?.media_asset_url]);
   let media = null;
   if (mediaUrl) {
@@ -685,7 +782,7 @@ async function publishToX(content) {
 
   if (X_LONGFORM_STRATEGY === "truncate" && text.length > X_SHORT_TEXT_LIMIT) {
     const clipped = `${text.slice(0, Math.max(1, X_SHORT_TEXT_LIMIT - 3)).trim()}...`;
-    const posted = await postXStatus(buildSinglePayload(clipped, media));
+    const posted = await postXStatus(buildSinglePayload(clipped, media, sourceContext));
     return {
       channel: "x",
       externalPostId: posted.externalPostId,
@@ -693,7 +790,8 @@ async function publishToX(content) {
       rawResponseJson: safeJsonStringify({
         mode: "truncate",
         tweet: posted.body,
-        media: media?.rawResponseJson ? safeJsonParse(media.rawResponseJson, media.rawResponseJson) : null
+        media: media?.rawResponseJson ? safeJsonParse(media.rawResponseJson, media.rawResponseJson) : null,
+        source_context: sourceContext
       })
     };
   }
@@ -703,11 +801,11 @@ async function publishToX(content) {
   const isLongText = text.length > X_SHORT_TEXT_LIMIT;
 
   if (wantsThread && isLongText) {
-    return postXThread(text, media, null);
+    return postXThread(text, media, null, sourceContext);
   }
 
   try {
-    const posted = await postXStatus(buildSinglePayload(text, media));
+    const posted = await postXStatus(buildSinglePayload(text, media, sourceContext));
     return {
       channel: "x",
       externalPostId: posted.externalPostId,
@@ -715,12 +813,13 @@ async function publishToX(content) {
       rawResponseJson: safeJsonStringify({
         mode: isLongText ? "single_long" : "single",
         tweet: posted.body,
-        media: media?.rawResponseJson ? safeJsonParse(media.rawResponseJson, media.rawResponseJson) : null
+        media: media?.rawResponseJson ? safeJsonParse(media.rawResponseJson, media.rawResponseJson) : null,
+        source_context: sourceContext
       })
     };
   } catch (error) {
     if (!wantsSingleOnly && isLongText && X_LONGFORM_STRATEGY === "auto" && shouldFallbackToThread(error)) {
-      return postXThread(text, media, error);
+      return postXThread(text, media, error, sourceContext);
     }
     throw error;
   }
@@ -952,7 +1051,7 @@ async function processJob(db, job) {
 
   try {
     const content = await db.get(
-      `SELECT id, channel, title, body_text, hashtags_json, media_asset_url
+      `SELECT id, channel, title, body_text, hashtags_json, media_asset_url, product_url, source_context_json
        FROM marketing_contents
        WHERE id = ?`,
       [job.content_id]

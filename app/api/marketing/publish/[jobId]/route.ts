@@ -12,6 +12,15 @@ function normalizeText(value: unknown, max = 200) {
   return trimmed.length > max ? trimmed.slice(0, max) : trimmed;
 }
 
+function safeJsonParse(raw: unknown, fallback: any = null) {
+  if (typeof raw !== "string") return fallback;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return fallback;
+  }
+}
+
 export async function GET(request: Request, context: RouteContext) {
   const authError = requireMarketingApiKey(request);
   if (authError) return authError;
@@ -38,7 +47,8 @@ export async function GET(request: Request, context: RouteContext) {
 
   const content = await db
     .prepare(
-      `SELECT id, channel, status, title, body_text, hashtags_json, media_asset_url, updated_at
+      `SELECT id, channel, status, title, body_text, hashtags_json,
+              media_asset_url, product_url, source_context_json, updated_at
        FROM marketing_contents
        WHERE id = ?`
     )
@@ -54,5 +64,15 @@ export async function GET(request: Request, context: RouteContext) {
     )
     .get((job as any).content_id);
 
-  return NextResponse.json({ status: "ok", job, content: content || null, post: post || null });
+  return NextResponse.json({
+    status: "ok",
+    job,
+    content: content
+      ? {
+          ...content,
+          source_context: safeJsonParse((content as any).source_context_json, null)
+        }
+      : null,
+    post: post || null
+  });
 }

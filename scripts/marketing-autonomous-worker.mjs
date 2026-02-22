@@ -350,6 +350,7 @@ function buildDb() {
   if (DATABASE_URL) {
     const pool = getPgPool();
     return {
+      dialect: "postgres",
       async all(sql, params = []) {
         const result = await pool.query(toPgSql(sql), params);
         return result.rows;
@@ -370,6 +371,7 @@ function buildDb() {
 
   const db = openSqlite();
   return {
+    dialect: "sqlite",
     async all(sql, params = []) {
       return db.prepare(sql).all(...params);
     },
@@ -386,6 +388,13 @@ function buildDb() {
   };
 }
 
+async function ensureSqliteColumn(db, tableName, columnName, columnDef) {
+  const rows = await db.all(`PRAGMA table_info(${tableName})`);
+  const exists = rows.some((row) => String(row?.name || "").toLowerCase() === columnName.toLowerCase());
+  if (exists) return;
+  await db.run(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnDef}`);
+}
+
 async function ensureTables(db) {
   const statements = [
     `CREATE TABLE IF NOT EXISTS marketing_contents (
@@ -395,9 +404,29 @@ async function ensureTables(db) {
       format TEXT NOT NULL,
       title TEXT,
       body_text TEXT NOT NULL,
+      asset_manifest_json TEXT,
       hashtags_json TEXT,
+      metadata_json TEXT,
+      version INTEGER NOT NULL DEFAULT 1,
       status TEXT NOT NULL,
+      generation_provider TEXT,
+      generation_model TEXT,
+      generation_prompt TEXT,
+      generation_seed INTEGER,
+      generation_status TEXT,
+      generation_error_code TEXT,
+      generation_error_message TEXT,
+      generation_latency_ms INTEGER,
+      generation_cost_jpy INTEGER,
+      generation_raw_response_json TEXT,
       media_asset_url TEXT,
+      media_thumb_url TEXT,
+      media_duration_sec DOUBLE PRECISION,
+      media_width INTEGER,
+      media_height INTEGER,
+      media_mime_type TEXT,
+      product_url TEXT,
+      source_context_json TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     )`,
@@ -448,6 +477,35 @@ async function ensureTables(db) {
   ];
   for (const sql of statements) {
     await db.run(sql);
+  }
+
+  if (db.dialect === "sqlite") {
+    const marketingContentColumns = [
+      ["asset_manifest_json", "TEXT"],
+      ["metadata_json", "TEXT"],
+      ["version", "INTEGER"],
+      ["generation_provider", "TEXT"],
+      ["generation_model", "TEXT"],
+      ["generation_prompt", "TEXT"],
+      ["generation_seed", "INTEGER"],
+      ["generation_status", "TEXT"],
+      ["generation_error_code", "TEXT"],
+      ["generation_error_message", "TEXT"],
+      ["generation_latency_ms", "INTEGER"],
+      ["generation_cost_jpy", "INTEGER"],
+      ["generation_raw_response_json", "TEXT"],
+      ["media_thumb_url", "TEXT"],
+      ["media_duration_sec", "REAL"],
+      ["media_width", "INTEGER"],
+      ["media_height", "INTEGER"],
+      ["media_mime_type", "TEXT"],
+      ["product_url", "TEXT"],
+      ["source_context_json", "TEXT"],
+      ["updated_at", "TEXT"]
+    ];
+    for (const [columnName, columnDef] of marketingContentColumns) {
+      await ensureSqliteColumn(db, "marketing_contents", columnName, columnDef);
+    }
   }
 }
 
