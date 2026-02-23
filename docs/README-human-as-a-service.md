@@ -508,6 +508,33 @@ Env vars (optional, defaults exist):
 - `STRIPE_WEBHOOK_SECRET`
 - `APP_BASE_URL` (used to validate checkout success/cancel redirect URLs)
 
+### Operational checklist (Payment hardening)
+
+- AI billing onboarding:
+  - `POST /api/ai/billing/setup-intent` returns `client_secret` on valid credentials.
+  - `POST /api/ai/billing/payment-method` rejects invalid `payment_method_id` and succeeds with valid Stripe `pm_`.
+- Assignment pre-authorization:
+  - `POST /api/call_human` and `POST /api/tasks/:taskId/accept` return `billing_not_ready` when default payment method is missing.
+  - Successful assignment path persists authorization and returns `payment.status=authorized`.
+- Approval/capture:
+  - `POST /api/tasks/:taskId/approve` captures authorization and returns `payment.status=captured`.
+  - On capture failure, API returns `payment_capture_failed` and must not falsely mark task as paid/completed.
+- Auto-approval/arrears:
+  - Timeout auto-approval captures before completion.
+  - Repeated capture failure creates arrears records and overdue arrears can disable AI API access (`ai_accounts.api_access_status=disabled`).
+- Payment visibility:
+  - `GET /api/me/payments` reflects summary totals and row status correctly.
+- Render env safety:
+  - `APP_BASE_URL` matches public origin (for example, `https://sinkai.tokyo`).
+  - Keep `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` set for `/ai/connect`.
+  - `PUT /services/{serviceId}/env-vars` replaces all keys; prefer per-key updates via `PUT /services/{serviceId}/env-vars/{envVarKey}`.
+  - After env updates, verify key names exist: `NEXTAUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `NEXTAUTH_URL`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`.
+- CSP sanity for Stripe Elements:
+  - `script-src` includes `https://js.stripe.com`.
+  - `frame-src` includes `https://js.stripe.com` and `https://hooks.stripe.com`.
+  - `connect-src` includes `https://api.stripe.com` (and project-required Stripe telemetry domains).
+  - If `/ai/connect` shows `stripe_js_load_failed`, inspect CSP response headers first.
+
 ### Optional object storage (Cloudflare R2)
 
 When set, uploads (submission attachments / message attachments / profile photos) are stored in R2 instead of local `public/uploads`.
