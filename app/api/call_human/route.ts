@@ -237,10 +237,15 @@ export async function POST(request: Request) {
   const human = await stmt.get(...params);
 
   if (!human) {
+    // Keep the task open so it remains discoverable in marketplace listing.
     await db.prepare(
-      `UPDATE tasks SET status = 'failed', failure_reason = 'no_human_available' WHERE id = ?`
+      `UPDATE tasks
+       SET status = 'open',
+           failure_reason = NULL,
+           human_id = NULL,
+           payee_paypal_email = NULL
+       WHERE id = ?`
     ).run(taskId);
-    void dispatchTaskEvent(db, { eventType: "task.failed", taskId }).catch(() => {});
     return respond({ status: "rejected", reason: "no_human_available", task_id: taskId });
   }
 

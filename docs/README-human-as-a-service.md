@@ -272,6 +272,7 @@ Deliverables are returned in `submission` via `GET /api/tasks/:taskId`.
 - Human workers can accept multiple tasks concurrently.
 - Matching does not use `humans.status` (`available`/`busy`) as an assignment gate.
 - `no_human_available` is returned only when no eligible human exists after non-status filters (for example `deleted_at`, optional location match).
+- In this case, the task remains `open` (not `failed`) so it can stay visible in marketplace listings and be accepted later.
 
 ## Payment lifecycle (MVP)
 

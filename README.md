@@ -83,6 +83,9 @@ curl -X POST http://localhost:3000/api/call_human \
 }
 ```
 
+- `no_human_available` only means immediate assignment was not possible.  
+  The created task remains `open` and appears in task listings for later matching.
+
 ## Human UI
 
 - `/register` to register as a human
