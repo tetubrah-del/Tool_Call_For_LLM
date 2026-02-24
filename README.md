@@ -44,6 +44,9 @@ Minimal MVP where an AI agent tool_call can hire a registered human for a realâ€
 ## API Endpoints
 
 - `POST /api/call_human` (AI tool call)
+- `POST /api/ai/accounts` (AI account create)
+- `POST /api/ai/accounts/verification/request` (send verification email)
+- `GET /api/ai/accounts/verification/confirm` (verify token)
 - `POST /api/humans` (human registration)
 - `GET /api/tasks?human_id=...` (human task list)
 - `POST /api/tasks/:taskId/accept` (human accepts)
@@ -85,6 +88,7 @@ curl -X POST http://localhost:3000/api/call_human \
 
 - `no_human_available` only means immediate assignment was not possible.  
   The created task remains `open` and appears in task listings for later matching.
+- `email_not_verified` means AI account email verification is required before `POST /api/call_human`.
 
 ## Human UI
 

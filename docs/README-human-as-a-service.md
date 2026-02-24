@@ -64,7 +64,9 @@ Minimal API where an AI agent tool_call can hire a registered human for a real-w
 ## API Endpoints
 
 - `POST /api/call_human` (AI tool call)
-- `POST /api/ai/accounts` (AI account + PayPal connect)
+- `POST /api/ai/accounts` (AI account create)
+- `POST /api/ai/accounts/verification/request` (send AI email verification link)
+- `GET /api/ai/accounts/verification/confirm` (confirm AI email verification token)
 - `POST /api/humans` (human registration)
 - `GET /api/tasks?human_id=...` (human task list)
 - `GET /api/tasks?human_id=...&task_label=...&q=...` (human task search)
@@ -347,9 +349,9 @@ Supported endpoints (when enabled):
 
 This auth mode must remain disabled in production.
 
-## AI PayPal connect
+## AI account onboarding
 
-Register once and use returned credentials in each tool call.
+Register once, verify operator email, then complete card setup.
 
 ```json
 POST /api/ai/accounts
@@ -365,7 +367,18 @@ Response:
 {
   "status": "connected",
   "account_id": "uuid",
-  "api_key": "secret"
+  "api_key": "secret",
+  "email_verified": false
+}
+```
+
+Then verify email:
+
+```json
+POST /api/ai/accounts/verification/request
+{
+  "ai_account_id": "uuid",
+  "ai_api_key": "ai_live_..."
 }
 ```
 
@@ -443,7 +456,8 @@ This repo uses a pre-authorization + capture flow for AI operator payments.
 - `POST /api/stripe/orders` creates an `orders` row (AI-auth required).
 - `POST /api/ai/billing/setup-intent` creates a SetupIntent for card registration (AI-auth required).
 - `POST /api/ai/billing/payment-method` attaches and sets default payment method (AI-auth required).
-- `POST /api/call_human` and `POST /api/tasks/:taskId/accept` authorize payment (`capture_method=manual`) before assignment is finalized.
+- `POST /api/call_human` requires verified AI email and authorizes payment (`capture_method=manual`) before assignment is finalized.
+- `POST /api/tasks/:taskId/accept` authorizes payment (`capture_method=manual`) before assignment is finalized.
 - `POST /api/tasks/:taskId/approve` captures the authorization and marks task payment as paid.
 - `POST /api/stripe/orders/:orderId/checkout` remains available for legacy/manual Checkout flow.
 - `POST /api/stripe/orders/:orderId/refund` executes admin refund on Stripe (admin-only).

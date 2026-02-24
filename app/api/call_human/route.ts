@@ -199,8 +199,15 @@ export async function POST(request: Request) {
   }
   aiAuth = auth;
   const aiAccount = await db
-    .prepare(`SELECT paypal_email FROM ai_accounts WHERE id = ?`)
-    .get<{ paypal_email: string | null }>(aiAccountId);
+    .prepare(
+      `SELECT paypal_email, email_verified_at
+       FROM ai_accounts
+       WHERE id = ? AND deleted_at IS NULL`
+    )
+    .get<{ paypal_email: string | null; email_verified_at: string | null }>(aiAccountId);
+  if (!aiAccount?.email_verified_at) {
+    return respond({ status: "rejected", reason: "email_not_verified" }, 403);
+  }
 
   const taskId = crypto.randomUUID();
   await db.prepare(

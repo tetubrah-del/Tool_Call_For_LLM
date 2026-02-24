@@ -38,6 +38,90 @@
         }
       }
     },
+    "/api/ai/accounts/verification/request": {
+      "post": {
+        "summary": "Send AI account email verification link",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AiEmailVerificationRequestPayload" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Verification email queued or already verified",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AiEmailVerificationRequestResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ai/accounts/verification/confirm": {
+      "get": {
+        "summary": "Confirm AI account email verification token",
+        "parameters": [
+          {
+            "name": "ai_account_id",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Email verified",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AiEmailVerificationConfirmResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or expired token",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "404": {
+            "description": "Account not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/ai/billing/setup-intent": {
       "post": {
         "summary": "Create Stripe SetupIntent for AI account card registration",
@@ -359,6 +443,14 @@
           },
           "409": {
             "description": "Idempotency conflict or request in progress",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "403": {
+            "description": "Email verification required",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/ErrorResponse" }
@@ -997,6 +1089,10 @@
           "idempotency_key_conflict",
           "request_in_progress",
           "invalid_credentials",
+          "invalid_email_domain",
+          "email_not_verified",
+          "expired_token",
+          "token_already_used",
           "not_reviewable",
           "review_window_closed",
           "review_already_published",
@@ -1060,11 +1156,43 @@
       },
       "ConnectResponse": {
         "type": "object",
-        "required": ["status", "account_id", "api_key"],
+        "required": ["status", "account_id", "email_verified"],
         "properties": {
-          "status": { "type": "string", "enum": ["connected"] },
+          "status": { "type": "string", "enum": ["connected", "already_connected"] },
           "account_id": { "type": "string" },
-          "api_key": { "type": "string" }
+          "api_key": { "type": "string" },
+          "email_verified": { "type": "boolean" },
+          "email_verified_at": { "type": ["string", "null"], "format": "date-time" }
+        }
+      },
+      "AiEmailVerificationRequestPayload": {
+        "type": "object",
+        "required": ["ai_account_id", "ai_api_key"],
+        "properties": {
+          "ai_account_id": { "type": "string" },
+          "ai_api_key": { "type": "string" }
+        }
+      },
+      "AiEmailVerificationRequestResponse": {
+        "type": "object",
+        "required": ["status"],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": ["verification_sent", "already_verified"]
+          },
+          "sent_to": { "type": "string" },
+          "expires_at": { "type": "string", "format": "date-time" },
+          "email_verified_at": { "type": ["string", "null"], "format": "date-time" }
+        }
+      },
+      "AiEmailVerificationConfirmResponse": {
+        "type": "object",
+        "required": ["status", "ai_account_id", "email_verified_at"],
+        "properties": {
+          "status": { "type": "string", "enum": ["verified"] },
+          "ai_account_id": { "type": "string" },
+          "email_verified_at": { "type": "string", "format": "date-time" }
         }
       },
       "AiBillingSetupIntentPayload": {

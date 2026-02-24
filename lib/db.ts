@@ -186,6 +186,7 @@ async function initPostgres() {
       paypal_email TEXT NOT NULL,
       stripe_customer_id TEXT,
       default_payment_method_id TEXT,
+      email_verified_at TEXT,
       billing_consent_at TEXT,
       collection_disabled_at TEXT,
       api_key TEXT NOT NULL DEFAULT '',
@@ -724,6 +725,7 @@ async function initPostgres() {
     `ALTER TABLE ai_accounts ADD COLUMN IF NOT EXISTS deleted_at TEXT`,
     `ALTER TABLE ai_accounts ADD COLUMN IF NOT EXISTS stripe_customer_id TEXT`,
     `ALTER TABLE ai_accounts ADD COLUMN IF NOT EXISTS default_payment_method_id TEXT`,
+    `ALTER TABLE ai_accounts ADD COLUMN IF NOT EXISTS email_verified_at TEXT`,
     `ALTER TABLE ai_accounts ADD COLUMN IF NOT EXISTS billing_consent_at TEXT`,
     `ALTER TABLE ai_accounts ADD COLUMN IF NOT EXISTS collection_disabled_at TEXT`,
     `ALTER TABLE ai_accounts ADD COLUMN IF NOT EXISTS api_key_hash TEXT`,
@@ -809,6 +811,17 @@ async function initPostgres() {
       ON payment_arrears (status, due_at)`,
     `CREATE INDEX IF NOT EXISTS payment_arrears_ai_status_due_idx
       ON payment_arrears (ai_account_id, status, due_at)`,
+    `CREATE TABLE IF NOT EXISTS ai_email_verification_tokens (
+      id TEXT PRIMARY KEY,
+      ai_account_id TEXT NOT NULL,
+      email TEXT NOT NULL,
+      token_hash TEXT NOT NULL UNIQUE,
+      created_at TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      used_at TEXT
+    )`,
+    `CREATE INDEX IF NOT EXISTS ai_email_verification_tokens_account_idx
+      ON ai_email_verification_tokens (ai_account_id, created_at DESC)`,
     `CREATE TABLE IF NOT EXISTS task_review_guards (
       task_id TEXT PRIMARY KEY,
       ai_account_id TEXT NOT NULL,
@@ -1250,6 +1263,7 @@ async function initSqlite() {
       paypal_email TEXT NOT NULL,
       stripe_customer_id TEXT,
       default_payment_method_id TEXT,
+      email_verified_at TEXT,
       billing_consent_at TEXT,
       collection_disabled_at TEXT,
       api_key TEXT NOT NULL DEFAULT '',
@@ -1770,6 +1784,18 @@ async function initSqlite() {
     CREATE INDEX IF NOT EXISTS payment_arrears_ai_status_due_idx
       ON payment_arrears (ai_account_id, status, due_at);
 
+    CREATE TABLE IF NOT EXISTS ai_email_verification_tokens (
+      id TEXT PRIMARY KEY,
+      ai_account_id TEXT NOT NULL,
+      email TEXT NOT NULL,
+      token_hash TEXT NOT NULL UNIQUE,
+      created_at TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      used_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS ai_email_verification_tokens_account_idx
+      ON ai_email_verification_tokens (ai_account_id, created_at DESC);
+
     CREATE TABLE IF NOT EXISTS stripe_webhook_events (
       event_id TEXT PRIMARY KEY,
       event_type TEXT NOT NULL,
@@ -1837,6 +1863,7 @@ async function initSqlite() {
   ensureSqliteColumn(db, "ai_accounts", "deleted_at", "TEXT");
   ensureSqliteColumn(db, "ai_accounts", "stripe_customer_id", "TEXT");
   ensureSqliteColumn(db, "ai_accounts", "default_payment_method_id", "TEXT");
+  ensureSqliteColumn(db, "ai_accounts", "email_verified_at", "TEXT");
   ensureSqliteColumn(db, "ai_accounts", "billing_consent_at", "TEXT");
   ensureSqliteColumn(db, "ai_accounts", "collection_disabled_at", "TEXT");
   ensureSqliteColumn(db, "ai_accounts", "api_key_hash", "TEXT");
@@ -2230,6 +2257,7 @@ export type AiAccount = {
   paypal_email: string;
   stripe_customer_id: string | null;
   default_payment_method_id: string | null;
+  email_verified_at: string | null;
   billing_consent_at: string | null;
   collection_disabled_at: string | null;
   api_key: string;
