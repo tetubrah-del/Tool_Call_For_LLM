@@ -8,6 +8,7 @@ import { normalizeLang, type UiLang } from "@/lib/i18n";
 const FOOTER_STRINGS: Record<
   UiLang,
   {
+    bestbuy: string;
     blog: string;
     terms: string;
     legal: string;
@@ -16,6 +17,7 @@ const FOOTER_STRINGS: Record<
   }
 > = {
   ja: {
+    bestbuy: "2026スマートウォッチ比較",
     blog: "ブログ",
     terms: "利用規約",
     legal: "特商法",
@@ -23,6 +25,7 @@ const FOOTER_STRINGS: Record<
     company: "運営会社"
   },
   en: {
+    bestbuy: "Smartwatch Guide 2026",
     blog: "Blog",
     terms: "Terms",
     legal: "Legal Notice",
@@ -45,6 +48,7 @@ export default function SiteFooter() {
   return (
     <footer className="site-footer">
       <div className="site-footer-inner">
+        <a href="/bestbuy/">{strings.bestbuy}</a>
         <Link href={`/blog?lang=${lang}`}>{strings.blog}</Link>
         <a href={`/terms?lang=${lang}`}>{strings.terms}</a>
         <a
