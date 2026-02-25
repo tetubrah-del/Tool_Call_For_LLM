@@ -17,7 +17,7 @@ const FOOTER_STRINGS: Record<
   }
 > = {
   ja: {
-    bestbuy: "2026スマートウォッチ比較",
+    bestbuy: "bestbuy",
     blog: "ブログ",
     terms: "利用規約",
     legal: "特商法",
@@ -25,7 +25,7 @@ const FOOTER_STRINGS: Record<
     company: "運営会社"
   },
   en: {
-    bestbuy: "Smartwatch Guide 2026",
+    bestbuy: "bestbuy",
     blog: "Blog",
     terms: "Terms",
     legal: "Legal Notice",
