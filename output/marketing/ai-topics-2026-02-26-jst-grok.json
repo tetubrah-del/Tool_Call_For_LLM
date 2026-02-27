@@ -1,0 +1,29 @@
+{
+  "target_date_jst": "2026-02-26",
+  "topics": [
+    {
+      "news_url": "https://www.cnn.com/2026/02/26/business/block-layoffs-ai-jack-dorsey",
+      "x_url": "https://x.com/jack/status/2027129697092731343",
+      "published_date_jst": "2026-02-26",
+      "title": "BlockがAI活用で4000人規模のレイオフを実施",
+      "summary_ja": "Jack Dorsey CEOが全社メモで、AIツールの進化により組織を半減させる大規模レイオフを発表した。事業は好調だが、AIが小規模チームで高い生産性を可能にすると強調。",
+      "why_hot": "Jack本人の投稿が2万Likes超え、AIによる雇用変革の現実を象徴し世界中で議論を呼んだ。"
+    },
+    {
+      "news_url": "https://www.reuters.com/world/asia-pacific/google-rolls-out-nano-banana-2-after-viral-success-ai-image-generation-tool-2026-02-26",
+      "x_url": "https://x.com/Google/status/2027051657163391104",
+      "published_date_jst": "2026-02-26",
+      "title": "Googleが画像生成AI「Nano Banana 2」をリリース",
+      "summary_ja": "GoogleがNano Banana 2を発表し、プロ級品質の画像生成・編集を高速で実現。Gemini Appや開発ツールで即時展開開始した。",
+      "why_hot": "公式X投稿が4千Likes超の反響を呼び、クリエイターコミュニティでviralに広がった。"
+    },
+    {
+      "news_url": "https://www.nytimes.com/2026/02/26/technology/anthropic-pentagon-talks-ai.html",
+      "x_url": "https://x.com/AnthropicAI/status/2027150818575528261",
+      "published_date_jst": "2026-02-26",
+      "title": "Anthropic、PentagonとのAI軍事利用交渉で進展なし",
+      "summary_ja": "Anthropic CEOが声明を発表し、国防総省のAI制限解除要求を拒否。安全基準を維持し、代替プロバイダ移行も提案した。",
+      "why_hot": "CEO声明投稿が1万Likes超え、AI倫理と軍事利用の対立が国際的に注目を集めた。"
+    }
+  ]
+}
