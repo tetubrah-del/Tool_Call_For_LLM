@@ -2,12 +2,12 @@ import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { requireMarketingApiKey } from "@/lib/marketing-api-auth";
-
-function normalizeText(value: unknown, max = 10000) {
-  if (typeof value !== "string") return "";
-  const trimmed = value.trim();
-  return trimmed.length > max ? trimmed.slice(0, max) : trimmed;
-}
+import {
+  deriveTopicFields,
+  findRecentTopicDuplicate,
+  normalizeText,
+  parseSourceContext
+} from "@/lib/marketing-topic";
 
 function normalizeChannel(value: unknown) {
   const v = normalizeText(value, 40).toLowerCase();
@@ -37,13 +37,60 @@ export async function POST(request: Request) {
 
   const db = getDb();
   const content = await db
-    .prepare(`SELECT id, channel, status FROM marketing_contents WHERE id = ?`)
+    .prepare(
+      `SELECT id, channel, status, title, body_text, product_url, source_context_json, topic_key, topic_summary
+       FROM marketing_contents
+       WHERE id = ?`
+    )
     .get(contentId);
   if (!content) {
     return NextResponse.json({ status: "error", reason: "content_not_found" }, { status: 404 });
   }
 
   const channel = requestedChannel || normalizeChannel((content as any).channel) || "x";
+  const sourceContext = parseSourceContext((content as any).source_context_json);
+  const derivedTopic = deriveTopicFields({
+    title: (content as any).title,
+    bodyText: (content as any).body_text,
+    productUrl: (content as any).product_url,
+    sourceContext
+  });
+  const topicKey = normalizeText((content as any).topic_key, 500) || derivedTopic.topicKey;
+  const topicSummary = normalizeText((content as any).topic_summary, 240) || derivedTopic.topicSummary;
+  if (
+    topicKey !== ((content as any).topic_key || null) ||
+    topicSummary !== ((content as any).topic_summary || null)
+  ) {
+    await db
+      .prepare(
+        `UPDATE marketing_contents
+         SET topic_key = ?, topic_summary = ?, updated_at = ?
+         WHERE id = ?`
+      )
+      .run(topicKey, topicSummary, scheduledAt, contentId);
+  }
+
+  const duplicate = await findRecentTopicDuplicate(db, {
+    contentId,
+    channel,
+    topicKey,
+    topicSummary,
+    title: (content as any).title,
+    bodyText: (content as any).body_text,
+    productUrl: (content as any).product_url,
+    sourceContext
+  });
+  if (duplicate) {
+    return NextResponse.json(
+      {
+        status: "error",
+        reason: "duplicate_topic_recently_used",
+        duplicate
+      },
+      { status: 409 }
+    );
+  }
+
   const now = new Date().toISOString();
   const id = crypto.randomUUID();
 

@@ -612,6 +612,10 @@ async function initPostgres() {
       media_width INTEGER,
       media_height INTEGER,
       media_mime_type TEXT,
+      product_url TEXT,
+      source_context_json TEXT,
+      topic_key TEXT,
+      topic_summary TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     )`,
@@ -1062,6 +1066,10 @@ async function initPostgres() {
       media_width INTEGER,
       media_height INTEGER,
       media_mime_type TEXT,
+      product_url TEXT,
+      source_context_json TEXT,
+      topic_key TEXT,
+      topic_summary TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     )`,
@@ -1149,6 +1157,8 @@ async function initPostgres() {
     `ALTER TABLE marketing_contents ADD COLUMN IF NOT EXISTS media_mime_type TEXT`,
     `ALTER TABLE marketing_contents ADD COLUMN IF NOT EXISTS product_url TEXT`,
     `ALTER TABLE marketing_contents ADD COLUMN IF NOT EXISTS source_context_json TEXT`,
+    `ALTER TABLE marketing_contents ADD COLUMN IF NOT EXISTS topic_key TEXT`,
+    `ALTER TABLE marketing_contents ADD COLUMN IF NOT EXISTS topic_summary TEXT`,
     `ALTER TABLE marketing_contents ADD COLUMN IF NOT EXISTS updated_at TEXT`,
     `CREATE UNIQUE INDEX IF NOT EXISTS marketing_metrics_daily_post_date_idx
       ON marketing_metrics_daily (post_id, metric_date)`,
@@ -1159,7 +1169,11 @@ async function initPostgres() {
     `CREATE INDEX IF NOT EXISTS marketing_generation_jobs_status_next_attempt_idx
       ON marketing_generation_jobs (status, next_attempt_at)`,
     `CREATE INDEX IF NOT EXISTS marketing_generation_jobs_content_idx
-      ON marketing_generation_jobs (content_id, created_at)`
+      ON marketing_generation_jobs (content_id, created_at)`,
+    `CREATE INDEX IF NOT EXISTS marketing_contents_channel_topic_key_idx
+      ON marketing_contents (channel, topic_key)`,
+    `CREATE INDEX IF NOT EXISTS marketing_posts_content_published_idx
+      ON marketing_posts (content_id, published_at)`
   ];
 
   for (const statement of migrationStatements) {
@@ -1622,6 +1636,10 @@ async function initSqlite() {
       media_width INTEGER,
       media_height INTEGER,
       media_mime_type TEXT,
+      product_url TEXT,
+      source_context_json TEXT,
+      topic_key TEXT,
+      topic_summary TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
