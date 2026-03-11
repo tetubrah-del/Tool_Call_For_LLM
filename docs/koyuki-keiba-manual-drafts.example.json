@@ -1,0 +1,17 @@
+{
+  "drafts": [
+    {
+      "brief_id": "koyuki-keiba-codex-manual",
+      "planned_for": "2026-03-12",
+      "slot_key": "0730",
+      "content_type": "history_trivia",
+      "title": "木曜朝の競馬史メモ",
+      "body_text": "ここに Codex が事実ベースで作った本文を入れます。未確認のオッズや結果は書かず、公式や主要競馬メディアで裏取りした内容だけを入れます。",
+      "hashtags": ["#競馬", "#競馬豆知識"],
+      "source_url": "https://www.jra.go.jp/",
+      "source_domain": "jra.go.jp",
+      "source_kind": "manual_fact_grounded",
+      "notes": "midweek-no-jra-meeting"
+    }
+  ]
+}

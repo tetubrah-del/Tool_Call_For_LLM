@@ -207,3 +207,102 @@ export async function GET(request: Request) {
     .all(limit);
   return NextResponse.json({ status: "ok", contents: contents.map(hydrateContent) });
 }
+
+export async function DELETE(request: Request) {
+  const authError = requireMarketingApiKey(request);
+  if (authError) return authError;
+
+  const url = new URL(request.url);
+  const contentId = normalizeText(url.searchParams.get("content_id"), 120);
+  if (!contentId) {
+    return NextResponse.json({ status: "error", reason: "invalid_request" }, { status: 400 });
+  }
+
+  const db = getDb();
+  const content = await db
+    .prepare(
+      `SELECT id, campaign_id, persona_id, status, planned_for, slot_key
+       FROM marketing_contents
+       WHERE id = ?`
+    )
+    .get(contentId);
+  if (!content) {
+    return NextResponse.json({ status: "not_found" }, { status: 404 });
+  }
+
+  const policy = readMarketingIdentityPolicy();
+  if (policy.campaignId && normalizeText((content as any).campaign_id, 120) !== policy.campaignId) {
+    return NextResponse.json({ status: "error", reason: "campaign_mismatch" }, { status: 400 });
+  }
+  if (policy.personaId && normalizeText((content as any).persona_id, 120) !== policy.personaId) {
+    return NextResponse.json({ status: "error", reason: "persona_mismatch" }, { status: 400 });
+  }
+
+  const published = await db
+    .prepare(
+      `SELECT id
+       FROM marketing_posts
+       WHERE content_id = ?
+       LIMIT 1`
+    )
+    .get(contentId);
+  if (published) {
+    return NextResponse.json(
+      { status: "error", reason: "content_already_published", content_id: contentId },
+      { status: 409 }
+    );
+  }
+
+  const queuedJob = await db
+    .prepare(
+      `SELECT id, status
+       FROM marketing_publish_jobs
+       WHERE content_id = ?
+       LIMIT 1`
+    )
+    .get(contentId);
+  if (queuedJob) {
+    return NextResponse.json(
+      {
+        status: "error",
+        reason: "content_has_publish_job",
+        content_id: contentId,
+        publish_job_id: (queuedJob as any).id,
+        publish_job_status: (queuedJob as any).status
+      },
+      { status: 409 }
+    );
+  }
+
+  const generationJob = await db
+    .prepare(
+      `SELECT id, status
+       FROM marketing_generation_jobs
+       WHERE content_id = ?
+       LIMIT 1`
+    )
+    .get(contentId);
+  if (generationJob) {
+    return NextResponse.json(
+      {
+        status: "error",
+        reason: "content_has_generation_job",
+        content_id: contentId,
+        generation_job_id: (generationJob as any).id,
+        generation_job_status: (generationJob as any).status
+      },
+      { status: 409 }
+    );
+  }
+
+  await db.prepare(`DELETE FROM marketing_contents WHERE id = ?`).run(contentId);
+
+  return NextResponse.json({
+    status: "ok",
+    deleted: {
+      id: contentId,
+      planned_for: (content as any).planned_for || null,
+      slot_key: (content as any).slot_key || null
+    }
+  });
+}

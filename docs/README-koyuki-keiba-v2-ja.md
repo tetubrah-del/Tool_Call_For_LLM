@@ -2,6 +2,8 @@
 
 Koyuki v2 は `server-only` 前提で、`koyuki_keiba_v2` 専用の persona/campaign を API 経由で強制します。
 
+現在の推奨運用は `Codex手動下書き + API登録 + dispatch cron` です。自動 planner は残っていますが、投稿本文の生成元としては使わず、必要なら停止してください。
+
 ## 追加したもの
 
 - `POST /api/marketing/dispatch`
@@ -21,6 +23,9 @@ Koyuki v2 は `server-only` 前提で、`koyuki_keiba_v2` 専用の persona/camp
   - Render Cron から `/api/marketing/dispatch` を叩くワンショット用
 - `scripts/koyuki-keiba-planner-cron.mjs`
   - Render Cron から `/api/marketing/planner` を叩くワンショット用
+- `scripts/koyuki-keiba-manual-seed.mjs`
+  - Codex が作った JSON 下書きを `/api/marketing/contents` へ一括登録
+  - 同じ `planned_for + slot_key` が既にある場合は安全側で停止
 
 ## 必須 env
 
@@ -68,6 +73,17 @@ KOYUKI_KEIBA_API_BASE_URL=https://<koyuki-keiba-api>
 }
 ```
 
+## Codex 手動運用
+
+1. Codex が 1 日分または 3 日分の fact-grounded 下書きを作る
+2. JSON に保存する
+3. `npm run marketing:koyuki-manual-seed -- docs/koyuki-keiba-manual-drafts.example.json --dry-run`
+4. 問題なければ `npm run marketing:koyuki-manual-seed -- <drafts.json>`
+5. Render の `dispatch` cron が各 slot で publish queue に 1 件ずつ積む
+
+下書き JSON 例:
+- [koyuki-keiba-manual-drafts.example.json](/Users/tetubrah/Projects/Tool_Call_For_LLM/docs/koyuki-keiba-manual-drafts.example.json)
+
 ## Render Cron
 
 - ingest: `0 * * * *`
@@ -82,3 +98,4 @@ KOYUKI_KEIBA_API_BASE_URL=https://<koyuki-keiba-api>
 - キャラ設定が未定でも、まずは `persona_id/campaign_id` を `koyuki_keiba_v2` で固定して運用分離できます
 - キャラ仕様の叩き台は [SPEC-koyuki-keiba-persona-v2-ja.md](/Users/tetubrah/Projects/Tool_Call_For_LLM/docs/SPEC-koyuki-keiba-persona-v2-ja.md) を参照
 - planner は既存 slot が埋まっている日は `planner_already_seeded` でスキップします
+- 手動運用に切り替えるなら `koyuki-keiba-planner-cron` は止めるのが安全です
