@@ -596,6 +596,11 @@ async function initPostgres() {
       metadata_json TEXT,
       version INTEGER NOT NULL DEFAULT 1,
       status TEXT NOT NULL,
+      campaign_id TEXT,
+      persona_id TEXT,
+      content_type TEXT,
+      slot_key TEXT,
+      planned_for TEXT,
       generation_provider TEXT,
       generation_model TEXT,
       generation_prompt TEXT,
@@ -1050,6 +1055,11 @@ async function initPostgres() {
       metadata_json TEXT,
       version INTEGER NOT NULL DEFAULT 1,
       status TEXT NOT NULL,
+      campaign_id TEXT,
+      persona_id TEXT,
+      content_type TEXT,
+      slot_key TEXT,
+      planned_for TEXT,
       generation_provider TEXT,
       generation_model TEXT,
       generation_prompt TEXT,
@@ -1140,6 +1150,11 @@ async function initPostgres() {
       finished_at TEXT
     )`,
     `ALTER TABLE marketing_contents ADD COLUMN IF NOT EXISTS generation_provider TEXT`,
+    `ALTER TABLE marketing_contents ADD COLUMN IF NOT EXISTS campaign_id TEXT`,
+    `ALTER TABLE marketing_contents ADD COLUMN IF NOT EXISTS persona_id TEXT`,
+    `ALTER TABLE marketing_contents ADD COLUMN IF NOT EXISTS content_type TEXT`,
+    `ALTER TABLE marketing_contents ADD COLUMN IF NOT EXISTS slot_key TEXT`,
+    `ALTER TABLE marketing_contents ADD COLUMN IF NOT EXISTS planned_for TEXT`,
     `ALTER TABLE marketing_contents ADD COLUMN IF NOT EXISTS generation_model TEXT`,
     `ALTER TABLE marketing_contents ADD COLUMN IF NOT EXISTS generation_prompt TEXT`,
     `ALTER TABLE marketing_contents ADD COLUMN IF NOT EXISTS generation_seed INTEGER`,
@@ -1620,6 +1635,11 @@ async function initSqlite() {
       metadata_json TEXT,
       version INTEGER NOT NULL DEFAULT 1,
       status TEXT NOT NULL,
+      campaign_id TEXT,
+      persona_id TEXT,
+      content_type TEXT,
+      slot_key TEXT,
+      planned_for TEXT,
       generation_provider TEXT,
       generation_model TEXT,
       generation_prompt TEXT,
@@ -1964,6 +1984,11 @@ async function initSqlite() {
   ensureSqliteColumn(db, "orders", "refunded_at", "TEXT");
   ensureSqliteColumn(db, "orders", "refund_error_message", "TEXT");
   ensureSqliteColumn(db, "marketing_contents", "generation_provider", "TEXT");
+  ensureSqliteColumn(db, "marketing_contents", "campaign_id", "TEXT");
+  ensureSqliteColumn(db, "marketing_contents", "persona_id", "TEXT");
+  ensureSqliteColumn(db, "marketing_contents", "content_type", "TEXT");
+  ensureSqliteColumn(db, "marketing_contents", "slot_key", "TEXT");
+  ensureSqliteColumn(db, "marketing_contents", "planned_for", "TEXT");
   ensureSqliteColumn(db, "marketing_contents", "generation_model", "TEXT");
   ensureSqliteColumn(db, "marketing_contents", "generation_prompt", "TEXT");
   ensureSqliteColumn(db, "marketing_contents", "generation_seed", "INTEGER");

@@ -4,6 +4,14 @@ export function normalizeText(value: unknown, max = 10000) {
   return trimmed.length > max ? trimmed.slice(0, max) : trimmed;
 }
 
+export function parseCsvList(value: unknown) {
+  if (typeof value !== "string") return [];
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 export function normalizeIsoDateTime(value: unknown) {
   const s = normalizeText(value, 100);
   if (!s) return "";
@@ -49,6 +57,35 @@ export function normalizeSourceContext(payload: any) {
   const normalized: Record<string, unknown> = {};
   for (const key of keys) {
     normalized[key] = source[key];
+  }
+  return normalized;
+}
+
+export function normalizeMetadata(payload: any) {
+  const rawObject =
+    payload?.metadata && typeof payload.metadata === "object" && !Array.isArray(payload.metadata)
+      ? payload.metadata
+      : safeJsonParse(payload?.metadata_json, {});
+  const metadata: Record<string, unknown> = rawObject && typeof rawObject === "object" ? { ...rawObject } : {};
+
+  const campaignId = normalizeText(payload?.campaign_id ?? metadata.campaign_id, 120);
+  const personaId = normalizeText(payload?.persona_id ?? payload?.target_persona ?? metadata.persona_id, 120);
+  const contentType = normalizeText(payload?.content_type ?? metadata.content_type, 80).toLowerCase();
+  const slotKey = normalizeText(payload?.slot_key ?? metadata.slot_key, 40);
+  const plannedFor = normalizeText(payload?.planned_for ?? metadata.planned_for, 40);
+
+  if (campaignId) metadata.campaign_id = campaignId;
+  if (personaId) metadata.persona_id = personaId;
+  if (contentType) metadata.content_type = contentType;
+  if (slotKey) metadata.slot_key = slotKey;
+  if (plannedFor) metadata.planned_for = plannedFor;
+
+  const keys = Object.keys(metadata).filter((key) => metadata[key] !== null && metadata[key] !== undefined && metadata[key] !== "");
+  if (!keys.length) return null;
+
+  const normalized: Record<string, unknown> = {};
+  for (const key of keys) {
+    normalized[key] = metadata[key];
   }
   return normalized;
 }
@@ -105,6 +142,40 @@ export function canonicalizeUrl(value: unknown) {
   } catch {
     return raw.replace(/#.*$/, "");
   }
+}
+
+export function extractHostname(value: unknown) {
+  const raw = normalizeText(value, 2000);
+  if (!raw) return "";
+  try {
+    return new URL(raw).hostname.trim().toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
+export function isAllowedHostname(hostname: string, whitelist: string[]) {
+  const normalizedHost = normalizeText(hostname, 255).toLowerCase();
+  if (!normalizedHost) return whitelist.length === 0;
+  if (!whitelist.length) return true;
+  return whitelist.some((allowed) => {
+    const normalizedAllowed = normalizeText(allowed, 255).toLowerCase();
+    return (
+      normalizedHost === normalizedAllowed ||
+      normalizedHost.endsWith(`.${normalizedAllowed}`)
+    );
+  });
+}
+
+export function readMarketingIdentityPolicy() {
+  const campaignId = normalizeText(process.env.APP_CAMPAIGN_ID, 120);
+  const personaId = normalizeText(process.env.APP_PERSONA_ID, 120);
+  const sourceWhitelist = parseCsvList(process.env.POST_SOURCE_WHITELIST).map((item) => item.toLowerCase());
+  return {
+    campaignId,
+    personaId,
+    sourceWhitelist
+  };
 }
 
 export function normalizeTopicText(value: unknown, max = 180) {

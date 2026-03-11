@@ -4,8 +4,12 @@ import { getDb } from "@/lib/db";
 import { requireMarketingApiKey } from "@/lib/marketing-api-auth";
 import {
   deriveTopicFields,
+  extractHostname,
+  isAllowedHostname,
+  normalizeMetadata,
   normalizeSourceContext,
   normalizeText,
+  readMarketingIdentityPolicy,
   safeJsonParse
 } from "@/lib/marketing-topic";
 
@@ -32,8 +36,15 @@ function normalizeHashtags(value: unknown) {
 function hydrateContent(row: any) {
   if (!row) return row;
   const sourceContext = safeJsonParse(row.source_context_json, null);
+  const metadata = safeJsonParse(row.metadata_json, null);
   return {
     ...row,
+    metadata,
+    campaign_id: row.campaign_id || metadata?.campaign_id || null,
+    persona_id: row.persona_id || metadata?.persona_id || null,
+    content_type: row.content_type || metadata?.content_type || null,
+    slot_key: row.slot_key || metadata?.slot_key || null,
+    planned_for: row.planned_for || metadata?.planned_for || null,
     source_context: sourceContext,
     topic_key: row.topic_key || null,
     topic_summary: row.topic_summary || null
@@ -53,6 +64,12 @@ export async function POST(request: Request) {
   const bodyText = normalizeText(payload?.body_text ?? payload?.body, 5000);
   const hashtags = normalizeHashtags(payload?.hashtags);
   const productUrl = normalizeText(payload?.product_url, 2000) || null;
+  const metadata = normalizeMetadata(payload);
+  const campaignId = normalizeText(payload?.campaign_id ?? metadata?.campaign_id, 120) || null;
+  const personaId = normalizeText(payload?.persona_id ?? metadata?.persona_id, 120) || null;
+  const contentType = normalizeText(payload?.content_type ?? metadata?.content_type, 80).toLowerCase() || null;
+  const slotKey = normalizeText(payload?.slot_key ?? metadata?.slot_key, 40) || null;
+  const plannedFor = normalizeText(payload?.planned_for ?? metadata?.planned_for, 40) || null;
   const sourceContext = normalizeSourceContext(payload);
   const { topicKey, topicSummary } = deriveTopicFields({
     title,
@@ -65,6 +82,29 @@ export async function POST(request: Request) {
     return NextResponse.json({ status: "error", reason: "invalid_request" }, { status: 400 });
   }
 
+  const policy = readMarketingIdentityPolicy();
+  if (policy.campaignId && campaignId !== policy.campaignId) {
+    return NextResponse.json({ status: "error", reason: "campaign_mismatch" }, { status: 400 });
+  }
+  if (policy.personaId && personaId !== policy.personaId) {
+    return NextResponse.json({ status: "error", reason: "persona_mismatch" }, { status: 400 });
+  }
+
+  const sourceHostname =
+    normalizeText(sourceContext?.source_domain, 255).toLowerCase() ||
+    extractHostname(sourceContext?.source_url) ||
+    extractHostname(productUrl);
+  if (!isAllowedHostname(sourceHostname, policy.sourceWhitelist)) {
+    return NextResponse.json(
+      {
+        status: "error",
+        reason: "source_domain_not_allowed",
+        source_domain: sourceHostname || null
+      },
+      { status: 400 }
+    );
+  }
+
   const now = new Date().toISOString();
   const db = getDb();
   await db
@@ -72,9 +112,10 @@ export async function POST(request: Request) {
       `INSERT INTO marketing_contents (
          id, brief_id, channel, format, title, body_text,
          asset_manifest_json, hashtags_json, metadata_json, version, status,
+         campaign_id, persona_id, content_type, slot_key, planned_for,
          product_url, source_context_json, topic_key, topic_summary,
          created_at, updated_at
-       ) VALUES (?, ?, ?, ?, ?, ?, NULL, ?, NULL, 1, 'approved', ?, ?, ?, ?, ?, ?)`
+       ) VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?, 1, 'approved', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       id,
@@ -84,6 +125,12 @@ export async function POST(request: Request) {
       title,
       bodyText,
       JSON.stringify(hashtags),
+      metadata ? JSON.stringify(metadata) : null,
+      campaignId,
+      personaId,
+      contentType,
+      slotKey,
+      plannedFor,
       productUrl,
       sourceContext ? JSON.stringify(sourceContext) : null,
       topicKey,
@@ -103,6 +150,12 @@ export async function POST(request: Request) {
         title,
         body_text: bodyText,
         hashtags,
+        metadata,
+        campaign_id: campaignId,
+        persona_id: personaId,
+        content_type: contentType,
+        slot_key: slotKey,
+        planned_for: plannedFor,
         product_url: productUrl,
         source_context: sourceContext,
         topic_key: topicKey,
@@ -125,7 +178,8 @@ export async function GET(request: Request) {
   if (contentId) {
     const content = await db
       .prepare(
-        `SELECT id, brief_id, channel, format, title, body_text, hashtags_json,
+        `SELECT id, brief_id, channel, format, title, body_text, hashtags_json, metadata_json,
+                campaign_id, persona_id, content_type, slot_key, planned_for,
                 product_url, source_context_json, topic_key, topic_summary, status, created_at, updated_at
          FROM marketing_contents
          WHERE id = ?`
@@ -143,7 +197,8 @@ export async function GET(request: Request) {
     : 20;
   const contents = await db
     .prepare(
-      `SELECT id, brief_id, channel, format, title, body_text, hashtags_json,
+      `SELECT id, brief_id, channel, format, title, body_text, hashtags_json, metadata_json,
+              campaign_id, persona_id, content_type, slot_key, planned_for,
               product_url, source_context_json, topic_key, topic_summary, status, created_at, updated_at
        FROM marketing_contents
        ORDER BY updated_at DESC
