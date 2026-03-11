@@ -79,6 +79,13 @@ function normalizeHashtags(value: unknown) {
     .slice(0, 4);
 }
 
+function ensureBodyLength(value: string, fallback: string) {
+  const text = normalizeText(value, 5000);
+  if (text.length >= 90 && text.length <= 260) return text;
+  const fallbackText = normalizeText(fallback, 5000);
+  return fallbackText;
+}
+
 function safeJsonStringify(value: unknown) {
   try {
     return JSON.stringify(value);
@@ -130,7 +137,7 @@ function buildPersonaSpec() {
 function sourceForType(contentType: string) {
   if (contentType === "race_prediction" || contentType === "race_review") {
     return {
-      source_url: "https://race.netkeiba.com/",
+      source_url: "https://race.netkeiba.com/top/",
       source_domain: "netkeiba.com"
     };
   }
@@ -159,13 +166,13 @@ function fallbackDrafts(plannedFor: string, slots: string[]) {
     };
     const bodyMap: Record<string, string> = {
       race_prediction:
-        "小雪は、脚質の並びと馬場の通り道を先に見たいです。人気だけで決めずに、前走でどこから脚を使ったかも一緒に確認したいですね。",
+        "小雪は、脚質の並びと馬場の通り道を先に見たいです。人気だけで決めずに、前走でどこから脚を使ったか、追い切りで反応が鈍っていないかまで合わせて見たいですね。初心者のみなさんは、まず先行できそうかどうかから確認すると流れがつかみやすいです。",
       race_review:
-        "小雪は、着順だけでなく展開と位置取りの噛み合わせを振り返りたいです。次走で見直せる馬がどこにいたか、そこが大事になりそうです。",
+        "小雪は、着順だけでなく展開と位置取りの噛み合わせを振り返りたいです。早めに動いた馬が苦しくなったのか、それとも内外の通り道で差が出たのかを分けて見ると、次走で見直せる馬が見つかりやすいです。",
       famous_horse_story:
-        "名馬の強さは数字だけでなく、どう勝ったかの記憶にも残ります。今のレースを見るヒントとして、その時代の勝ち方をやさしく拾っていきたいです。",
+        "名馬の強さは数字だけでなく、どう勝ったかの記憶にも残ります。小雪は、その時代の勝ち方や愛された理由を、今のレースを見るヒントにつながる形でやさしく拾っていきたいです。",
       history_trivia:
-        "昔の競馬を知ると、今のレースの見え方も少し変わります。小雪は、歴史の話を今の楽しみ方につながる形で届けたいです。"
+        "昔の競馬を知ると、今のレースの見え方も少し変わります。小雪は、歴史の話を豆知識で終わらせず、今のコースやレースの見どころにつながる形で届けたいです。"
     };
 
     return {
@@ -202,7 +209,13 @@ function buildPlannerPrompt(params: { plannedFor: string; slots: string[] }) {
     "- 各要素は slot, slot_key, planned_for, content_type, title, body_text, hashtags, source_url, source_domain を持つ",
     "- slot_key は HHMM",
     "- body_text は日本語で 90-220 文字程度",
+    "- race_prediction は脚質 / 馬場 / 追い切り / 前走内容のどれか1つを根拠として必ず含める",
+    "- race_review は展開 / 位置取り / 馬場差のどれか1つを根拠として必ず含める",
+    "- famous_horse_story と history_trivia は今の競馬の見方につながる一文を必ず入れる",
+    "- 幼すぎる語り口は禁止。\"ワクワク\" \"どきどき\" の多用は禁止",
+    "- 初心者にも分かる短い言い換えを入れる",
     "- 未確認のオッズ、着順、時計は断定しない",
+    "- source_url は必ず実在しそうな詳細パスではなく、安定したトップ/案内ページURLを使う",
     "- race_prediction / race_review は netkeiba.com or jra.go.jp を source に使う",
     "- famous_horse_story は jra.go.jp を source に使う",
     "- history_trivia は keibalab.jp or jra.go.jp を source に使う",
@@ -311,16 +324,17 @@ async function generateDraftsWithXai(plannedFor: string, slots: string[]) {
 function normalizeDraft(raw: any, fallback: any, plannedFor: string) {
   const contentType = normalizeText(raw?.content_type, 80) || fallback.content_type;
   const source = sourceForType(contentType);
+  const fallbackBody = fallback.body_text;
   return {
     slot: normalizeText(raw?.slot, 10) || fallback.slot,
     slot_key: normalizeText(raw?.slot_key, 10) || fallback.slot_key,
     planned_for: normalizeText(raw?.planned_for, 40) || plannedFor,
     content_type: contentType,
     title: normalizeText(raw?.title, 300) || fallback.title,
-    body_text: normalizeText(raw?.body_text, 5000) || fallback.body_text,
+    body_text: ensureBodyLength(normalizeText(raw?.body_text, 5000), fallbackBody),
     hashtags: normalizeHashtags(raw?.hashtags),
-    source_url: normalizeText(raw?.source_url, 2000) || source.source_url,
-    source_domain: normalizeText(raw?.source_domain, 255).toLowerCase() || source.source_domain
+    source_url: source.source_url,
+    source_domain: source.source_domain
   };
 }
 
