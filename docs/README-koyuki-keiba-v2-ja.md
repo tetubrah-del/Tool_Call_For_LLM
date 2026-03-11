@@ -14,8 +14,13 @@ Koyuki v2 は `server-only` 前提で、`koyuki_keiba_v2` 専用の persona/camp
 - `POST /api/marketing/publish`
   - persona/campaign/source whitelist を再検証
   - source link の疎通確認をしてから queue 化
+- `POST /api/marketing/planner`
+  - 翌日分 10 本の下書きを mix 配分で一括生成
+  - persona spec を prompt に埋め込み、slot ごとに `marketing_contents` へ保存
 - `scripts/koyuki-keiba-dispatch-cron.mjs`
   - Render Cron から `/api/marketing/dispatch` を叩くワンショット用
+- `scripts/koyuki-keiba-planner-cron.mjs`
+  - Render Cron から `/api/marketing/planner` を叩くワンショット用
 
 ## 必須 env
 
@@ -67,6 +72,7 @@ KOYUKI_KEIBA_API_BASE_URL=https://<koyuki-keiba-api>
 
 - ingest: `0 * * * *`
 - dispatch: `*/15 * * * *`
+- optional planner: `5 7,13 * * *`
 - command: `npm run marketing:koyuki-dispatch-cron`
 
 ## 運用メモ
@@ -74,3 +80,5 @@ KOYUKI_KEIBA_API_BASE_URL=https://<koyuki-keiba-api>
 - `slot_key` は `HHMM` 固定です。例: `07:30 -> 0730`
 - `planned_for` は JST の `YYYY-MM-DD`
 - キャラ設定が未定でも、まずは `persona_id/campaign_id` を `koyuki_keiba_v2` で固定して運用分離できます
+- キャラ仕様の叩き台は [SPEC-koyuki-keiba-persona-v2-ja.md](/Users/tetubrah/Projects/Tool_Call_For_LLM/docs/SPEC-koyuki-keiba-persona-v2-ja.md) を参照
+- planner は既存 slot が埋まっている日は `planner_already_seeded` でスキップします
