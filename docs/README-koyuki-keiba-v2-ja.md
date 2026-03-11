@@ -22,7 +22,6 @@ Koyuki v2 は `server-only` 前提で、`koyuki_keiba_v2` 専用の persona/camp
 API:
 
 ```env
-MARKETING_API_KEY=...
 APP_PERSONA_ID=koyuki_keiba_v2
 APP_CAMPAIGN_ID=koyuki_keiba_v2
 POST_SOURCE_WHITELIST=netkeiba.com,jra.go.jp,nankankeiba.com,keibalab.jp
@@ -33,12 +32,17 @@ MARKETING_AUTONOMOUS_SLOTS=07:30,09:00,10:30,12:00,13:30,15:00,16:30,18:00,20:00
 MARKETING_AUTONOMOUS_SLOT_WINDOW_MINUTES=5
 ```
 
+- `MARKETING_API_KEY`
+  - Render の secret env に設定する
+
 Dispatch cron:
 
 ```env
 KOYUKI_KEIBA_API_BASE_URL=https://<koyuki-keiba-api>
-MARKETING_API_KEY=...
 ```
+
+- `MARKETING_API_KEY`
+  - API と同じ値を Render の cron secret env に設定する
 
 ## content 登録例
 
