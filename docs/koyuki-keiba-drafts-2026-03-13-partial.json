@@ -1,0 +1,64 @@
+{
+  "drafts": [
+    {
+      "brief_id": "koyuki-keiba-codex-manual-2026-03-13",
+      "slot_key": "0730",
+      "planned_for": "2026-03-13",
+      "content_type": "history_trivia",
+      "title": "週末重賞の入り口",
+      "body_text": "おはようございます。今週末は土曜にアネモネステークスと阪神スプリングジャンプ、日曜にスプリングステークスと金鯱賞が組まれています。金曜は出馬表と枠順を見ながら、どのレースを深く追うか決める日にしたいですね。",
+      "hashtags": ["競馬", "アネモネステークス", "金鯱賞"],
+      "source_url": "https://www.jra.go.jp/keiba/calendar2026/2026/3/0315.html",
+      "source_domain": "jra.go.jp",
+      "notes": "weekend-grade-races-overview-friday"
+    },
+    {
+      "brief_id": "koyuki-keiba-codex-manual-2026-03-13",
+      "slot_key": "0900",
+      "planned_for": "2026-03-13",
+      "content_type": "race_prediction",
+      "title": "アネモネSの見どころ",
+      "body_text": "3月14日(土)のアネモネステークスは中山11R、15時45分発走予定です。桜花賞トライアルなので、着順だけでなく本番に向けてどんな形で脚を使えたかまで見ておきたいレースです。",
+      "hashtags": ["競馬", "アネモネステークス", "桜花賞"],
+      "source_url": "https://www.jra.go.jp/keiba/calendar2026/2026/3/0314.html",
+      "source_domain": "jra.go.jp",
+      "notes": "anemone-stakes-preview"
+    },
+    {
+      "brief_id": "koyuki-keiba-codex-manual-2026-03-13",
+      "slot_key": "1030",
+      "planned_for": "2026-03-13",
+      "content_type": "race_prediction",
+      "title": "阪神スプリングジャンプの見どころ",
+      "body_text": "3月14日(土)の阪神スプリングジャンプは阪神8R、13時45分発走予定です。障害3900メートルは飛越のリズムとスタミナの両方が問われるので、平地以上に道中の運び方に注目したいです。",
+      "hashtags": ["競馬", "阪神スプリングジャンプ", "障害レース"],
+      "source_url": "https://www.jra.go.jp/keiba/calendar2026/2026/3/0314.html",
+      "source_domain": "jra.go.jp",
+      "notes": "hanshin-spring-jump-preview"
+    },
+    {
+      "brief_id": "koyuki-keiba-codex-manual-2026-03-13",
+      "slot_key": "1200",
+      "planned_for": "2026-03-13",
+      "content_type": "race_prediction",
+      "title": "スプリングSの見どころ",
+      "body_text": "3月15日(日)のスプリングステークスは中山11R、15時45分発走予定です。皐月賞トライアルの1800メートル戦なので、単純な瞬発力だけでなく、コーナー4つの流れの中でどこから動けるかが大事になりやすいです。",
+      "hashtags": ["競馬", "スプリングステークス", "皐月賞"],
+      "source_url": "https://www.jra.go.jp/keiba/calendar2026/2026/3/0315.html",
+      "source_domain": "jra.go.jp",
+      "notes": "spring-stakes-preview"
+    },
+    {
+      "brief_id": "koyuki-keiba-codex-manual-2026-03-13",
+      "slot_key": "1330",
+      "planned_for": "2026-03-13",
+      "content_type": "race_prediction",
+      "title": "金鯱賞の見どころ",
+      "body_text": "3月15日(日)の金鯱賞は中京11R、15時15分発走予定です。芝2000メートルのGIIで、春の中距離路線を考えるうえでも見逃せない一戦です。直線だけの切れ味より、道中で無理なく運んで長く脚を使えるかを見たいですね。",
+      "hashtags": ["競馬", "金鯱賞", "中京競馬場"],
+      "source_url": "https://www.jra.go.jp/keiba/calendar2026/2026/3/0315.html",
+      "source_domain": "jra.go.jp",
+      "notes": "kinko-sho-preview"
+    }
+  ]
+}
