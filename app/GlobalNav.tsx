@@ -20,6 +20,7 @@ export default function GlobalNav() {
   const { data: session } = useSession();
 
   const strings = UI_STRINGS[lang];
+  const blogLabel = lang === "ja" ? "ブログ" : "Blog";
   const query = useMemo(() => {
     const params = new URLSearchParams();
     params.set("lang", lang);
@@ -43,6 +44,13 @@ export default function GlobalNav() {
         label: strings.aiConnect,
         href: `/ai/connect?${query}`,
         isActive: pathname.startsWith("/ai/connect"),
+        role: "ai" as const
+      },
+      {
+        key: "blog",
+        label: blogLabel,
+        href: `/blog?${query}`,
+        isActive: pathname.startsWith("/blog"),
         role: "ai" as const
       },
       {
@@ -70,6 +78,7 @@ export default function GlobalNav() {
       query,
       session?.user,
       strings.aiConnect,
+      blogLabel,
       strings.forAgents,
       strings.myPage,
       strings.register,

@@ -190,3 +190,24 @@ export async function getBlogPostBySlug(slug: string): Promise<BlogPost | null> 
   const posts = await listBlogPosts();
   return posts.find((post) => post.slug === slug) || null;
 }
+
+export async function getRelatedBlogPosts(slug: string, limit = 3): Promise<BlogPost[]> {
+  const posts = await listBlogPosts();
+  const current = posts.find((post) => post.slug === slug);
+
+  if (!current) {
+    return posts.slice(0, limit);
+  }
+
+  return posts
+    .filter((post) => post.slug !== slug)
+    .sort((a, b) => {
+      const distanceDiff = Math.abs(a.order - current.order) - Math.abs(b.order - current.order);
+      if (distanceDiff !== 0) {
+        return distanceDiff;
+      }
+
+      return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
+    })
+    .slice(0, limit);
+}

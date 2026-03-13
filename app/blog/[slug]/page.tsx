@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getBlogPostBySlug, listBlogPosts } from "@/lib/blog";
+import { getBlogPostBySlug, getRelatedBlogPosts, listBlogPosts } from "@/lib/blog";
 
 export const dynamic = "force-static";
 
@@ -65,6 +65,8 @@ export default async function BlogArticlePage({
     notFound();
   }
 
+  const relatedPosts = await getRelatedBlogPosts(post.slug, 3);
+
   const articleJsonLd = {
     "@context": "https://schema.org",
     "@type": "Article",
@@ -72,35 +74,69 @@ export default async function BlogArticlePage({
     datePublished: post.publishedAt,
     dateModified: post.updatedAt,
     description: post.description,
+    inLanguage: "ja-JP",
+    mainEntityOfPage: `/blog/${post.slug}`,
     author: {
+      "@type": "Organization",
+      name: "Sinkai"
+    },
+    publisher: {
       "@type": "Organization",
       name: "Sinkai"
     }
   };
 
   return (
-    <article className="blog-page blog-article card">
-      <p className="muted">
-        公開日: {formatDate(post.publishedAt)}
-        {post.primaryKeyword ? ` / ${post.primaryKeyword}` : ""}
-      </p>
-      <h1>{post.title}</h1>
-      <p className="blog-description">{post.description}</p>
-      <div
-        className="blog-prose"
-        dangerouslySetInnerHTML={{
-          __html: post.html
-        }}
-      />
-      <div className="blog-footer-links">
-        <Link href="/blog">ブログ一覧に戻る</Link>
-        <Link href="/for-agents/quickstart">Quickstart</Link>
-        <Link href="/for-agents/reference">Reference</Link>
-      </div>
+    <div className="blog-page">
+      <article className="blog-article card">
+        <p className="muted">
+          公開日: {formatDate(post.publishedAt)}
+          {post.primaryKeyword ? ` / ${post.primaryKeyword}` : ""}
+        </p>
+        <h1>{post.title}</h1>
+        <p className="blog-description">{post.description}</p>
+        <div className="blog-footer-links">
+          <Link href="/for-agents">for Agents</Link>
+          <Link href="/for-agents/quickstart">Quickstart</Link>
+          <Link href="/for-agents/reference">Reference</Link>
+        </div>
+        <div
+          className="blog-prose"
+          dangerouslySetInnerHTML={{
+            __html: post.html
+          }}
+        />
+        <div className="blog-footer-links">
+          <Link href="/blog">ブログ一覧に戻る</Link>
+          <Link href="/for-agents/quickstart">Quickstart</Link>
+          <Link href="/for-agents/reference">Reference</Link>
+        </div>
+      </article>
+
+      <section className="blog-section-head">
+        <h2>関連記事</h2>
+      </section>
+      <section className="blog-grid">
+        {relatedPosts.map((relatedPost) => (
+          <article key={relatedPost.slug} className="card blog-card">
+            <p className="muted">
+              {formatDate(relatedPost.publishedAt)}
+              {relatedPost.primaryKeyword ? ` / ${relatedPost.primaryKeyword}` : ""}
+            </p>
+            <h2>
+              <Link href={`/blog/${relatedPost.slug}`}>{relatedPost.title}</Link>
+            </h2>
+            {relatedPost.excerpt && <p>{relatedPost.excerpt}</p>}
+            <Link className="text-link" href={`/blog/${relatedPost.slug}`}>
+              関連記事を読む
+            </Link>
+          </article>
+        ))}
+      </section>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
       />
-    </article>
+    </div>
   );
 }
