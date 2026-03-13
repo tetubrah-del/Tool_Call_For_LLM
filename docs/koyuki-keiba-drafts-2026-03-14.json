@@ -1,0 +1,124 @@
+{
+  "drafts": [
+    {
+      "brief_id": "koyuki-keiba-codex-manual-2026-03-14",
+      "slot_key": "0730",
+      "planned_for": "2026-03-14",
+      "content_type": "history_trivia",
+      "title": "きょうの競馬の入り口",
+      "body_text": "きょうからJRAの全レースライブ配信が始まるので、週末の競馬を追いやすくなるのがうれしいです。土曜の注目は阪神スプリングジャンプとアネモネステークス。小雪はまず、障害戦の飛越のリズムと、桜花賞トライアルでどんな脚の使い方をする馬が出てくるかを見たいです。",
+      "hashtags": ["競馬", "阪神スプリングジャンプ", "アネモネステークス"],
+      "source_url": "https://www.jra.go.jp/tvradio/2026-3.html",
+      "source_domain": "jra.go.jp",
+      "notes": "today-opening-live-stream"
+    },
+    {
+      "brief_id": "koyuki-keiba-codex-manual-2026-03-14",
+      "slot_key": "0900",
+      "planned_for": "2026-03-14",
+      "content_type": "race_prediction",
+      "title": "阪神スプリングジャンプの見どころ",
+      "body_text": "阪神スプリングジャンプは13時45分発走です。障害3900mは飛越のうまさだけでなく、2周目でも脚を残せるかがすごく大事で、平地以上に道中の呼吸が問われるレースです。小雪は先に位置を取りに行く馬よりも、飛越でリズムを崩さずに運べる馬を高く見たいです。",
+      "hashtags": ["競馬", "阪神スプリングジャンプ", "障害レース"],
+      "source_url": "https://www.jra.go.jp/keiba/calendar2026/2026/3/0314.html",
+      "source_domain": "jra.go.jp",
+      "notes": "hanshin-spring-jump-overview"
+    },
+    {
+      "brief_id": "koyuki-keiba-codex-manual-2026-03-14",
+      "slot_key": "1030",
+      "planned_for": "2026-03-14",
+      "content_type": "race_prediction",
+      "title": "アネモネステークスの見どころ",
+      "body_text": "アネモネステークスは15時45分発走で、桜花賞トライアルとして見逃せない一戦です。小雪は着順だけじゃなくて、直線でどこから脚を使えたかと、坂を上がってからもうひと伸びできるかを見たいです。本番へつながる馬は、勝ち方よりも内容で印象を残すことが多いんですよね。",
+      "hashtags": ["競馬", "アネモネステークス", "桜花賞"],
+      "source_url": "https://www.jra.go.jp/keiba/calendar2026/2026/3/0314.html",
+      "source_domain": "jra.go.jp",
+      "notes": "anemone-stakes-overview"
+    },
+    {
+      "brief_id": "koyuki-keiba-codex-manual-2026-03-14",
+      "slot_key": "1200",
+      "planned_for": "2026-03-14",
+      "content_type": "history_trivia",
+      "title": "昼の観戦メモ",
+      "body_text": "お昼の観戦メモとして小雪が見たいのは、きょうの中山と阪神で前が止まるのかどうかです。同じ芝でも、前が粘れる日なのか、外からの差しが届く日なのかで重賞の見え方はかなり変わります。午後のメイン前に馬場の傾向が見えてくると、レースの楽しさが一段深くなるんですよね。",
+      "hashtags": ["競馬", "中山競馬場", "阪神競馬場"],
+      "source_url": "https://www.jra.go.jp/keiba/calendar2026/2026/3/0314.html",
+      "source_domain": "jra.go.jp",
+      "notes": "midday-track-bias-note"
+    },
+    {
+      "brief_id": "koyuki-keiba-codex-manual-2026-03-14",
+      "slot_key": "1330",
+      "planned_for": "2026-03-14",
+      "content_type": "race_prediction",
+      "title": "阪神スプリングジャンプ直前メモ",
+      "body_text": "阪神スプリングジャンプ直前で小雪が気にしたいのは、人気そのものよりも飛越でリズムを崩さないかです。障害重賞は一度ちぐはぐになると立て直しが難しいので、道中で無理なく運べる馬がやっぱり強いです。長い距離の障害戦らしく、最後は脚力より先に呼吸のうまさが問われる気がしています。",
+      "hashtags": ["競馬", "阪神スプリングジャンプ", "障害レース"],
+      "source_url": "https://www.jra.go.jp/keiba/thisweek/2026/0314_1/horse.html",
+      "source_domain": "jra.go.jp",
+      "notes": "hanshin-spring-jump-pre-race"
+    },
+    {
+      "brief_id": "koyuki-keiba-codex-manual-2026-03-14",
+      "slot_key": "1500",
+      "planned_for": "2026-03-14",
+      "content_type": "race_prediction",
+      "title": "アネモネS直前メモ",
+      "body_text": "アネモネステークスは桜花賞トライアルなので、きょう小雪が見たいのは勝ち馬よりも本番へつながる走りです。中山1600mは流れに乗る器用さも欲しいので、外を回して強い競馬をした馬も、内で脚をためて差してきた馬もどちらも価値があります。きょうの内容は、あとで振り返るとかなり大事になる気がします。",
+      "hashtags": ["競馬", "アネモネステークス", "桜花賞"],
+      "source_url": "https://www.jra.go.jp/keiba/calendar2026/2026/3/0314.html",
+      "source_domain": "jra.go.jp",
+      "notes": "anemone-stakes-pre-race"
+    },
+    {
+      "brief_id": "koyuki-keiba-codex-manual-2026-03-14",
+      "slot_key": "1630",
+      "planned_for": "2026-03-14",
+      "content_type": "history_trivia",
+      "title": "土曜から日曜へつなぐ目線",
+      "body_text": "きょうのアネモネステークスと阪神スプリングジャンプを見たあとだと、明日のスプリングステークスもまた違って見えてきます。小雪は土曜に見えた馬場傾向と、前で運ぶ馬がどれだけ粘れるかを頭に入れたまま日曜を迎えたいです。前哨戦の週って、一日ごとのつながりを追うとすごく楽しいんですよね。",
+      "hashtags": ["競馬", "スプリングステークス", "金鯱賞"],
+      "source_url": "https://www.jra.go.jp/keiba/calendar2026/2026/3/0315.html",
+      "source_domain": "jra.go.jp",
+      "notes": "transition-from-saturday-to-sunday"
+    },
+    {
+      "brief_id": "koyuki-keiba-codex-manual-2026-03-14",
+      "slot_key": "1800",
+      "planned_for": "2026-03-14",
+      "content_type": "race_review",
+      "title": "2018年スプリングSを思い出す夜",
+      "body_text": "小雪、数年前のスプリングステークスだと2018年がかなり好きです。勝ったのはステルヴィオ、2着はエポカドーロだったんですけど、このレースは差し切った馬と先に動いて残した馬の対比がすごくきれいでした。しかも2着だったエポカドーロがあとで皐月賞を勝つので、回顧で見ると前哨戦の空気がもうここに出ていたんだなって感じられるんです。",
+      "hashtags": ["競馬", "スプリングステークス", "皐月賞"],
+      "source_url": "https://www.jra.go.jp/datafile/seiseki/replay/2018/031.html",
+      "source_domain": "jra.go.jp",
+      "notes": "2018-spring-stakes-retrospective"
+    },
+    {
+      "brief_id": "koyuki-keiba-codex-manual-2026-03-14",
+      "slot_key": "2000",
+      "planned_for": "2026-03-14",
+      "content_type": "race_prediction",
+      "title": "日曜のスプリングSへ",
+      "body_text": "明日のスプリングステークスは、前走で勝ち切ってきた馬だけじゃなくて、2着から4着くらいで内容を見せてきた馬がむしろ面白いレースです。過去10年のデータでもその傾向があって、前哨戦らしく一気に完成する馬より、ここで本番へ向けて輪郭がはっきりする馬を見つけるのが楽しいんですよね。",
+      "hashtags": ["競馬", "スプリングステークス", "皐月賞"],
+      "source_url": "https://www.jra.go.jp/keiba/thisweek/2026/0315_1/index.html",
+      "source_domain": "jra.go.jp",
+      "notes": "spring-stakes-data-angle"
+    },
+    {
+      "brief_id": "koyuki-keiba-codex-manual-2026-03-14",
+      "slot_key": "2200",
+      "planned_for": "2026-03-14",
+      "content_type": "race_prediction",
+      "title": "日曜の金鯱賞へ",
+      "body_text": "明日の金鯱賞は、春の中距離路線を考えるうえでやっぱり大事な一戦です。小雪は切れ味だけでなく、中京2000mで道中を無理なく運んで長く脚を使えるかを見たいです。人気馬の強さを確かめるレースとしても面白いし、ここでしぶとい競馬をする馬は春の先でも気になってきます。",
+      "hashtags": ["競馬", "金鯱賞", "中京競馬場"],
+      "source_url": "https://www.jra.go.jp/keiba/thisweek/2026/0315_2/horse.html",
+      "source_domain": "jra.go.jp",
+      "notes": "kinko-sho-sunday-preview"
+    }
+  ]
+}
