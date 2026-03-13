@@ -96,9 +96,9 @@ export default async function BlogArticlePage({
         <h1>{post.title}</h1>
         <p className="blog-description">{post.description}</p>
         <div className="blog-footer-links">
-          <Link href="/for-agents">for Agents</Link>
-          <Link href="/for-agents/quickstart">Quickstart</Link>
-          <Link href="/for-agents/reference">Reference</Link>
+          <Link href="/auth">登録する</Link>
+          <Link href="/tasks">案件一覧を見る</Link>
+          <Link href="/me">マイページ</Link>
         </div>
         <div
           className="blog-prose"
@@ -108,8 +108,8 @@ export default async function BlogArticlePage({
         />
         <div className="blog-footer-links">
           <Link href="/blog">ブログ一覧に戻る</Link>
-          <Link href="/for-agents/quickstart">Quickstart</Link>
-          <Link href="/for-agents/reference">Reference</Link>
+          <Link href="/auth">登録する</Link>
+          <Link href="/tasks">案件一覧を見る</Link>
         </div>
       </article>
 

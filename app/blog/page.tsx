@@ -5,7 +5,7 @@ import { listBlogPosts } from "@/lib/blog";
 export const metadata: Metadata = {
   title: "Blog | Sinkai",
   description:
-    "Sinkai for Agents のブログ一覧。現地確認、human-in-the-loop、AIエージェント導入運用の実務記事をまとめています。",
+    "Sinkai のブログ一覧。現地確認、撮影、日本語調査など、人が受けられる仕事や働き方に関する記事をまとめています。",
   alternates: {
     canonical: "/blog"
   }
@@ -56,43 +56,43 @@ export default async function BlogIndexPage({
     <div className="blog-page">
       <section className="blog-hero card">
         <p className="eyebrow">Blog</p>
-        <h1>Sinkai for Agents ブログ一覧</h1>
+        <h1>現地確認・撮影・調査の仕事ガイド</h1>
         <p className="subtitle">
-          AIエージェント実装者向けに、現地確認、human-in-the-loop、導入運用を段階的にまとめています。
+          現地確認、写真撮影、日本語調査など、人が必要とされる仕事や働き方を段階的にまとめています。
         </p>
         <div className="blog-footer-links">
-          <Link href="/for-agents">for Agents</Link>
-          <Link href="/for-agents/quickstart">Quickstart</Link>
-          <Link href="/for-agents/reference">Reference</Link>
+          <Link href="/auth">登録する</Link>
+          <Link href="/tasks">案件一覧を見る</Link>
+          <Link href="/me">マイページ</Link>
         </div>
       </section>
 
       <section className="blog-grid">
         <article className="card blog-card">
-          <p className="muted">最初の導線</p>
+          <p className="muted">最初の一歩</p>
           <h2>
-            <Link href="/for-agents">AIエージェントに現実世界の実行力を足す</Link>
+            <Link href="/auth">まずは登録して仕事を受けられる状態にする</Link>
           </h2>
-          <p>まずは product overview を見て、Sinkai が何を解決するかを短時間で把握します。</p>
-          <Link className="text-link" href="/for-agents">
-            for Agents を開く
+          <p>案件応募やプロフィール作成の入口です。最初に登録を済ませると、仕事探しまで進みやすくなります。</p>
+          <Link className="text-link" href="/auth">
+            登録ページを開く
           </Link>
         </article>
         <article className="card blog-card">
-          <p className="muted">最短セットアップ</p>
+          <p className="muted">案件を探す</p>
           <h2>
-            <Link href="/for-agents/quickstart">5分で接続する</Link>
+            <Link href="/tasks">今ある案件を一覧で見る</Link>
           </h2>
-          <p>MCP または API から最初の1件を試すための導入手順です。</p>
-          <Link className="text-link" href="/for-agents/quickstart">
-            Quickstart を開く
+          <p>現地確認、撮影、調査など、今受けられる案件の一覧から自分に合う仕事を探せます。</p>
+          <Link className="text-link" href="/tasks">
+            案件一覧を開く
           </Link>
         </article>
         <article className="card blog-card">
           <p className="muted">主力テーマ</p>
-          <h2>現地確認 / 人間レビュー / 日本語ローカル調査</h2>
+          <h2>現地確認 / 写真撮影 / 日本語調査</h2>
           <p>
-            ブログ全体は、AIだけでは完了しない業務を API/MCP で実行につなぐ実務テーマに集中します。
+            ブログ全体は、AIではなく人が必要な仕事や、単発で受けやすい案件テーマに集中します。
           </p>
         </article>
       </section>
