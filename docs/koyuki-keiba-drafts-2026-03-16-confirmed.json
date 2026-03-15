@@ -1,0 +1,108 @@
+{
+  "drafts": [
+    {
+      "brief_id": "koyuki-keiba-codex-manual-2026-03-16",
+      "slot_key": "0730",
+      "planned_for": "2026-03-16",
+      "content_type": "race_prediction",
+      "title": "浦和開催の見どころメモ",
+      "body_text": "今日は中央競馬がお休みなので、小雪は浦和開催を追う日です。浦和はコーナー4つで立ち回りの器用さが出やすい印象なので、まずは前で運べる馬と内外の通り道を見たいです。みなさんも最初は「先行できそうか」で見ると流れがつかみやすいです。",
+      "hashtags": ["#競馬", "#浦和競馬"],
+      "source_url": "https://www.nankankeiba.com/index.html",
+      "source_domain": "nankankeiba.com",
+      "source_kind": "manual_fact_grounded",
+      "notes": "urawa-opening-angle"
+    },
+    {
+      "brief_id": "koyuki-keiba-codex-manual-2026-03-16",
+      "slot_key": "0900",
+      "planned_for": "2026-03-16",
+      "content_type": "race_prediction",
+      "title": "浦和2000mの見方メモ",
+      "body_text": "今日の浦和で気になるのは2000m戦です。小雪は、浦和2000mは一瞬の切れ味だけじゃなく、早めに動いても脚が続くかを見たいです。距離が延びる日は、前走より楽に追走できそうかを比べると見やすいですよ。",
+      "hashtags": ["#競馬", "#浦和競馬", "#地方競馬"],
+      "source_url": "https://www.nankankeiba.com/bangumi/20251812.do",
+      "source_domain": "nankankeiba.com",
+      "source_kind": "manual_fact_grounded",
+      "notes": "urawa-2000m-angle"
+    },
+    {
+      "brief_id": "koyuki-keiba-codex-manual-2026-03-16",
+      "slot_key": "1330",
+      "planned_for": "2026-03-16",
+      "content_type": "history_trivia",
+      "title": "阪神大賞典プレイバック",
+      "body_text": "阪神大賞典をプレイバックすると、このレースは毎年「強いステイヤーが、長い距離のなかでどう自分のリズムを作るか」を見せてくれる舞台だなと思います。ナリタブライアンのように王者の圧でねじ伏せた年もあれば、ゴールドシップのように規格外の個性ごと押し切った年もありました。近年も、早めに動いて持久力で押し切る形がはまると、一気に長距離王道路線の輪郭が見えてきます。小雪は阪神大賞典を振り返るたびに、長距離戦は末脚の派手さだけじゃなく、折り合い、呼吸、そして苦しくなってからもうひと伸びできるかで決まるんだなと感じます。",
+      "hashtags": ["#競馬", "#阪神大賞典", "#レース回顧"],
+      "source_url": "https://www.jra.go.jp/datafile/seiseki/replay/2026/jyusyo.html",
+      "source_domain": "jra.go.jp",
+      "source_kind": "manual_fact_grounded",
+      "notes": "hanshin-daishoten-playback"
+    },
+    {
+      "brief_id": "koyuki-keiba-codex-manual-2026-03-16",
+      "slot_key": "1500",
+      "planned_for": "2026-03-16",
+      "content_type": "history_trivia",
+      "title": "若葉ステークスプレイバック",
+      "body_text": "若葉ステークスをプレイバックすると、このレースはクラシック前の3歳馬がまだ完成しきっていないからこそ面白い、と毎年思います。ここで器用に立ち回って勝ち切る馬もいれば、まだ少し粗さを残しながらも、本番やその先で大きく伸びていく馬もいるんですよね。だから若葉Sは、着順だけを追うより、4角での手応え、直線での反応、そして苦しい形でも脚色が鈍らなかった馬を覚えておきたくなります。小雪はこのレースを振り返ると、「完成度の高さ」と「先で化ける余白」が同じ画面に映る、春の3歳戦らしい一戦だなと感じます。",
+      "hashtags": ["#競馬", "#若葉ステークス", "#レース回顧"],
+      "source_url": "https://www.jra.go.jp/keiba/tokubetsu/2026/0321_1/index.html",
+      "source_domain": "jra.go.jp",
+      "source_kind": "manual_fact_grounded",
+      "notes": "wakaba-stakes-playback"
+    },
+    {
+      "brief_id": "koyuki-keiba-codex-manual-2026-03-16",
+      "slot_key": "1630",
+      "planned_for": "2026-03-16",
+      "content_type": "race_prediction",
+      "title": "愛知杯先読みメモ",
+      "body_text": "3月22日の愛知杯は、中京芝1400mで行われる予定です。小雪は、この条件だと切れ味だけでなく、直線に向くまでに脚をためられるかを見たいです。牝馬限定戦は流れひとつで印象が変わりやすいので、前走の位置取りと最後の伸び方を先に整理しておきたいです。",
+      "hashtags": ["#競馬", "#愛知杯", "#中京競馬場"],
+      "source_url": "https://www.jra.go.jp/keiba/calendar2026/2026/3/0322.html",
+      "source_domain": "jra.go.jp",
+      "source_kind": "manual_fact_grounded",
+      "notes": "aichi-hai-preview"
+    },
+    {
+      "brief_id": "koyuki-keiba-codex-manual-2026-03-16",
+      "slot_key": "1800",
+      "planned_for": "2026-03-16",
+      "content_type": "history_trivia",
+      "title": "最新JRA騎手リーディング",
+      "body_text": "最新のJRA騎手リーディングです。2026年3月15日（日）終了時点でのトップ20はこちらです。\n\n1位　C.ルメール　39勝\n2位　松山弘平　30勝\n3位　岩田望来　29勝\n4位　西村淳也　29勝\n5位　川田将雅　28勝\n6位　戸崎圭太　20勝\n7位　横山武史　20勝\n8位　丹内祐次　19勝\n9位　坂井瑠星　18勝\n10位　津村明秀　16勝\n11位　R.キング　16勝\n12位　鮫島克駿　16勝\n13位　荻野極　15勝\n14位　武豊　14勝\n15位　横山和生　14勝\n16位　斎藤新　14勝\n17位　高杉吏麒　13勝\n18位　西塚洸二　12勝\n19位　北村友一　10勝\n20位　吉村誠之助　10勝\n\n小雪は、勝ち数だけじゃなくて、連対率やどの開催で積み上げているかも一緒に見ると流れが見えやすいと思っています。",
+      "hashtags": ["#競馬", "#リーディング", "#騎手"],
+      "source_url": "https://www.jra.go.jp/datafile/leading/",
+      "source_domain": "jra.go.jp",
+      "source_kind": "manual_fact_grounded",
+      "notes": "jra-jockey-leading-top20-as-of-2026-03-15"
+    },
+    {
+      "brief_id": "koyuki-keiba-codex-manual-2026-03-16",
+      "slot_key": "2000",
+      "planned_for": "2026-03-16",
+      "content_type": "famous_horse_story",
+      "title": "名馬小説 ゴールドシップ",
+      "body_text": "最初にその馬を見た人は、たぶん少しだけ戸惑ったと思う。\n白い。大きい。ゆっくりしているようで、どこか人を寄せつけない気配もある。優雅というには無骨で、荒々しいというには静かすぎる。群れのなかにいても、最初からその馬だけ時間の流れ方が違っていた。\n\n若いころから、まっすぐ従順に期待へ応えるタイプではなかった。きれいに整えられた優等生というより、気分と気迫と才能が同じ場所に同居しているような存在だった。けれど、いったんその心に火が入ると、長い直線も、苦しい坂も、重い空気もまとめて飲み込んでしまう。皐月賞を勝ち、菊花賞を勝ち、有馬記念を勝ち、天皇賞・春を勝ち、そして宝塚記念を2度勝った。その歩みは華麗というひと言では足りない。むしろ、危うさごと愛されながら、誰にも似ていない勝ち方で大舞台を塗り替えていった時間だった。\n\nこの馬の魅力は、強かったことだけじゃない。強いのに、いつも少し手の届かないところにいたことだと思う。期待を裏切る日もある。常識では測れない振る舞いで周囲をざわつかせる日もある。それでも、次にターフへ現れたときには、また目が離せなくなる。走るたびに「今度は何を見せてくれるんだろう」と思わせる馬は、そう多くない。勝利の数以上に、その予測不能さが物語になった。\n\nそして時が流れた今、その馬はターフを去ってもなお、競馬の物語の中に生き続けている。ビッグレッドファームで種牡馬となり、自分が持っていた大きさ、気高さ、つかみきれない個性を次の世代へ渡している。現役時代に人を振り回すように見えたあの自由さも、いま振り返れば、誰よりも「その馬らしく」生きた証だったのかもしれない。\n\n白い馬体が風のなかを進むたび、競馬はただ速さを争うものじゃなく、ひとつの生き方を見せる舞台なのだと教えられる。\nその名を、後からそっと明かすなら。\nゴールドシップ。\n小雪は、あの馬を思い出すたびに、競馬には勝敗だけでは終わらない主人公がいるのだと、もう一度信じたくなります。",
+      "hashtags": ["#競馬", "#名馬小説", "#ゴールドシップ"],
+      "source_url": "https://www.jra.go.jp/datafile/seiseki/g1/takara/index.html",
+      "source_domain": "jra.go.jp",
+      "source_kind": "manual_fact_grounded",
+      "notes": "gold-ship-longform-novel-post"
+    },
+    {
+      "brief_id": "koyuki-keiba-codex-manual-2026-03-16",
+      "slot_key": "2200",
+      "planned_for": "2026-03-16",
+      "content_type": "famous_horse_story",
+      "title": "オルフェーヴルと春の中山",
+      "body_text": "春の中山1800mを見ると、スプリングステークスを勝って皐月賞へ向かったオルフェーヴルのことを思い出します。小雪は、あの時期の中山で見える「器用さと爆発力の両立」が、クラシックで通用する馬を探すヒントになると思っています。名馬の勝ち方を知っていると、今の3歳戦も少し見やすくなります。",
+      "hashtags": ["#競馬", "#オルフェーヴル", "#スプリングステークス"],
+      "source_url": "https://www.jra.go.jp/keiba/calendar2026/2026/3/0315.html",
+      "source_domain": "jra.go.jp",
+      "source_kind": "manual_fact_grounded",
+      "notes": "orfevre-spring-nakayama"
+    }
+  ]
+}
